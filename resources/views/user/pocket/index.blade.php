@@ -1,4 +1,4 @@
-@extends('user.master',['menu'=>'pocket','sub_menu'=>'my_pocket'])
+@extends('user.master',['menu'=>'wallet','sub_menu'=>'my_wallet'])
 @section('title', isset($title) ? $title : '')
 @section('style')
 @endsection
@@ -9,14 +9,14 @@
                 <div class="card-body">
                     <div class="cp-user-card-header-area">
                         <div class="cp-user-title">
-                            <h4>{{__('My Pocket')}}</h4>
+                            <h4>{{__('My Wallet')}}</h4>
                         </div>
                         <div class="buttons">
                             <button class="btn cp-user-add-pocket" data-toggle="modal"
-                                    data-target="#add-pocket">{{__('Add Pocket')}}</button>
+                                    data-target="#add-pocket">{{__('Add Wallet')}}</button>
                             @if(co_wallet_feature_active())
                                 <button class="btn cp-user-add-pocket" data-toggle="modal"
-                                        data-target="#import-pocket">{{__('Import  Multi-signature Pocket')}}</button>
+                                        data-target="#import-pocket">{{__('Import  Multi-signature Wallet')}}</button>
                             @endif
                         </div>
                     </div>
@@ -28,13 +28,13 @@
                                 <a class="nav-link @if(!isset($tab) || $tab=='personal-pocket') active @endif" id="personal-pocket-tab"
                                    data-toggle="pill"
                                    href="#personal-pocket" role="tab" aria-controls="personal-pocket"
-                                   aria-selected="true">{{__('Personal Pockets')}}</a>
+                                   aria-selected="true">{{__('Personal Wallets')}}</a>
                             </li>
                             <li class="nav-item" role="presentation">
                                 <a class="nav-link @if(isset($tab) && $tab=='co-pocket') active @endif" id="co-pocket-tab"
                                    data-toggle="pill"
                                    href="#co-pocket" role="tab" aria-controls="co-pocket"
-                                   aria-selected="false">{{__(' Multi-signature Pockets')}}</a>
+                                   aria-selected="false">{{__(' Multi-signature Wallets')}}</a>
                             </li>
                         </ul>
                         <div class="tab-content" id="pills-tabContent">
@@ -276,23 +276,23 @@
                 <div class="text-center">
                     <img src="{{asset('assets/user/images/add-pockaet-vector.svg')}}" class="img-fluid img-vector"
                          alt="">
-                    <h3>{{__('Want To Add New Pocket?')}}</h3>
+                    <h3>{{__('Want To Add New Wallet?')}}</h3>
                 </div>
                 <div class="modal-body">
                     <form method="post" action="{{route('createWallet')}}" id="walletCreateForm">
                         @csrf
                         @if(co_wallet_feature_active())
                             <div class="form-group">
-                                <label>{{__('Pocket Type')}}</label>
+                                <label>{{__('Wallet Type')}}</label>
                                 <select name="type" required class="form-control">
-                                    <option value="">{{__('Select pocket type')}}</option>
-                                    <option value="{{PERSONAL_WALLET}}">{{__('Personal Pocket')}}</option>
-                                    <option value="{{CO_WALLET}}">{{__(' Multi-signature Pocket')}}</option>
+                                    <option value="">{{__('Select wallet type')}}</option>
+                                    <option value="{{PERSONAL_WALLET}}">{{__('Personal Wallet')}}</option>
+                                    <option value="{{CO_WALLET}}">{{__(' Multi-signature Wallet')}}</option>
                                 </select>
                             </div>
                         @endif
                         <div class="form-group">
-                            <label>{{__('Pocket Name')}}</label>
+                            <label>{{__('Wallet Name')}}</label>
                             <input type="text" name="wallet_name" required class="form-control"
                                    placeholder="{{__('Write Your Pocket Name')}}">
                         </div>
@@ -308,7 +308,7 @@
                                 @endif
                             </select>
                         </div>
-                        <button type="submit" class="btn btn-block cp-user-move-btn">{{__('Add Pocket')}}</button>
+                        <button type="submit" class="btn btn-block cp-user-move-btn">{{__('Add Wallet')}}</button>
                     </form>
                 </div>
             </div>
@@ -327,13 +327,13 @@
                     <div class="text-center">
                         <img src="{{asset('assets/user/images/add-pockaet-vector.svg')}}" class="img-fluid img-vector"
                              alt="">
-                        <h3>{{__('Want To Import a  Multi-signature Pocket?')}}</h3>
+                        <h3>{{__('Want To Import a  Multi-signature Wallet?')}}</h3>
                     </div>
                     <div class="modal-body">
                         <form method="post" action="{{route('importWallet')}}" id="walletImportForm">
                             @csrf
                             <div class="form-group">
-                                <label>{{__('Enter Pocket Key')}}</label>
+                                <label>{{__('Enter Wallet Key')}}</label>
                                 <input type="text" name="key" required class="form-control"
                                        placeholder="{{__('Enter pocket key')}}">
                             </div>

@@ -12,8 +12,8 @@
                         <div class="col-md-12">
                             <div class="cp-user-card-header-area">
                                 <div class="cp-user-title">
-                                    <h4>{{__('Withdrawal Default Coin')}}</h4>
-                                    <small class="text-warning">{{__('Note: Here you can withdrawal default coin only using metamask')}}</small>
+                                    <h4>{{__('Withdrawal OBXCoin')}}</h4>
+                                    <small class="text-warning">{{__('Note: Here you can withdrawal OBXCoin only using metamask')}}</small>
                                 </div>
                             </div>
                             <div class="clap-wrap mt-5">
@@ -22,7 +22,7 @@
                                     <li class="nav-item" role="presentation">
                                         <a class="nav-link @if($qr == 'requests') active @endif" id="pills-transfer-1-tab" data-toggle="pill"
                                            href="#pills-transfer-1" role="tab" aria-controls="pills-transfer-1"
-                                           aria-selected="true">{{__('Default Coin withdrawal')}}</a>
+                                           aria-selected="true">{{__('OBXCoin withdrawal')}}</a>
                                     </li>
 
                                 </ul>
@@ -31,7 +31,7 @@
                                          aria-labelledby="pills-transfer-1-tab">
                                         <div class="cp-user-card-header-area d-block">
                                             <div class="cp-user-title">
-                                                <h4>{{__('withdrawal your default coin')}}</h4>
+                                                <h4>{{__('withdrawal your OBXCoin')}}</h4>
                                             </div>
                                             <div class="row">
                                                 <div class="col-md-6">

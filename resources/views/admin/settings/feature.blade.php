@@ -31,11 +31,11 @@
                                     <div class="col-lg-6 col-12  mt-20">
                                         <div class="header-bar">
                                             <div class="table-title">
-                                                <h3>{{__(' Multi-signature Pocket')}}</h3>
+                                                <h3>{{__(' Multi-signature Wallet')}}</h3>
                                             </div>
                                         </div>
                                         <div class="form-group">
-                                            <label for="{{CO_WALLET_FEATURE_ACTIVE_SLUG}}">{{' Multi-signature Pocket Feature Status'}}</label>
+                                            <label for="{{CO_WALLET_FEATURE_ACTIVE_SLUG}}">{{' Multi-signature Wallet Feature Status'}}</label>
                                             <br>
                                             <label class="switch">
                                                 <input type="checkbox"
@@ -47,7 +47,7 @@
                                             </label>
                                         </div>
                                         <div class="form-group">
-                                            <label for="#">{{__('Max Co User For One Pocket')}}</label>
+                                            <label for="#">{{__('Max Co User For One Wallet')}}</label>
                                             <input class="form-control" type="text" name="{{MAX_CO_WALLET_USER_SLUG}}" required
                                                    placeholder="{{__('5')}}" value="{{$settings[MAX_CO_WALLET_USER_SLUG] ?? ''}}">
                                         </div>

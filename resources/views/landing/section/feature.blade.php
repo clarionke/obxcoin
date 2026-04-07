@@ -3,7 +3,7 @@
         <div class="col-sm-12">
             <div class="section-title">
                 <h2>
-                    @if(isset($content['landing_feature_title'])) {!! $content['landing_feature_title'] !!} @else {{__('Why Choose Cpocket ?')}} @endif
+                    @if(isset($content['landing_feature_title'])) {!! $content['landing_feature_title'] !!} @else {{__('Why Choose Cwallet ?')}} @endif
                 </h2>
                 <span class="separator"></span>
                 <p>

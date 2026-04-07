@@ -1,4 +1,4 @@
-@extends('user.master',['menu'=>'pocket','sub_menu'=>'my_pocket'])
+@extends('user.master',['menu'=>'wallet','sub_menu'=>'my_wallet'])
 @section('title', isset($title) ? $title : '')
 @section('style')
 @endsection
@@ -9,7 +9,7 @@
                 <div class="card-body">
                     <div class="cp-user-card-header-area">
                         <div class="cp-user-title">
-                            <h4>{{__('Co Users Of Pocket ')}}({{$wallet->name}})</h4>
+                            <h4>{{__('Co Users Of Wallet ')}}({{$wallet->name}})</h4>
                         </div>
                     </div>
 
@@ -20,7 +20,7 @@
                                 <th class="all">{{__('Name')}}</th>
                                 <th class="all">{{__('Email')}}</th>
                                 <th class="all">{{__('Phone')}}</th>
-                                <th class="desktop">{{__('Pocket Imported At')}}</th>
+                                <th class="desktop">{{__('Wallet Imported At')}}</th>
                             </tr>
                             </thead>
                             <tbody>

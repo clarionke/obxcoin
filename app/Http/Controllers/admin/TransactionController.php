@@ -97,7 +97,7 @@ class TransactionController extends Controller
     }
 
 
-    //admin Default Coin  transaction  history
+    //admin OBXCoin  transaction  history
     public function adminDefaultCoinTransactionHistory(Request $request)
     {
         $data['title'] = __('Transaction History');

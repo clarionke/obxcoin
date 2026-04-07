@@ -1,4 +1,4 @@
-@extends('user.master',['menu'=>'pocket','sub_menu'=>'swap_history'])
+@extends('user.master',['menu'=>'wallet','sub_menu'=>'swap_history'])
 @section('title', isset($title) ? $title : __('Convert History'))
 @section('style')
 @endsection

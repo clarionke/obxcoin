@@ -11,8 +11,8 @@
                         <div class="col-md-12">
                             <div class="cp-user-card-header-area">
                                 <div class="cp-user-title">
-                                    <h4>{{__('Send/Request Default Coin')}}</h4>
-                                    <small class="text-warning">{{__('Note: Here you can send or receive default coin only. To send other coin go to pocket menu')}}</small>
+                                    <h4>{{__('Send/Request OBXCoin')}}</h4>
+                                    <small class="text-warning">{{__('Note: Here you can send or receive OBXCoin only. To send other coin go to wallet menu')}}</small>
                                 </div>
                             </div>
                             <div class="clap-wrap mt-5">
@@ -21,7 +21,7 @@
                                     <li class="nav-item" role="presentation">
                                         <a class="nav-link @if($qr == 'requests') active @endif" id="pills-transfer-1-tab" data-toggle="pill"
                                            href="#pills-transfer-1" role="tab" aria-controls="pills-transfer-1"
-                                           aria-selected="true">{{__('Default Coin Request')}}</a>
+                                           aria-selected="true">{{__('OBXCoin Request')}}</a>
                                     </li>
                                     <li class="nav-item" role="presentation">
                                         <a class="nav-link @if($qr == 'give') active @endif" id="pills-transfer-2-tab" data-toggle="pill"
@@ -34,7 +34,7 @@
                                          aria-labelledby="pills-transfer-1-tab">
                                         <div class="cp-user-card-header-area d-block">
                                             <div class="cp-user-title">
-                                                <h4>{{__('Send Default Coin Request To User Using Email Address')}}</h4>
+                                                <h4>{{__('Send OBXCoin Request To User Using Email Address')}}</h4>
                                             </div>
                                             <div class="row">
                                                 <div class="col-md-6">
@@ -74,7 +74,7 @@
 
                                         <div class="cp-user-card-header-area">
                                             <div class="cp-user-title">
-                                                <h4>{{__('Send Coin To User From Your Default Coin Wallet To User Primary Default Coin Wallet Using Email Address')}}</h4>
+                                                <h4>{{__('Send Coin To User From Your OBXCoin Wallet To User Primary OBXCoin Wallet Using Email Address')}}</h4>
                                             </div>
                                         </div>
                                         <div class="row">
@@ -84,7 +84,7 @@
                                                           onsubmit="return submitResult();">
                                                         @csrf
                                                         <div class="form-group mt-4">
-                                                            <label>{{__('Select Your Default Coin Wallet')}}</label>
+                                                            <label>{{__('Select Your OBXCoin Wallet')}}</label>
                                                             <div class="cp-select-area">
                                                                 <select name="wallet_id" class="form-control" id="">
                                                                     <option value="">{{__('Select')}}</option>

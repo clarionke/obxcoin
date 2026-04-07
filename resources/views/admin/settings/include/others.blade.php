@@ -10,14 +10,14 @@
         <div class="row">
             <div class="col-lg-6 col-12 mt-20">
                 <div class="form-group">
-                    <label for="#">{{__('Admin send default coin minimum')}}</label>
+                    <label for="#">{{__('Admin send OBXCoin minimum')}}</label>
                     <input class="form-control" type="text" name="admin_send_default_minimum"
                            autocomplete="off" value="{{settings('admin_send_default_minimum') ?? 1}}">
                 </div>
             </div>
             <div class="col-lg-6 col-12 mt-20">
                 <div class="form-group">
-                    <label for="#">{{__('Admin send default coin maximum')}}</label>
+                    <label for="#">{{__('Admin send OBXCoin maximum')}}</label>
                     <input class="form-control" type="text" name="admin_send_default_maximum"
                            autocomplete="off" value="{{settings('admin_send_default_maximum') ?? 1}}">
                 </div>

@@ -96,7 +96,7 @@ class AdminSettingTableSeeder extends Seeder
         AdminSetting::firstOrCreate(['slug' => 'membership_bonus_fixed'], ['value' => 0]);
         AdminSetting::firstOrCreate(['slug' => 'membership_bonus_percentage'], ['value' => 0]);
 
-        //default coin withdrawal system
+        //OBXCoin withdrawal system
         AdminSetting::firstOrCreate(['slug' => 'chain_link'], ['value' => "https://data-seed-prebsc-1-s1.binance.org:8545"]);
         AdminSetting::firstOrCreate(['slug' => 'contract_address'], ['value' => ""]);
         AdminSetting::firstOrCreate(['slug' => 'wallet_address'], ['value' => ""]);

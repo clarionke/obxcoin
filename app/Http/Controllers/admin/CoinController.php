@@ -181,7 +181,7 @@ class CoinController extends Controller
     // give coin page
     public function giveCoinToUser()
     {
-        $data['title'] = __('Give default coin to user');
+        $data['title'] = __('Give OBXCoin to user');
         $data['users'] = User::where(['role'=>USER_ROLE_USER, 'status'=>STATUS_ACTIVE])->get();
 
         return view('admin.coin-order.give_coin', $data);

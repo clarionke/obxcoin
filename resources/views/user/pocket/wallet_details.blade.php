@@ -1,4 +1,4 @@
-@extends('user.master',['menu'=>'pocket','sub_menu'=>'my_pocket'])
+@extends('user.master',['menu'=>'wallet','sub_menu'=>'my_wallet'])
 @section('title', isset($title) ? $title : '')
 @section('style')
     <style>
@@ -73,15 +73,15 @@
                             <div class="tab-pane fade   {{($active == 'deposit') ? 'show active' : ''}} in"
                                  id="diposite" role="tabpanel"
                                  aria-labelledby="diposite-tab">
-                                @include('user.pocket.include.deposit')
+                                @include('user.wallet.include.deposit')
                             </div>
                             <div class="tab-pane fade {{($active == 'withdraw') ? 'show active' : ''}} in" id="withdraw"
                                  role="tabpanel" aria-labelledby="withdraw-tab">
-                                @include('user.pocket.include.withdrawal')
+                                @include('user.wallet.include.withdrawal')
                             </div>
                             <div class="tab-pane fade  {{($active == 'activity') ? 'show active' : ''}} in"
                                  id="activity" role="tabpanel" aria-labelledby="activity-tab">
-                                @include('user.pocket.include.activity')
+                                @include('user.wallet.include.activity')
                             </div>
                         </div>
                     </div>

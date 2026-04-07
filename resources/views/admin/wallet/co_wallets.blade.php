@@ -1,4 +1,4 @@
-@extends('admin.master',['menu'=>'pocket'])
+@extends('admin.master',['menu'=>'wallet'])
 @section('title', isset($title) ? $title : '')
 @section('style')
 @endsection
@@ -8,8 +8,8 @@
         <div class="row">
             <div class="col-12">
                 <ul>
-                    <li>{{__('Pocket Management')}}</li>
-                    <li class="active-item">{{__('Pocket List')}}</li>
+                    <li>{{__('Wallet Management')}}</li>
+                    <li class="active-item">{{__('Wallet List')}}</li>
                 </ul>
             </div>
         </div>
@@ -23,7 +23,7 @@
                 <div class="card-body">
                     <div class="header-bar">
                         <div class="table-title">
-                            {{__("Co Pocket List")}}
+                            {{__("Co Wallet List")}}
                         </div>
                     </div>
                     <div class="table-area">

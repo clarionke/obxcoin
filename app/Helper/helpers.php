@@ -1142,7 +1142,7 @@ function default_accept_html($route, $id)
     $html .= '<input type="hidden" name="withdrawal_id" value="'.$id.'">';
     $html .= '<label>' . __('Transaction Hash') . '</label>';
     $html .= '<input type="text" required name="transaction_hash" class="form-control">';
-    $html .= '<small>' . __('It is a default coin withdrawal . so please manually send coin and put here the transaction hash ') . '</small>';
+    $html .= '<small>' . __('It is a OBXCoin withdrawal . so please manually send coin and put here the transaction hash ') . '</small>';
     $html .= '</div>';
     $html .= '<div class="modal-footer"><button type="button" class="btn btn-default" data-dismiss="modal">' . __("Close") . '</button>';
     $html .= '<button type="submit" class="btn btn-success" >' . __('Confirm') . '</a>';

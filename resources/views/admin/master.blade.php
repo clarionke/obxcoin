@@ -93,14 +93,14 @@
                 <li class="@if(isset($menu) && $menu == 'pocket') active-page @endif">
                     <a href="#" aria-expanded="true">
                         <span class="icon"><img src="{{asset('assets/admin/images/sidebar-icons/wallet.svg')}}" class="img-fluid" alt=""></span>
-                        <span class="name">{{__('Pocket')}}</span>
+                        <span class="name">{{__('Wallet')}}</span>
                     </a>
                     <ul class="@if(isset($menu) && $menu == 'pocket')  mm-show  @endif">
                         <li class="@if(isset($sub_menu) && $sub_menu == 'personal') submenu-active @endif">
-                            <a href="{{route('adminWalletList')}}">{{__('Personal Pockets')}}</a>
+                            <a href="{{route('adminWalletList')}}">{{__('Personal Wallets')}}</a>
                         </li>
                         <li class="@if(isset($sub_menu) && $sub_menu == 'co') submenu-active @endif">
-                            <a href="{{route('adminCoWallets')}}">{{__(' Multi-signature Pockets')}}</a>
+                            <a href="{{route('adminCoWallets')}}">{{__(' Multi-signature Wallets')}}</a>
                         </li>
                     </ul>
                 </li>
@@ -154,7 +154,7 @@
                             <a href="{{route('adminPendingCoinOrder')}}">{{__('Buy coin order list')}}</a>
                         </li>
                         <li class="@if(isset($sub_menu) && $sub_menu == 'give_coin') submenu-active @endif">
-                            <a href="{{route('adminGiveCoinToUser')}}">{{__('Give Default Coin')}}</a>
+                            <a href="{{route('adminGiveCoinToUser')}}">{{__('Give OBXCoin')}}</a>
                         </li>
                         <li class="@if(isset($sub_menu) && $sub_menu == 'give_coin_history') submenu-active @endif">
                             <a href="{{route('adminGiveCoinHistory')}}">{{__('Give Coin History')}}</a>

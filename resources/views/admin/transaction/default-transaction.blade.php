@@ -9,7 +9,7 @@
             <div class="col-12">
                 <ul>
                     <li>{{__('Transaction')}}</li>
-                    <li class="active-item">{{__('Default Coin Send or Receive History')}}</li>
+                    <li class="active-item">{{__('OBXCoin Send or Receive History')}}</li>
                 </ul>
             </div>
         </div>

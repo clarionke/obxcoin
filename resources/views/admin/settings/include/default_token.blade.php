@@ -1,6 +1,6 @@
 <div class="header-bar">
     <div class="table-title">
-        <h3>{{__('Default Coin Send Settings')}}</h3>
+        <h3>{{__('OBXCoin Send Settings')}}</h3>
     </div>
 </div>
 <div class="profile-info-form">
@@ -9,9 +9,9 @@
         <div class="row">
             <div class="col-lg-6 col-12  mt-20">
                 <div class="form-group">
-                    <label for="#">{{__('Default Coin/Token Name')}}</label>
+                    <label for="#">{{__('OBXCoin/Token Name')}}</label>
                     <input class="form-control" type="text" name="coin_name"
-                           placeholder="{{__('Default coin or token name')}}" value="{{$settings['coin_name']}}">
+                           placeholder="{{__('OBXCoin or token name')}}" value="{{$settings['coin_name']}}">
                 </div>
             </div>
             <div class="col-lg-6 col-12  mt-20">
@@ -111,7 +111,7 @@
             </div>
             <div class="col-lg-12 col-12 mt-20">
                 <div class="form-group">
-                    <label for="#" class="text-warning">{{__('Note: Maximum Withdrawal and minimum withdrawal setting or coin related setting will find in coin update page . Here you can set the setting for only default coin')}}</label>
+                    <label for="#" class="text-warning">{{__('Note: Maximum Withdrawal and minimum withdrawal setting or coin related setting will find in coin update page . Here you can set the setting for only OBXCoin')}}</label>
                 </div>
             </div>
             <div class="col-lg-6 col-12 mt-20">

@@ -1,4 +1,4 @@
-@extends('user.master',['menu'=>'pocket','sub_menu'=>'my_pocket'])
+@extends('user.master',['menu'=>'wallet','sub_menu'=>'my_wallet'])
 @section('title', isset($title) ? $title : '')
 @section('style')
 @endsection

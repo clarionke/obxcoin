@@ -542,7 +542,7 @@ class CoinController extends Controller
         return response()->json($data);
     }
 
-    // default coin deposit
+    // OBXCoin deposit
     public function depositCallback(Request $request)
     {
 
