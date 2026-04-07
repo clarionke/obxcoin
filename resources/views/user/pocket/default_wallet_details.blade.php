@@ -73,16 +73,16 @@
                             <div class="tab-pane fade   {{($active == 'deposit') ? 'show active' : ''}} in"
                                  id="diposite" role="tabpanel"
                                  aria-labelledby="diposite-tab">
-                                @include('user.wallet.include.deposit_default')
+                                @include('user.pocket.include.deposit_default')
                             </div>
 
                             <div class="tab-pane fade {{($active == 'withdraw') ? 'show active' : ''}} in" id="withdraw"
                                  role="tabpanel" aria-labelledby="withdraw-tab">
-                                @include('user.wallet.include.withdrawal')
+                                @include('user.pocket.include.withdrawal')
                             </div>
                             <div class="tab-pane fade  {{($active == 'activity') ? 'show active' : ''}} in"
                                  id="activity" role="tabpanel" aria-labelledby="activity-tab">
-                                @include('user.wallet.include.activity')
+                                @include('user.pocket.include.activity')
                             </div>
                         </div>
                     </div>
