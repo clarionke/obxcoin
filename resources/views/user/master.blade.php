@@ -184,7 +184,7 @@
     .topbar-left{display:flex;align-items:center;gap:8px;flex-shrink:0;}
     /* topbar-center no longer used — stats moved into topbar-right */
     .topbar-center{display:none!important;}
-    .topbar-right{display:flex;align-items:center;gap:6px;flex-shrink:0;margin-left:auto;overflow:hidden;min-width:0;}
+    .topbar-right{display:flex;align-items:center;gap:6px;flex-shrink:0;margin-left:auto;overflow:visible;min-width:0;}
     /* ---- Inline stats (always visible, next to bell) ---- */
     .topbar-stats-inline{
         display:flex;align-items:center;gap:4px;
@@ -572,7 +572,7 @@
                     </div>
                     <button class="dropdown-item" type="button"><a href="{{route('userProfile')}}"><i class="fa fa-user-circle-o"></i> {{__('Profile')}}</a></button>
                     <button class="dropdown-item" type="button"><a href="{{route('userSetting')}}"><i class="fa fa-cog"></i> {{__('Settings')}}</a></button>
-                    <button class="dropdown-item" type="button"><a href="{{route('myPocket')}}"><i class="fa fa-wallet"></i> {{__('My Wallet')}}</a></button>
+                    <button class="dropdown-item" type="button"><a href="{{route('myPocket')}}"><i class="fa fa-money"></i> {{__('My Wallet')}}</a></button>
                     <button class="dropdown-item" type="button"><a href="{{route('logOut')}}"><i class="fa fa-sign-out"></i> {{__('Logout')}}</a></button>
                 </div>
             </div>
