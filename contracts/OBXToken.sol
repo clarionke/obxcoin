@@ -6,9 +6,13 @@ pragma solidity ^0.8.20;
  * @notice Deflationary BEP-20 / ERC-20 token for OBXCoin.
  *
  * ─── Tokenomics ───────────────────────────────────────────────────────────
+ *  • Total supply at deploy : 100,000,000 OBX
  *  • 0.05 % BURN on every non-exempt transfer → permanently decreasing supply.
  *    Implemented as Transfer(from, address(0), burnAmount) which appears on
  *    BSCScan/any explorer as an official token burn event.
+ *  • Programmed Scarcity: burn stops permanently once totalSupply reaches
+ *    41,000,000 OBX (the BURN_FLOOR). Exactly 59,000,000 OBX (59 %) will
+ *    ever be burned. After that point every transfer is fee-free forever.
  *  • Fee-exempt list: owner, presale contract, DEX router, LP pair(s).
  *
  * ─── Deployment checklist ─────────────────────────────────────────────────
@@ -32,6 +36,14 @@ contract OBXToken {
     /// @dev 0.05 % burn per transfer: 5 / 10_000 = 0.0005 = 0.05 %
     uint256 public constant BURN_FEE_BPS = 5;
 
+    /// @dev Burn stops permanently once totalSupply reaches this floor.
+    ///      100 M initial supply − 59 M burned = 41 M final supply.
+    uint256 public constant BURN_FLOOR = 41_000_000 * (10 ** 18);
+
+    /// @dev Set to true the first time totalSupply hits BURN_FLOOR.
+    ///      Checked before every burn so the SLOAD is avoided when already true.
+    bool public burnComplete;
+
     /// @dev Fee-exempt addresses (presale, router, LP pair, owner).
     mapping(address => bool) public feeExempt;
 
@@ -51,6 +63,8 @@ contract OBXToken {
     event Approval(address indexed owner, address indexed spender, uint256 value);
     /// Extra burn event (alongside Transfer to address(0)) for indexers/dashboards
     event Burn(address indexed from, uint256 burnAmount, uint256 newTotalSupply);
+    /// Emitted once when totalSupply first reaches BURN_FLOOR — burn is over forever
+    event BurnComplete(uint256 finalSupply);
     event FeeExemptUpdated(address indexed account, bool exempt);
     event Paused(bool paused);
     event OwnershipTransferInitiated(address indexed current, address indexed pending);
@@ -119,15 +133,31 @@ contract OBXToken {
         require(to   != address(0), "OBXToken: to zero");
         require(balanceOf[from] >= amount, "OBXToken: insufficient balance");
 
-        // 0.05 % burn — skipped when either address is fee-exempt
-        if (!feeExempt[from] && !feeExempt[to] && amount > 0) {
+        // 0.05 % burn — skipped when either address is fee-exempt OR burn is complete
+        if (!feeExempt[from] && !feeExempt[to] && !burnComplete && amount > 0) {
             uint256 burnAmount = (amount * BURN_FEE_BPS) / 10_000;
             if (burnAmount > 0) {
-                balanceOf[from] -= burnAmount;
-                totalSupply     -= burnAmount;
-                emit Transfer(from, address(0), burnAmount); // standard burn
-                emit Burn(from, burnAmount, totalSupply);
-                amount -= burnAmount;
+                // ── Programmed Scarcity: cap burn at the floor ────────────────
+                // If this burn would push totalSupply below 41 M, only burn
+                // the exact remainder so we land precisely on the floor.
+                uint256 available = totalSupply > BURN_FLOOR
+                    ? totalSupply - BURN_FLOOR
+                    : 0;
+                if (burnAmount > available) {
+                    burnAmount = available;
+                }
+                if (burnAmount > 0) {
+                    balanceOf[from] -= burnAmount;
+                    totalSupply     -= burnAmount;
+                    emit Transfer(from, address(0), burnAmount); // standard burn
+                    emit Burn(from, burnAmount, totalSupply);
+                    amount -= burnAmount;
+                }
+                // ── Lock burn permanently once floor is reached ───────────────
+                if (totalSupply <= BURN_FLOOR && !burnComplete) {
+                    burnComplete = true;
+                    emit BurnComplete(totalSupply);
+                }
             }
         }
 
