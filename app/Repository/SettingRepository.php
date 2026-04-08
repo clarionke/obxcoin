@@ -230,6 +230,9 @@ class SettingRepository
             AdminSetting::updateOrCreate(['slug' => 'contract_coin_name'], ['value' => $request->contract_coin_name]);
             AdminSetting::updateOrCreate(['slug' => 'network_type'], ['value' => $request->network_type]);
             AdminSetting::updateOrCreate(['slug' => 'previous_block_count'], ['value' => $request->previous_block_count]);
+            if ($request->filled('obx_token_logo_url')) {
+                AdminSetting::updateOrCreate(['slug' => 'obx_token_logo_url'], ['value' => $request->obx_token_logo_url]);
+            }
 
             $response = [
                 'success' => true,

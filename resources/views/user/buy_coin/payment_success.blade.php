@@ -14,7 +14,7 @@
         <div class="col-xl-12">
             <div class="card cp-user-custom-card">
                 <div class="card-body">
-                    @if($coinAddress->payment_type == NOWPAYMENTS)
+                    @if($coinAddress->type == NOWPAYMENTS)
                     {{-- NOWPayments payment details --}}
                     <div class="cp-user-card-header-area">
                         <h4>{{__('Payment created! Please send the exact amount below to complete your purchase.')}}</h4>
@@ -74,7 +74,7 @@
                         </div>
                     </div>
 
-                    @elseif($coinAddress->payment_type == WALLETCONNECT)
+                    @elseif($coinAddress->type == WALLETCONNECT)
                     {{-- WalletConnect / on-chain payment --}}
                     <div class="cp-user-card-header-area">
                         <h4 class="text-success"><i class="fa fa-check-circle mr-2"></i>{{__('Transaction submitted successfully!')}}</h4>

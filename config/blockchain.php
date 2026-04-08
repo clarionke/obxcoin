@@ -44,6 +44,8 @@ return [
     ],
 
     // Block number to start scanning for TokensPurchased events (set to deployment block)
+    // OBXToken name, contract address, decimals and logo are managed via
+    // Admin Panel > Settings > OBXCoin Send Settings (stored in admin_settings table).
     'start_block' => env('PRESALE_START_BLOCK', 0),
 
 ];

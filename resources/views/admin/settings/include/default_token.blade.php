@@ -116,6 +116,15 @@
             </div>
             <div class="col-lg-6 col-12 mt-20">
                 <div class="form-group">
+                    <label for="#">{{__('OBX Token Logo URL')}}</label>
+                    <input class="form-control" type="url" name="obx_token_logo_url"
+                           placeholder="https://yourdomain.com/assets/obx-logo.png"
+                           value="{{settings('obx_token_logo_url') ?? ''}}">
+                    <small class="text-muted">{{__('Public URL to OBX logo (PNG, square, ≤512px). Shown when adding OBX to MetaMask / Trust Wallet.')}}</small>
+                </div>
+            </div>
+            <div class="col-lg-6 col-12 mt-20">
+                <div class="form-group">
                     <label for="#">{{__('Max. Send Limit (per day)')}}</label>
                     <input type="text" class="form-control" name="max_send_limit"
                            placeholder="{{__('Send Limit')}}"

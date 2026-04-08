@@ -135,6 +135,12 @@
                         </button>
                         <div id="wc_connected" style="display:none;">
                             <p class="text-success" id="wc_address_display"></p>
+                            <div class="mb-2">
+                                <button type="button" class="btn btn-sm btn-outline-info mr-2" onclick="addOBXToWallet()">
+                                    <i class="fa fa-plus-circle mr-1"></i> {{__('Add OBX to Wallet')}}
+                                </button>
+                                <small class="text-muted">{{__('Import OBX token into MetaMask / Trust Wallet')}}</small>
+                            </div>
                             <button type="button" class="btn theme-btn" id="wc_buy_btn" onclick="wcBuyTokens()">
                                 <i class="fa fa-exchange mr-1"></i> {{__('Approve & Buy')}} {{ settings('coin_name') }}
                             </button>
@@ -280,10 +286,20 @@ document.addEventListener('DOMContentLoaded', function() {
 @endif
 
 // ── WalletConnect ────────────────────────────────────────────────────────────
-const WC_PROJECT_ID   = @json($wc_project_id);
-const WC_CHAIN_ID     = {{ $wc_chain_id }};
-const PRESALE_ADDRESS = @json($presale_contract);
-const USDT_ADDRESS    = @json($usdt_address);
+const WC_PROJECT_ID      = @json($wc_project_id);
+const WC_CHAIN_ID        = {{ $wc_chain_id }};
+const PRESALE_ADDRESS    = @json($presale_contract);
+const USDT_ADDRESS       = @json($usdt_address);
+const OBX_TOKEN_ADDRESS  = @json($obx_token_contract);
+const OBX_TOKEN_SYMBOL   = @json($obx_token_symbol);
+const OBX_TOKEN_DECIMALS = {{ (int)$obx_token_decimals }};
+const OBX_TOKEN_LOGO     = @json($obx_token_logo_url);
+// Block explorer base per chain
+const EXPLORER_TX_BASE = WC_CHAIN_ID === 56  ? 'https://bscscan.com/tx/'
+                       : WC_CHAIN_ID === 97  ? 'https://testnet.bscscan.com/tx/'
+                       : WC_CHAIN_ID === 1   ? 'https://etherscan.io/tx/'
+                       : WC_CHAIN_ID === 137 ? 'https://polygonscan.com/tx/'
+                       : 'https://bscscan.com/tx/';
 
 const ERC20_ABI = [
     {"inputs":[{"name":"spender","type":"address"},{"name":"amount","type":"uint256"}],"name":"approve","outputs":[{"name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},
@@ -313,9 +329,9 @@ async function wcConnect() {
     try {
         setStatus('⏳ Loading libraries…');
         if (!window.ethers)
-            await loadScript('https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js');
+            await loadScript('{{ asset("js/vendor/ethers-5.7.2.umd.min.js") }}');
         if (!window.WalletConnectProvider)
-            await loadScript('https://cdn.jsdelivr.net/npm/@walletconnect/web3-provider@1.8.0/dist/umd/index.min.js');
+            await loadScript('{{ asset("js/vendor/walletconnect-web3-provider-1.8.0.min.js") }}');
 
         const rpcMap = {};
         rpcMap[WC_CHAIN_ID] = WC_CHAIN_ID === 56
@@ -340,8 +356,63 @@ async function wcConnect() {
         document.getElementById('wc_address_display').innerText =
             '✅ Connected: ' + wcAddress.substring(0,6) + '…' + wcAddress.substring(38);
         setStatus('');
+
+        // Automatically offer to add OBX token to the connected wallet
+        if (OBX_TOKEN_ADDRESS) {
+            await addOBXToWallet(true);
+        }
     } catch (e) {
         setStatus('<span class="text-danger">Connection failed: ' + e.message + '</span>');
+    }
+}
+
+/**
+ * Prompt the wallet to import/watch the OBX token via EIP-747 (wallet_watchAsset).
+ * Works with MetaMask, Trust Wallet (WalletConnect), and any EIP-1193 provider.
+ *
+ * @param {boolean} silent  When true, suppresses the status message on success
+ *                          (called automatically on connect; user also has a button).
+ */
+async function addOBXToWallet(silent = false) {
+    if (!OBX_TOKEN_ADDRESS) {
+        setStatus('<span class="text-danger">OBX token contract not configured. Contact admin.</span>');
+        return;
+    }
+    try {
+        const provider = wcProvider
+            ? new ethers.providers.Web3Provider(wcProvider)
+            : window.ethereum
+                ? new ethers.providers.Web3Provider(window.ethereum)
+                : null;
+
+        if (!provider) {
+            setStatus('<span class="text-danger">No wallet connected. Click Connect Wallet first.</span>');
+            return;
+        }
+
+        const wasAdded = await provider.provider.request({
+            method: 'wallet_watchAsset',
+            params: {
+                type:    'ERC20',
+                options: {
+                    address:  OBX_TOKEN_ADDRESS,
+                    symbol:   OBX_TOKEN_SYMBOL,
+                    decimals: OBX_TOKEN_DECIMALS,
+                    image:    OBX_TOKEN_LOGO || undefined,
+                },
+            },
+        });
+
+        if (!silent) {
+            setStatus(wasAdded
+                ? '<span class="text-success">✅ ' + OBX_TOKEN_SYMBOL + ' added to your wallet!</span>'
+                : '<span class="text-warning">Token add was dismissed.</span>'
+            );
+        }
+    } catch (e) {
+        if (!silent) {
+            setStatus('<span class="text-danger">Could not add token: ' + e.message + '</span>');
+        }
     }
 }
 
@@ -399,8 +470,8 @@ async function wcBuyTokens() {
 
         setStatus(
             `<span class="text-success">✅ Purchase confirmed!<br>` +
-            `Tx: <a href="https://bscscan.com/tx/${buyTx.hash}" target="_blank">${buyTx.hash.substring(0,20)}…</a><br>` +
-            `Your tokens will appear in your wallet shortly.</span>`
+            `Tx: <a href="${EXPLORER_TX_BASE}${buyTx.hash}" target="_blank" rel="noopener">${buyTx.hash.substring(0,20)}…</a><br>` +
+            `Your OBX tokens will appear in your wallet shortly.</span>`
         );
         document.getElementById('wc_buy_btn').disabled = true;
 

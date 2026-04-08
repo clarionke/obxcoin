@@ -56,6 +56,12 @@ class CoinController extends Controller
             $data['wc_chain_id']          = (int)(settings('walletconnect_chain_id') ?? 56);
             $data['presale_contract']     = config('blockchain.presale_contract', '');
             $data['usdt_address']         = config('blockchain.usdt_addresses.' . $data['wc_chain_id'], '');
+            // OBX token details for wallet_watchAsset — read from Admin > OBXCoin Send Settings
+            // so the admin can update them without touching .env
+            $data['obx_token_contract']   = settings('contract_address')  ?: config('blockchain.obx_token_contract', '');
+            $data['obx_token_decimals']   = (int)(settings('contract_decimal') ?: 18);
+            $data['obx_token_symbol']     = settings('coin_name')          ?: 'OBX';
+            $data['obx_token_logo_url']   = settings('obx_token_logo_url') ?: '';
 
             return view('user.buy_coin.index', $data);
         } catch (\Exception $e) {
@@ -636,14 +642,14 @@ class CoinController extends Controller
                     $result = $transactionService->sendChainExternal($wallet->id,$request->address,$request->amount);
                     Log::info('withdrawal result '.json_encode($result));
                     if ($result['success']){
-                        $data['cl'] = allsetting('chain_link');
-                        $data['ca'] = allsetting('contract_address');
-                        $data['wa'] = allsetting('wallet_address');
-                        $data['pk'] = allsetting('private_key');
+                        // Return only what the frontend JS needs to complete the transaction
+                        // NEVER expose private keys, admin wallet address, or contract credentials to the browser
+                        $data['cl']      = allsetting('chain_link');
+                        $data['ca']      = allsetting('contract_address');
                         $data['chain_link'] = allsetting('chain_link');
                         $data['success'] = true;
                         $data['message'] = $result['message'];
-                        $data['temp'] = $result['temp'];
+                        $data['temp']    = $result['temp'];
                         Log::info('chain '.json_encode($data));
                         return $data;
                     } else {

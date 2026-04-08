@@ -1,6 +1,4 @@
 <?php
-Route::post('user/withdrawal-coin/callback', 'user\CoinController@callback')->name('callback');
-Route::post('user/withdrawal-coin/deposit/callback', 'user\CoinController@depositCallback')->name('depositCallback');
 
 // Stop-impersonation route — accessible while logged in as impersonated user
 Route::get('admin/stop-impersonating', 'admin\UserController@stopImpersonating')
@@ -8,6 +6,11 @@ Route::get('admin/stop-impersonating', 'admin\UserController@stopImpersonating')
     ->name('admin.stop.impersonating');
 
 Route::group(['prefix'=>'user','namespace'=>'user','middleware'=> ['auth','user', 'lang']],function () {
+
+    // Coin withdrawal callbacks — kept inside auth group so only the authenticated
+    // user can trigger balance changes for their own account
+    Route::post('withdrawal-coin/callback', 'CoinController@callback')->name('callback');
+    Route::post('withdrawal-coin/deposit/callback', 'CoinController@depositCallback')->name('depositCallback');
 
     Route::get('dashboard', 'DashboardController@userDashboard')->name('userDashboard');
     Route::get('show-notification', 'DashboardController@showNotification')->name('showNotification');

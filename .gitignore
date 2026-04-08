@@ -6,6 +6,8 @@
 /storage/*.key
 .env
 vendor
+# Allow locally-bundled front-end vendor scripts (replaces CDN for security)
+!/public/js/vendor
 /.idea
 .env.backup
 .phpunit.result.cache

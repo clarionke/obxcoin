@@ -20,7 +20,5 @@ class VerifyCsrfToken extends Middleware
      */
     protected $except = [
       'user/g2f-secret-save',
-      'user/withdrawal-coin/callback',
-      'user/withdrawal-coin/deposit/callback'
     ];
 }

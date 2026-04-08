@@ -91,6 +91,9 @@ class AdminSettingTableSeeder extends Seeder
         AdminSetting::firstOrCreate(['slug' => 'walletconnect_chain_id'],   ['value' => 56]);
         AdminSetting::firstOrCreate(['slug' => 'walletconnect_enabled'],    ['value' => 0]);
 
+        // OBX token logo (shown when user adds OBX to MetaMask / Trust Wallet via wallet_watchAsset)
+        AdminSetting::firstOrCreate(['slug' => 'obx_token_logo_url'],       ['value' => '']);
+
         // Send Fees
         AdminSetting::firstOrCreate(['slug' => 'membership_bonus_type'], ['value' => 1]);
         AdminSetting::firstOrCreate(['slug' => 'membership_bonus_fixed'], ['value' => 0]);
