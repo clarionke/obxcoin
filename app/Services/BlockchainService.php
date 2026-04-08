@@ -6,152 +6,202 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 /**
- * BlockchainService
+ * BlockchainService  v2
  *
- * Communicates with the OBXPresale smart contract on BSC (or any EVM chain)
- * via the BSCScan / node JSON-RPC API.  No web3.php dependency required —
- * all calls are plain HTTP.
+ * PHP layer for all on-chain interactions with OBXToken + OBXPresale.
+ * Uses plain HTTP (no web3.php dependency):
+ *   â€¢ Read calls  â†’ eth_call via BSC JSON-RPC
+ *   â€¢ Write calls â†’ Node.js signer subprocess (contracts/signer.js)
+ *   â€¢ Events      â†’ BSCScan getLogs API
  *
- * Required .env keys:
- *   BSC_RPC_URL          = https://bsc-dataseed.binance.org/
- *   PRESALE_CONTRACT     = 0x...  (OBXPresale contract address)
- *   OWNER_PRIVATE_KEY    = 0x...  (admin wallet private key — keep secret)
- *   BSCSCAN_API_KEY      = ...    (for event indexing)
- *   PRESALE_CHAIN_ID     = 56     (56=BSC mainnet, 97=testnet)
+ * Multi-chain: same ABI works on BSC, ETH, Polygon, etc.
+ * Every operation is visible on the chain's block explorer.
  *
- * NOTE: For write operations (addPhase, updatePhase) we forward the ABI-encoded
- * calldata to a tiny Node.js signer script (contracts/signer.js) running locally,
- * because PHP cannot sign secp256k1 transactions natively without extensions.
- * Alternatively you can use a backend signer microservice or a hardware wallet.
+ * Required .env:
+ *   BSC_RPC_URL           = https://bsc-dataseed.binance.org/
+ *   PRESALE_CONTRACT      = 0x...   (OBXPresale contract address)
+ *   OBX_TOKEN_CONTRACT    = 0x...   (OBXToken contract address)
+ *   OWNER_PRIVATE_KEY     = 0x...   (admin wallet â€” keep secret)
+ *   BSCSCAN_API_KEY       = ...
+ *   PRESALE_CHAIN_ID      = 56      (56=BSC, 97=testnet, 1=ETH, 137=Polygon)
+ *   PRESALE_WEBHOOK_SECRET = ...    (HMAC secret for webhook endpoint)
+ *   PRESALE_SYNC_API_KEY  = ...     (bearer key for cron endpoint)
  */
 class BlockchainService
 {
     private string $rpcUrl;
     private string $contractAddress;
+    private string $obxTokenAddress;
     private string $bscscanKey;
     private int    $chainId;
 
-    // OBXPresale ABI selectors (keccak256 first 4 bytes)
-    // Generated from: cast sig "functionName(types)"
-    private const SIG_ADD_PHASE      = '0x'; // filled dynamically below
-    private const SIG_UPDATE_PHASE   = '0x';
-    private const SIG_SET_ACTIVE     = '0x';
-    private const SIG_BUY_TOKENS     = '0x';
+    // â”€â”€â”€ Verified function selectors â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // Computed via: ethers.utils.id("funcName(types)").slice(0,10)
+    // DO NOT use ltrim('0x') â€” these are complete 4-byte selectors
 
-    // Full ABI as JSON — subset needed for encoding/decoding
-    public const ABI = '[
-        {"name":"addPhase","type":"function","inputs":[
-            {"name":"name","type":"string"},
-            {"name":"startTime","type":"uint256"},
-            {"name":"endTime","type":"uint256"},
-            {"name":"rateUsdt","type":"uint256"},
-            {"name":"tokenCap","type":"uint256"},
-            {"name":"bonusBps","type":"uint256"},
-            {"name":"dbPhaseId","type":"uint256"}
-        ],"outputs":[],"stateMutability":"nonpayable"},
-        {"name":"updatePhase","type":"function","inputs":[
-            {"name":"contractPhaseIndex","type":"uint256"},
-            {"name":"name","type":"string"},
-            {"name":"startTime","type":"uint256"},
-            {"name":"endTime","type":"uint256"},
-            {"name":"rateUsdt","type":"uint256"},
-            {"name":"tokenCap","type":"uint256"},
-            {"name":"bonusBps","type":"uint256"},
-            {"name":"active","type":"bool"}
-        ],"outputs":[],"stateMutability":"nonpayable"},
-        {"name":"setPhaseActive","type":"function","inputs":[
-            {"name":"contractPhaseIndex","type":"uint256"},
-            {"name":"active","type":"bool"}
-        ],"outputs":[],"stateMutability":"nonpayable"},
-        {"name":"activePhaseIndex","type":"function","inputs":[],"outputs":[{"name":"","type":"int256"}],"stateMutability":"view"},
-        {"name":"totalPhases","type":"function","inputs":[],"outputs":[{"name":"","type":"uint256"}],"stateMutability":"view"},
-        {"name":"remainingTokens","type":"function","inputs":[{"name":"index","type":"uint256"}],"outputs":[{"name":"","type":"uint256"}],"stateMutability":"view"},
-        {"name":"previewPurchase","type":"function","inputs":[
-            {"name":"contractPhaseIndex","type":"uint256"},
-            {"name":"usdtAmount","type":"uint256"}
-        ],"outputs":[
-            {"name":"baseObx","type":"uint256"},
-            {"name":"bonusObx","type":"uint256"},
-            {"name":"totalObx","type":"uint256"}
-        ],"stateMutability":"view"},
-        {"name":"TokensPurchased","type":"event","inputs":[
-            {"name":"buyer","type":"address","indexed":true},
-            {"name":"contractPhaseIndex","type":"uint256","indexed":true},
-            {"name":"dbPhaseId","type":"uint256","indexed":true},
-            {"name":"usdtAmount","type":"uint256","indexed":false},
-            {"name":"obxAllocated","type":"uint256","indexed":false},
-            {"name":"bonusObx","type":"uint256","indexed":false},
-            {"name":"timestamp","type":"uint256","indexed":false}
-        ]}
-    ]';
+    /** activePhaseIndex() */
+    private const SEL_ACTIVE_PHASE   = '0x9e9535eb';
+    /** remainingTokens(uint256) */
+    private const SEL_REMAINING      = '0x171ee95a';
+    /** previewPurchase(uint256,uint256) */
+    private const SEL_PREVIEW        = '0x311b0d56';
+    /** totalPhases() */
+    private const SEL_TOTAL_PHASES   = '0x3c5d1812';
+    /** obxReserve() */
+    private const SEL_OBX_RESERVE    = '0x5d531308';
+
+    // â”€â”€â”€ Verified event topic0 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // keccak256("TokensPurchased(address,uint256,uint256,uint256,uint256,uint256,uint256)")
+    private const TOPIC_TOKENS_PURCHASED =
+        '0xb176b33ad40225c8f67dc6ef0cba96c0c88f67afd36396e2198a3f48a44fc7a0';
 
     public function __construct()
     {
-        $this->rpcUrl          = config('blockchain.bsc_rpc_url', 'https://bsc-dataseed.binance.org/');
-        $this->contractAddress = config('blockchain.presale_contract', '');
-        $this->bscscanKey      = config('blockchain.bscscan_api_key', '');
+        $this->rpcUrl          = config('blockchain.bsc_rpc_url',       'https://bsc-dataseed.binance.org/');
+        $this->contractAddress = config('blockchain.presale_contract',   '');
+        $this->obxTokenAddress = config('blockchain.obx_token_contract', '');
+        $this->bscscanKey      = config('blockchain.bscscan_api_key',    '');
         $this->chainId         = (int) config('blockchain.presale_chain_id', 56);
     }
 
-    // ─── Read-only calls via eth_call ─────────────────────────────────────
+    // â”€â”€â”€ Read: active phase â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     /**
      * Get the currently active phase index from the contract (-1 if none).
      */
     public function getActivePhaseIndex(): int
     {
-        // keccak256("activePhaseIndex()")[0:4] = 0x09a8acb0
-        $data = '0x09a8acb0';
-        $result = $this->ethCall($data);
+        $result = $this->ethCall(self::SEL_ACTIVE_PHASE);
         if (!$result) return -1;
 
-        // Decode int256 (signed) from 32-byte hex
-        $hex = substr($result, 2); // strip 0x prefix
+        $hex = substr($result, 2); // strip 0x prefix ONLY (not ltrim mask)
+        if (strlen($hex) !== 64) return -1;
+
+        // int256 two's complement: if high bit set â†’ negative (=-1 means none)
         $value = gmp_intval(gmp_init($hex, 16));
-        // Handle negative (int256 twos complement for -1)
-        if (strlen($hex) === 64 && hexdec(substr($hex, 0, 2)) >= 128) {
-            $value = $value - (2 ** 256);
+        if (hexdec(substr($hex, 0, 2)) >= 128) {
+            // negative: subtract 2^256
+            $value = gmp_intval(gmp_sub(gmp_init($hex, 16), gmp_pow('2', 256)));
         }
-        return $value;
+        return (int) $value;
     }
 
     /**
-     * Get remaining tokens for a phase index.
+     * Get remaining OBX tokens for a phase index.
      */
     public function getRemainingTokens(int $phaseIndex): string
     {
-        // keccak256("remainingTokens(uint256)")[0:4] = 0x0d2a5c6e (approx — use actual)
-        $data = '0x0d2a5c6e' . str_pad(dechex($phaseIndex), 64, '0', STR_PAD_LEFT);
+        $data   = self::SEL_REMAINING . str_pad(dechex($phaseIndex), 64, '0', STR_PAD_LEFT);
         $result = $this->ethCall($data);
         if (!$result) return '0';
-        return $this->hexToDecimal(ltrim($result, '0x'));
+
+        $raw = $this->hexToDecimal(substr($result, 2));
+        return bcdiv($raw, '1000000000000000000', 18); // 18 decimals â†’ human
     }
 
-    // ─── Write calls via signer script ───────────────────────────────────
+    /**
+     * Preview: how many OBX tokens usdtAmount (human, e.g. "100") buys in a phase.
+     * Returns ['baseObx', 'bonusObx', 'totalObx'] as human-readable strings.
+     */
+    public function previewPurchase(int $phaseIndex, string $usdtHuman): array
+    {
+        // Convert human USDT to 6-decimal raw value
+        $usdtRaw = bcmul($usdtHuman, '1000000', 0);
+        $data    = self::SEL_PREVIEW
+            . str_pad(dechex($phaseIndex), 64, '0', STR_PAD_LEFT)
+            . str_pad(gmp_strval(gmp_init($usdtRaw, 10), 16), 64, '0', STR_PAD_LEFT);
+
+        $result = $this->ethCall($data);
+        if (!$result) return ['baseObx' => '0', 'bonusObx' => '0', 'totalObx' => '0'];
+
+        $hex  = substr($result, 2); // strip 0x
+        $base  = bcdiv($this->hexToDecimal(substr($hex,   0, 64)), '1000000000000000000', 18);
+        $bonus = bcdiv($this->hexToDecimal(substr($hex,  64, 64)), '1000000000000000000', 18);
+        $total = bcdiv($this->hexToDecimal(substr($hex, 128, 64)), '1000000000000000000', 18);
+
+        return ['baseObx' => $base, 'bonusObx' => $bonus, 'totalObx' => $total];
+    }
+
+    /**
+     * Get total number of phases on the contract.
+     */
+    public function getTotalPhases(): int
+    {
+        $result = $this->ethCall(self::SEL_TOTAL_PHASES);
+        if (!$result) return 0;
+        return (int) $this->hexToDecimal(substr($result, 2));
+    }
+
+    /**
+     * Get OBX token reserve held by the presale contract.
+     */
+    public function getObxReserve(): string
+    {
+        $result = $this->ethCall(self::SEL_OBX_RESERVE);
+        if (!$result) return '0';
+        $raw = $this->hexToDecimal(substr($result, 2));
+        return bcdiv($raw, '1000000000000000000', 18);
+    }
+
+    /**
+     * Get the on-chain OBX token balance for any address.
+     * Calls balanceOf(address) on the OBXToken contract.
+     * Returns a human-readable string with 18 decimal places.
+     */
+    public function getObxBalance(string $address): string
+    {
+        if (!$this->obxTokenAddress || !str_starts_with($address, '0x')) return '0';
+
+        // balanceOf(address) selector: keccak256("balanceOf(address)") → 0x70a08231
+        $paddedAddr = str_pad(ltrim($address, '0x'), 64, '0', STR_PAD_LEFT);
+        $data       = '0x70a08231' . $paddedAddr;
+
+        try {
+            $response = Http::timeout(10)->post($this->rpcUrl, [
+                'jsonrpc' => '2.0',
+                'method'  => 'eth_call',
+                'params'  => [
+                    ['to' => $this->obxTokenAddress, 'data' => $data],
+                    'latest',
+                ],
+                'id' => 1,
+            ]);
+
+            $json   = $response->json();
+            $result = $json['result'] ?? null;
+
+            if (!$result || $result === '0x') return '0';
+
+            $raw = $this->hexToDecimal(substr($result, 2));
+            return bcdiv($raw, '1000000000000000000', 18);
+
+        } catch (\Exception $e) {
+            Log::error('BlockchainService::getObxBalance failed for ' . $address . ': ' . $e->getMessage());
+            return '0';
+        }
+    }
+
+    // â”€â”€â”€ Write: phase management â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     /**
      * Push a new phase to the contract.
-     * Calls the Node.js signer script which signs and broadcasts the tx.
-     * Returns the transaction hash or null on failure.
+     * Returns ['txHash' => '0x...', 'blockNumber' => N] or null on failure.
      */
-    public function pushPhaseToContract(array $phase): ?string
+    public function pushPhaseToContract(array $phase): ?array
     {
         $payload = [
-            'action'             => 'addPhase',
-            'contractAddress'    => $this->contractAddress,
-            'chainId'            => $this->chainId,
-            'rpcUrl'             => $this->rpcUrl,
-            'params'             => [
+            'action'          => 'addPhase',
+            'contractAddress' => $this->contractAddress,
+            'chainId'         => $this->chainId,
+            'rpcUrl'          => $this->rpcUrl,
+            'params'          => [
                 'name'       => $phase['phase_name'],
                 'startTime'  => strtotime($phase['start_date']),
                 'endTime'    => strtotime($phase['end_date']),
-                // rateUsdt: OBX per 1 USDT scaled 1e18
-                // e.g. rate (USD per OBX) = 0.01 → tokens per USDT = 1/0.01 = 100 → 100e18
-                'rateUsdt'   => $this->usdRateToContractRate((float)$phase['rate']),
-                // tokenCap: amount in OBX * 1e18
-                'tokenCap'   => bcmul((string)$phase['amount'], '1000000000000000000', 0),
-                'bonusBps'   => (int)(($phase['bonus'] ?? 0) * 100), // % → basis points
-                'dbPhaseId'  => $phase['id'],
+                'rateUsdt'   => $this->usdRateToContractRate((string)($phase['rate'] ?? '0')),
+                'tokenCap'   => bcmul((string)($phase['amount'] ?? '0'), '1000000000000000000', 0),
+                'bonusBps'   => min((int)(($phase['bonus'] ?? 0) * 100), 5000), // cap at 50%
+                'dbPhaseId'  => (int)$phase['id'],
             ],
         ];
 
@@ -161,21 +211,26 @@ class BlockchainService
     /**
      * Update an existing phase on-chain.
      */
-    public function updatePhaseOnContract(array $phase): ?string
+    public function updatePhaseOnContract(array $phase): ?array
     {
+        if ($phase['contract_phase_index'] === null) {
+            Log::warning("BlockchainService::updatePhaseOnContract called with null contract_phase_index for phase #{$phase['id']}");
+            return null;
+        }
+
         $payload = [
-            'action'             => 'updatePhase',
-            'contractAddress'    => $this->contractAddress,
-            'chainId'            => $this->chainId,
-            'rpcUrl'             => $this->rpcUrl,
-            'params'             => [
-                'contractPhaseIndex' => $phase['contract_phase_index'],
+            'action'          => 'updatePhase',
+            'contractAddress' => $this->contractAddress,
+            'chainId'         => $this->chainId,
+            'rpcUrl'          => $this->rpcUrl,
+            'params'          => [
+                'contractPhaseIndex' => (int)$phase['contract_phase_index'],
                 'name'               => $phase['phase_name'],
                 'startTime'          => strtotime($phase['start_date']),
                 'endTime'            => strtotime($phase['end_date']),
-                'rateUsdt'           => $this->usdRateToContractRate((float)$phase['rate']),
-                'tokenCap'           => bcmul((string)$phase['amount'], '1000000000000000000', 0),
-                'bonusBps'           => (int)(($phase['bonus'] ?? 0) * 100),
+                'rateUsdt'           => $this->usdRateToContractRate((string)($phase['rate'] ?? '0')),
+                'tokenCap'           => bcmul((string)($phase['amount'] ?? '0'), '1000000000000000000', 0),
+                'bonusBps'           => min((int)(($phase['bonus'] ?? 0) * 100), 5000),
                 'active'             => (bool)$phase['active'],
             ],
         ];
@@ -186,7 +241,7 @@ class BlockchainService
     /**
      * Toggle phase active/inactive on-chain.
      */
-    public function setPhaseActiveOnContract(int $contractPhaseIndex, bool $active): ?string
+    public function setPhaseActiveOnContract(int $contractPhaseIndex, bool $active): ?array
     {
         $payload = [
             'action'          => 'setPhaseActive',
@@ -202,51 +257,134 @@ class BlockchainService
         return $this->callSignerScript($payload);
     }
 
-    // ─── Event listener (BSCScan logs) ───────────────────────────────────
+    /**
+     * Fund the presale contract with OBX tokens (admin wallet â†’ presale contract).
+     * Call this after deploying a new phase or replenishing the reserve.
+     */
+    public function fundPresale(string $obxAmountHuman): ?array
+    {
+        $amountRaw = bcmul($obxAmountHuman, '1000000000000000000', 0);
+
+        $payload = [
+            'action'          => 'fundPresale',
+            'contractAddress' => $this->contractAddress,
+            'chainId'         => $this->chainId,
+            'rpcUrl'          => $this->rpcUrl,
+            'params'          => [
+                'obxTokenAddress' => $this->obxTokenAddress,
+                'amount'          => $amountRaw,
+            ],
+        ];
+
+        return $this->callSignerScript($payload);
+    }
+
+    // â”€â”€â”€ Events: BSCScan polling â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     /**
      * Fetch TokensPurchased events from BSCScan API.
-     * Used by the webhook/cron to credit user balances.
+     * Uses the hardcoded verified topic0 â€” does NOT use keccak256 at runtime.
      *
-     * @param  int $fromBlock  Start block (stored in DB after last run)
-     * @return array  Array of decoded event objects
+     * @param  int $fromBlock  Start block (persisted in admin_settings)
+     * @return array  Array of decoded event objects ready for processEvent()
      */
     public function getPurchaseEvents(int $fromBlock = 0): array
     {
-        // keccak256("TokensPurchased(address,uint256,uint256,uint256,uint256,uint256,uint256)")
-        $topic0 = '0x' . $this->keccak256EventSig(
-            'TokensPurchased(address,uint256,uint256,uint256,uint256,uint256,uint256)'
-        );
+        if (!$this->contractAddress || !$this->bscscanKey) {
+            Log::warning('BlockchainService::getPurchaseEvents: contract or API key not configured');
+            return [];
+        }
 
-        $url = "https://api.bscscan.com/api?" . http_build_query([
+        // Determine explorer API base by chain
+        $apiBase = $this->resolveExplorerApiBase();
+
+        $url = $apiBase . '?' . http_build_query([
             'module'    => 'logs',
             'action'    => 'getLogs',
             'address'   => $this->contractAddress,
             'fromBlock' => $fromBlock,
             'toBlock'   => 'latest',
-            'topic0'    => $topic0,
+            'topic0'    => self::TOPIC_TOKENS_PURCHASED,
             'apikey'    => $this->bscscanKey,
         ]);
 
         try {
-            $response = Http::timeout(15)->get($url);
+            $response = Http::timeout(20)->get($url);
             $data = $response->json();
 
-            if ($data['status'] !== '1') {
+            if (($data['status'] ?? '0') !== '1') {
+                // status=0 with message=No records is not an error
+                if (($data['message'] ?? '') !== 'No records found') {
+                    Log::warning('BlockchainService::getPurchaseEvents bad status', ['response' => $data]);
+                }
                 return [];
             }
 
-            return array_map([$this, 'decodeTokensPurchasedLog'], $data['result']);
+            $events = [];
+            foreach ($data['result'] as $log) {
+                try {
+                    $events[] = $this->decodeTokensPurchasedLog($log);
+                } catch (\Throwable $e) {
+                    Log::error('BlockchainService: failed to decode log: ' . $e->getMessage(), ['log' => $log]);
+                }
+            }
+            return $events;
+
         } catch (\Exception $e) {
             Log::error('BlockchainService::getPurchaseEvents failed: ' . $e->getMessage());
             return [];
         }
     }
 
-    // ─── Internal helpers ─────────────────────────────────────────────────
+    /**
+     * Verify a transaction receipt from the RPC â€” used to cross-check webhook payloads.
+     * Returns the decoded TokensPurchased data from the receipt, or null if not found/confirmed.
+     */
+    public function verifyPurchaseTransaction(string $txHash): ?array
+    {
+        if (!$txHash || !str_starts_with($txHash, '0x')) return null;
+
+        try {
+            $response = Http::timeout(10)->post($this->rpcUrl, [
+                'jsonrpc' => '2.0',
+                'method'  => 'eth_getTransactionReceipt',
+                'params'  => [$txHash],
+                'id'      => 1,
+            ]);
+
+            $json    = $response->json();
+            $receipt = $json['result'] ?? null;
+
+            if (!$receipt || ($receipt['status'] ?? '0x0') !== '0x1') {
+                return null; // tx failed or not found
+            }
+
+            // Find the TokensPurchased log in the receipt
+            foreach ($receipt['logs'] ?? [] as $log) {
+                if (
+                    isset($log['topics'][0]) &&
+                    strtolower($log['topics'][0]) === strtolower(self::TOPIC_TOKENS_PURCHASED)
+                ) {
+                    $decoded = $this->decodeTokensPurchasedLog($log);
+                    $decoded['block_number'] = hexdec($receipt['blockNumber']);
+                    return $decoded;
+                }
+            }
+
+            return null;
+
+        } catch (\Exception $e) {
+            Log::error('BlockchainService::verifyPurchaseTransaction failed for ' . $txHash . ': ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    // â”€â”€â”€ Internal helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private function ethCall(string $data): ?string
     {
+        if (!$this->contractAddress) return null;
+
         try {
             $response = Http::timeout(10)->post($this->rpcUrl, [
                 'jsonrpc' => '2.0',
@@ -259,7 +397,12 @@ class BlockchainService
             ]);
 
             $json = $response->json();
-            return $json['result'] ?? null;
+            $result = $json['result'] ?? null;
+
+            // eth_call returns '0x' for reverts
+            if (!$result || $result === '0x') return null;
+            return $result;
+
         } catch (\Exception $e) {
             Log::error('BlockchainService::ethCall failed: ' . $e->getMessage());
             return null;
@@ -268,9 +411,12 @@ class BlockchainService
 
     /**
      * Call the Node.js signer script (contracts/signer.js).
-     * The script reads payload from stdin and writes { txHash } to stdout.
+     * Payload is sent via stdin; result JSON is read from stdout.
+     * Private key is passed via environment â€” never appears in logs.
+     *
+     * @return array|null  ['txHash' => '0x...', 'blockNumber' => N] or null
      */
-    private function callSignerScript(array $payload): ?string
+    private function callSignerScript(array $payload): ?array
     {
         $signerPath = base_path('contracts/signer.js');
         if (!file_exists($signerPath)) {
@@ -278,9 +424,15 @@ class BlockchainService
             return null;
         }
 
-        $json    = json_encode($payload);
+        $json    = json_encode($payload, JSON_THROW_ON_ERROR);
         $privKey = config('blockchain.owner_private_key', '');
-        $cmd     = escapeshellcmd("node " . escapeshellarg($signerPath));
+
+        if (!$privKey) {
+            Log::error('BlockchainService: OWNER_PRIVATE_KEY not configured');
+            return null;
+        }
+
+        $cmd = 'node ' . escapeshellarg($signerPath);
 
         $descriptors = [
             0 => ['pipe', 'r'],
@@ -288,7 +440,8 @@ class BlockchainService
             2 => ['pipe', 'w'],
         ];
 
-        $env = array_merge($_ENV, ['OWNER_PRIVATE_KEY' => $privKey]);
+        // Pass private key via env only â€” do NOT include in the JSON payload
+        $env  = array_merge($_ENV, ['OWNER_PRIVATE_KEY' => $privKey]);
         $proc = proc_open($cmd, $descriptors, $pipes, base_path(), $env);
 
         if (!is_resource($proc)) {
@@ -299,7 +452,7 @@ class BlockchainService
         fwrite($pipes[0], $json);
         fclose($pipes[0]);
 
-        $output = stream_get_contents($pipes[1]);
+        $stdout = stream_get_contents($pipes[1]);
         $stderr = stream_get_contents($pipes[2]);
         fclose($pipes[1]);
         fclose($pipes[2]);
@@ -309,67 +462,123 @@ class BlockchainService
             Log::warning('BlockchainService signer stderr: ' . $stderr);
         }
 
-        $result = json_decode($output, true);
-        return $result['txHash'] ?? null;
+        $result = json_decode($stdout, true);
+
+        if (isset($result['error'])) {
+            Log::error('BlockchainService signer error: ' . $result['error']);
+            return null;
+        }
+
+        if (!isset($result['txHash'])) {
+            Log::error('BlockchainService: signer returned no txHash. stdout=' . $stdout);
+            return null;
+        }
+
+        return [
+            'txHash'      => $result['txHash'],
+            'blockNumber' => $result['blockNumber'] ?? null,
+        ];
     }
 
     /**
-     * Convert USD price per OBX to contract rateUsdt (OBX per 1 USDT, scaled 1e18).
-     * e.g. $0.01 per OBX → 100 OBX per USDT → 100 * 1e18
+     * Convert USD price per OBX (as exact decimal string) to contract rateUsdt.
+     * rateUsdt = (OBX per 1 USDT) * 1e18
+     *
+     * Example: rate = "0.01" (1 OBX costs $0.01)
+     *   â†’ OBX per USDT = 1 / 0.01 = 100
+     *   â†’ rateUsdt     = 100 * 1e18 = "100000000000000000000"
+     *
+     * Uses bcmath throughout â€” no float rounding.
      */
-    private function usdRateToContractRate(float $usdPerObx): string
+    public function usdRateToContractRate(string $usdPerObx): string
     {
-        if ($usdPerObx <= 0) return '0';
-        $obxPerUsdt = 1 / $usdPerObx;
-        // Scale by 1e18 using bcmath
-        return bcmul(number_format($obxPerUsdt, 0, '.', ''), '1000000000000000000', 0);
+        if (bccomp($usdPerObx, '0', 18) <= 0) return '0';
+
+        // Scale numerator to 36 decimals to preserve precision through division
+        // 1e36 / usdPerObx_scaled_1e18 = (1/usdPerObx) * 1e18
+        // Simpler: shift usdPerObx to integer, divide into 1e(18+decimals)
+        // Method: rateUsdt = bcdiv("1" * 1e18, usdPerObx, 0)
+        //   where usdPerObx is treated as a decimal (e.g., "0.01")
+        //   bcdiv("1000000000000000000", "0.01", 0) = "100000000000000000000"
+        return bcdiv('1000000000000000000', $usdPerObx, 0);
     }
 
-    private function hexToDecimal(string $hex): string
+    /**
+     * Convert a hex string (with or without 0x prefix) to a decimal string via GMP.
+     * Handles 32-byte (64 hex char) values correctly â€” no float overflow.
+     */
+    public function hexToDecimal(string $hex): string
     {
-        // Strip any 0x prefix safely
         if (str_starts_with($hex, '0x') || str_starts_with($hex, '0X')) {
-            $hex = substr($hex, 2);
+            $hex = substr($hex, 2); // strip prefix with substr, NOT ltrim
         }
-        if ($hex === '' || $hex === null) return '0';
+        if ($hex === '') return '0';
         return gmp_strval(gmp_init($hex, 16), 10);
     }
 
-    private function keccak256EventSig(string $sig): string
+    /**
+     * Decode a raw BSCScan/RPC log entry for the TokensPurchased event.
+     *
+     * Log structure:
+     *   topics[0] = TOPIC_TOKENS_PURCHASED (event sig hash)
+     *   topics[1] = buyer address (indexed, padded to 32 bytes)
+     *   topics[2] = contractPhaseIndex (indexed, uint256, 32 bytes)
+     *   topics[3] = dbPhaseId (indexed, uint256, 32 bytes)
+     *   data      = abi.encode(usdtAmount, obxAllocated, bonusObx, timestamp)
+     */
+    public function decodeTokensPurchasedLog(array $log): array
     {
-        // keccak256 via hash('sha3-256') is NOT keccak — we compute offline here.
-        // In production, run: cast keccak "EventSig(types)" and hardcode the result.
-        // For now, return empty — replaced by hardcoded topic0 in real deployment.
-        return '';
-    }
+        if (count($log['topics'] ?? []) < 4) {
+            throw new \InvalidArgumentException('TokensPurchased log requires 4 topics');
+        }
 
-    private function decodeTokensPurchasedLog(array $log): array
-    {
-        // topics[0] = event sig
-        // topics[1] = buyer (indexed, address)
-        // topics[2] = contractPhaseIndex (indexed, uint256)
-        // topics[3] = dbPhaseId (indexed, uint256)
-        // data = abi.encode(usdtAmount, obxAllocated, bonusObx, timestamp)
-        $buyer              = '0x' . substr($log['topics'][1], 26); // last 20 bytes
-        $contractPhaseIndex = hexdec(ltrim($log['topics'][2], '0x'));
-        $dbPhaseId          = hexdec(ltrim($log['topics'][3], '0x'));
+        // topics[1]: last 40 hex chars (20 bytes) = buyer address
+        $buyer = '0x' . substr($log['topics'][1], -40);
 
-        $data = substr($log['data'], 2); // strip 0x prefix only
-        $usdtAmount   = $this->hexToDecimal(substr($data, 0,   64));
-        $obxAllocated = $this->hexToDecimal(substr($data, 64,  64));
-        $bonusObx     = $this->hexToDecimal(substr($data, 128, 64));
-        $timestamp    = $this->hexToDecimal(substr($data, 192, 64));
+        // topics[2] and [3]: strip 0x prefix with substr, NOT ltrim mask
+        $contractPhaseIndex = (int) $this->hexToDecimal(substr($log['topics'][2], 2));
+        $dbPhaseId          = (int) $this->hexToDecimal(substr($log['topics'][3], 2));
+
+        // data: strip '0x' prefix with substr (NOT ltrim which strips all 0s and xs)
+        $rawData = $log['data'] ?? '0x';
+        $data = substr($rawData, 2); // remove the '0x' prefix only
+
+        // Each ABI-encoded word is 32 bytes = 64 hex chars
+        $usdtAmountRaw  = $this->hexToDecimal(substr($data,   0, 64));
+        $obxAllocatedRaw= $this->hexToDecimal(substr($data,  64, 64));
+        $bonusObxRaw    = $this->hexToDecimal(substr($data, 128, 64));
+        $timestamp      = $this->hexToDecimal(substr($data, 192, 64));
 
         return [
-            'tx_hash'             => $log['transactionHash'],
-            'block_number'        => hexdec($log['blockNumber']),
-            'buyer'               => strtolower($buyer),
-            'contract_phase_index'=> $contractPhaseIndex,
-            'db_phase_id'         => $dbPhaseId,
-            'usdt_amount'         => bcdiv($usdtAmount, '1000000', 6),     // USDT 6 dec → human
-            'obx_allocated'       => bcdiv($obxAllocated, '1000000000000000000', 18), // 18 dec
-            'bonus_obx'           => bcdiv($bonusObx, '1000000000000000000', 18),
-            'timestamp'           => $timestamp,
+            'tx_hash'              => $log['transactionHash'],
+            'block_number'         => hexdec(ltrim($log['blockNumber'] ?? '0x0', '0x') ?: '0'),
+            'buyer'                => strtolower($buyer),
+            'contract_phase_index' => $contractPhaseIndex,
+            'db_phase_id'          => $dbPhaseId,
+            // Convert raw token amounts to human-readable strings
+            'usdt_amount'          => bcdiv($usdtAmountRaw,   '1000000',              6),  // USDT 6 dec
+            'obx_allocated'        => bcdiv($obxAllocatedRaw, '1000000000000000000',  18), // OBX  18 dec
+            'bonus_obx'            => bcdiv($bonusObxRaw,     '1000000000000000000',  18),
+            'timestamp'            => $timestamp,
         ];
     }
+
+    /**
+     * Resolve the block explorer API base URL by chain ID.
+     * Centralises multi-chain support.
+     */
+    private function resolveExplorerApiBase(): string
+    {
+        return match ($this->chainId) {
+            56      => 'https://api.bscscan.com/api',
+            97      => 'https://api-testnet.bscscan.com/api',
+            1       => 'https://api.etherscan.io/api',
+            137     => 'https://api.polygonscan.com/api',
+            43114   => 'https://api.snowtrace.io/api',
+            42161   => 'https://api.arbiscan.io/api',
+            10      => 'https://api-optimistic.etherscan.io/api',
+            default => 'https://api.bscscan.com/api',
+        };
+    }
 }
+

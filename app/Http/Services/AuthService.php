@@ -78,6 +78,16 @@ class AuthService
             ]);
             app(CommonService::class)->generateNewCoinWallet($user->id);
 
+            // Auto-create a primary OBX blockchain wallet for the new user.
+            // Silently skip if the signer subprocess is unavailable (e.g. test env without node).
+            try {
+                app(\App\Services\WalletService::class)->ensurePrimaryWallet($user->id);
+            } catch (\Exception $walletEx) {
+                \Illuminate\Support\Facades\Log::warning(
+                    'WalletService: could not auto-create wallet for user #' . $user->id . ': ' . $walletEx->getMessage()
+                );
+            }
+
             DB::commit();
 
             if (!empty($user)){

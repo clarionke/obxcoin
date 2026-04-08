@@ -8,6 +8,7 @@ use App\Model\IcoPhase;
 use App\Model\BuyCoinHistory;
 use App\User;
 use App\Model\Wallet;
+use App\Services\BlockchainService;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -24,11 +25,49 @@ class PresaleWebhookTest extends TestCase
         parent::setUp();
         config(['blockchain.webhook_secret' => $this->webhookSecret]);
         config(['blockchain.presale_contract' => '0xTestContract']);
+
+        // Mock BlockchainService so verifyPurchaseTransaction() returns the
+        // on-chain verified data without making real RPC calls in tests.
+        // The mock returns a decoded event matching the tx_hash sent as input.
+        $mock = \Mockery::mock(BlockchainService::class)->makePartial();
+        $mock->shouldReceive('verifyPurchaseTransaction')
+             ->andReturnUsing(function (string $txHash) {
+                 // Simulate a successful on-chain lookup: return well-formed data
+                 // keyed by the txHash that was requested.
+                 return $this->fakeVerifiedReceipts[$txHash] ?? null;
+             });
+        $this->app->instance(BlockchainService::class, $mock);
     }
+
+    /**
+     * Registry of fake "on-chain receipts" per tx_hash.
+     * Each test registers its expected transactions here.
+     * @var array<string,array>
+     */
+    private array $fakeVerifiedReceipts = [];
 
     private function makeSignature(string $body): string
     {
         return hash_hmac('sha256', $body, $this->webhookSecret);
+    }
+
+    /**
+     * Register a fake on-chain receipt so the mocked verifyPurchaseTransaction
+     * returns it, simulating a confirmed on-chain event.
+     */
+    private function registerReceipt(array $event): void
+    {
+        $this->fakeVerifiedReceipts[$event['tx_hash']] = [
+            'tx_hash'              => $event['tx_hash'],
+            'buyer'                => $event['buyer'],
+            'contract_phase_index' => $event['contract_phase_index'],
+            'db_phase_id'          => $event['db_phase_id'],
+            'usdt_amount'          => $event['usdt_amount'],
+            'obx_allocated'        => $event['obx_allocated'],
+            'bonus_obx'            => $event['bonus_obx'],
+            'block_number'         => $event['block_number'],
+            'timestamp'            => $event['timestamp'],
+        ];
     }
 
     /** @test */
@@ -86,6 +125,8 @@ class PresaleWebhookTest extends TestCase
             'block_number'         => 38000001,
             'timestamp'            => now()->timestamp,
         ];
+
+        $this->registerReceipt($event);
 
         $body      = json_encode($event);
         $signature = $this->makeSignature($body);
@@ -153,6 +194,8 @@ class PresaleWebhookTest extends TestCase
             'timestamp'            => now()->timestamp,
         ];
 
+        $this->registerReceipt($event);
+
         $body      = json_encode($event);
         $signature = $this->makeSignature($body);
         $headers   = ['X-Presale-Signature' => $signature];
@@ -190,6 +233,8 @@ class PresaleWebhookTest extends TestCase
             'block_number'         => 38000003,
             'timestamp'            => now()->timestamp,
         ];
+
+        $this->registerReceipt($event);
 
         $body      = json_encode($event);
         $signature = $this->makeSignature($body);

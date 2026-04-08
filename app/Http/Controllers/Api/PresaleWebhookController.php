@@ -43,11 +43,18 @@ class PresaleWebhookController extends Controller
 
     public function handleWebhook(Request $request)
     {
-        // Verify HMAC signature
-        $secret    = config('blockchain.webhook_secret', '');
-        $signature = $request->header('X-Presale-Signature', '');
+        // PRESALE_WEBHOOK_SECRET must be configured. If not set, we refuse all
+        // inbound webhook calls to prevent the HMAC bypass vulnerability where
+        // an empty $secret would skip signature verification entirely.
+        $secret = config('blockchain.webhook_secret', '');
+        if (!$secret) {
+            Log::critical('PresaleWebhook: PRESALE_WEBHOOK_SECRET is not configured — rejecting request');
+            return response()->json(['error' => 'Webhook secret not configured on server'], 500);
+        }
 
-        if ($secret && !$this->verifySignature($request->getContent(), $signature, $secret)) {
+        $signature = $request->header('X-Presale-Signature', '');
+        if (!$this->verifySignature($request->getContent(), $signature, $secret)) {
+            Log::warning('PresaleWebhook: invalid HMAC signature', ['ip' => $request->ip()]);
             return response()->json(['error' => 'Invalid signature'], 401);
         }
 
@@ -117,15 +124,25 @@ class PresaleWebhookController extends Controller
             return false;
         }
 
-        $buyerAddress = strtolower($event['buyer'] ?? '');
-        $dbPhaseId    = (int)($event['db_phase_id'] ?? 0);
-        $obxAmount    = $event['obx_allocated'] ?? '0';   // human-readable 18-dec string
-        $usdtAmount   = $event['usdt_amount'] ?? '0';     // human-readable 6-dec string
-        $bonusObx     = $event['bonus_obx'] ?? '0';
-        $contractPhaseIndex = (int)($event['contract_phase_index'] ?? 0);
+        // ── On-chain verification ──────────────────────────────────────────────
+        // Cross-check the webhook payload against the actual chain receipt.
+        // This prevents a relay from submitting fraudulent purchase amounts.
+        $verified = $this->blockchain->verifyPurchaseTransaction($txHash);
+        if (!$verified) {
+            Log::error("PresaleWebhook: tx $txHash not found on-chain or failed — ignoring");
+            return false;
+        }
+
+        // Use on-chain values — NEVER trust webhook payload amounts
+        $buyerAddress       = strtolower($verified['buyer']);
+        $dbPhaseId          = (int)$verified['db_phase_id'];
+        $obxAmount          = $verified['obx_allocated'];
+        $usdtAmount         = $verified['usdt_amount'];
+        $bonusObx           = $verified['bonus_obx'];
+        $contractPhaseIndex = (int)$verified['contract_phase_index'];
 
         if (!$buyerAddress || !$dbPhaseId || bccomp($obxAmount, '0') <= 0) {
-            Log::warning('PresaleWebhook: invalid event data', $event);
+            Log::warning('PresaleWebhook: on-chain data invalid after verification', $verified);
             return false;
         }
 
@@ -164,12 +181,16 @@ class PresaleWebhookController extends Controller
                     ->where('status', STATUS_SUCCESS)
                     ->sum('coin'); // just for reference; contract is the source of truth
 
-                // Store contract_phase_index if not already set
+                // Store contract_phase_index if not already set and clear pending tx
                 if ($phase->contract_phase_index === null) {
                     $phase->update([
                         'contract_phase_index' => $contractPhaseIndex,
                         'contract_synced'      => true,
+                        'pending_onchain_tx'   => null,
                     ]);
+                } elseif ($phase->pending_onchain_tx) {
+                    // Phase already had an index; clear the pending update tx
+                    $phase->update(['pending_onchain_tx' => null]);
                 }
             }
 
@@ -199,6 +220,56 @@ class PresaleWebhookController extends Controller
             Log::error('PresaleWebhook: DB error for tx=' . $txHash . ': ' . $e->getMessage());
             return false;
         }
+    }
+
+    // ─── Public read: live on-chain phase data ────────────────────────────
+
+    /**
+     * GET /api/presale/phase-info/{index}
+     *
+     * Returns live on-chain data for the given phase index.
+     * Used by the buy page to display remaining tokens, reserve, and active phase.
+     * No authentication required — all data is public on-chain.
+     */
+    public function phaseInfo(int $index)
+    {
+        $remaining  = $this->blockchain->getRemainingTokens($index);
+        $obxReserve = $this->blockchain->getObxReserve();
+        $totalPhases= $this->blockchain->getTotalPhases();
+        $activePh   = $this->blockchain->getActivePhaseIndex();
+
+        return response()->json([
+            'phase_index'    => $index,
+            'remaining_obx'  => $remaining,
+            'obx_reserve'    => $obxReserve,
+            'total_phases'   => $totalPhases,
+            'active_phase'   => $activePh,
+        ]);
+    }
+
+    /**
+     * GET /api/presale/phase-info/{index}/preview/{usdt}
+     *
+     * Preview how many OBX tokens a given USDT amount would purchase in a phase.
+     * {usdt} is the human amount, e.g. "100" for 100 USDT.
+     * No authentication required.
+     */
+    public function previewPurchase(int $index, string $usdt)
+    {
+        // Validate: must be a positive decimal number
+        if (!is_numeric($usdt) || bccomp($usdt, '0', 6) <= 0) {
+            return response()->json(['error' => 'Invalid USDT amount'], 422);
+        }
+
+        $preview = $this->blockchain->previewPurchase($index, $usdt);
+
+        return response()->json([
+            'phase_index' => $index,
+            'usdt_amount' => $usdt,
+            'base_obx'    => $preview['baseObx'],
+            'bonus_obx'   => $preview['bonusObx'],
+            'total_obx'   => $preview['totalObx'],
+        ]);
     }
 
     // ─── HMAC verification ────────────────────────────────────────────────

@@ -72,22 +72,33 @@ class PhaseRepository
                     $phaseData  = $phase->toArray();
 
                     if ($isEdit && $phase->contract_synced && $phase->contract_phase_index !== null) {
-                        // Update existing phase on chain
-                        $txHash = $blockchain->updatePhaseOnContract(array_merge($phaseData, [
-                            'active' => $phase->status == STATUS_ACTIVE,
-                        ]));
-                        if ($txHash) {
-                            Log::info("Phase #{$phase->id} updated on-chain: $txHash");
+                        // Guard: skip if another admin action is already broadcasting
+                        if ($phase->pending_onchain_tx) {
+                            Log::warning("Phase #{$phase->id} update skipped: pending tx {$phase->pending_onchain_tx} not yet confirmed");
+                        } else {
+                            // Update existing phase on chain
+                            $result = $blockchain->updatePhaseOnContract(array_merge($phaseData, [
+                                'active' => $phase->status == STATUS_ACTIVE,
+                            ]));
+                            if ($result && isset($result['txHash'])) {
+                                $phase->update(['pending_onchain_tx' => $result['txHash']]);
+                                Log::info("Phase #{$phase->id} update broadcast: {$result['txHash']}");
+                            }
                         }
                     } else {
-                        // Push new phase to contract, get its array index
-                        $txHash = $blockchain->pushPhaseToContract($phaseData);
-                        if ($txHash) {
-                            // contract_phase_index = current total phases count before this push
-                            // The contract appends so index = previous length
-                            // We store it after confirmation in the webhook; mark synced=false until confirmed
-                            $phase->update(['contract_synced' => false]);
-                            Log::info("Phase #{$phase->id} pushed on-chain (pending): $txHash");
+                        // Guard: prevent double-push if a pending tx already exists
+                        if ($phase->pending_onchain_tx) {
+                            Log::warning("Phase #{$phase->id} push skipped: pending tx {$phase->pending_onchain_tx} not yet confirmed");
+                        } else {
+                            // Push new phase to contract
+                            $result = $blockchain->pushPhaseToContract($phaseData);
+                            if ($result && isset($result['txHash'])) {
+                                $phase->update([
+                                    'contract_synced'   => false,
+                                    'pending_onchain_tx'=> $result['txHash'],
+                                ]);
+                                Log::info("Phase #{$phase->id} pushed on-chain (pending): {$result['txHash']}");
+                            }
                         }
                     }
                 } catch (\Exception $chainEx) {

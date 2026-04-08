@@ -14,6 +14,7 @@
         "guzzlehttp/guzzle": "^7.8",
         "intervention/image": "^2.7",
         "jenssegers/agent": "^2.6",
+        "kornrunner/keccak": "^1.1",
         "laravel/framework": "^10.48",
         "laravel/horizon": "^5.28",
         "laravel/passport": "^11.9",

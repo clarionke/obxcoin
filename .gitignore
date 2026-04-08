@@ -21,3 +21,4 @@ bootstrap/cache/*.php
 composer.lock
 package-lock.json
 phpunit_out.txt  
+contracts/node_modules/  

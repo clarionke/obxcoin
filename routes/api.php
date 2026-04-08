@@ -23,6 +23,9 @@ Route::post('/coin-payment-notifier','Api\WalletNotifier@coinPaymentNotifier')->
 Route::post('/presale/webhook', 'Api\PresaleWebhookController@handleWebhook')->name('presale.webhook');
 // Cron-based BSCScan polling — protected by X-Api-Key header
 Route::post('/presale/sync-events', 'Api\PresaleWebhookController@syncEvents')->name('presale.syncEvents');
+// Public read endpoint — returns live on-chain phase data (used by buy page for real-time info)
+Route::get('/presale/phase-info/{index}', 'Api\PresaleWebhookController@phaseInfo')->name('presale.phaseInfo');
+Route::get('/presale/phase-info/{index}/preview/{usdt}', 'Api\PresaleWebhookController@previewPurchase')->name('presale.previewPurchase');
 
 Route::group(['namespace' => 'Api'], function () {
     Route::post('sign-up','AuthController@signUp');
@@ -37,6 +40,13 @@ Route::group(['namespace' => 'Api', 'middleware' => 'auth:api'], function () {
 });
 
 Route::group(['namespace' => 'Api', 'middleware' => ['auth:api','two_step']], function () {
+    // ── OBX Wallet management ──────────────────────────────────────────────────
+    // Users can generate multiple BSC/ETH-compatible OBX wallets.
+    // Balances are sourced live from the OBXToken contract.
+    Route::get('/user/wallets',                        'WalletController@index');
+    Route::post('/user/wallets/generate',              'WalletController@generate');
+    Route::patch('/user/wallets/{id}/label',           'WalletController@updateLabel');
+    Route::post('/user/wallets/{id}/refresh-balance',  'WalletController@refreshBalance');
     Route::get('notification-list', 'user\DashboardController@notificationList');
     Route::get('faq-list', 'user\DashboardController@faqList');
     Route::get('activity-list', 'user\DashboardController@activityList');
