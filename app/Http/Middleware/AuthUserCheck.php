@@ -20,6 +20,10 @@ class AuthUserCheck
             if( !empty(Auth::user()->is_verified)) {
                 if(Auth::user()->status == STATUS_ACTIVE) {
                     if(Auth::user()->role == USER_ROLE_USER) {
+                        // During admin impersonation skip 2FA challenge
+                        if (session()->has('impersonating_admin_id')) {
+                            return $next($request);
+                        }
                         if ((Auth::user()->g2f_enabled) && (session()->has('g2f_checked'))) {
                             return $next($request);
                         } elseif((Auth::user()->g2f_enabled) && !(session()->has('g2f_checked'))) {

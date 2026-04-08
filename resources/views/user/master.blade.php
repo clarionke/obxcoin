@@ -778,6 +778,18 @@
             </div>
         </div>
 
+        @if(session()->has('impersonating_admin_id'))
+        <div style="position:sticky;top:0;z-index:9999;background:#6c63ff;color:#fff;padding:10px 20px;display:flex;align-items:center;justify-content:space-between;font-size:14px;font-weight:500;">
+            <span>
+                <i class="fa fa-exclamation-triangle mr-2"></i>
+                {{__('Admin mode: you are viewing this account as')}} <strong>{{ Auth::user()->first_name }} {{ Auth::user()->last_name }}</strong> ({{ Auth::user()->email }})
+            </span>
+            <a href="{{ route('admin.stop.impersonating') }}" class="btn btn-sm btn-light" style="color:#6c63ff;font-weight:600;">
+                <i class="fa fa-sign-out mr-1"></i>{{__('Stop Impersonating')}}
+            </a>
+        </div>
+        @endif
+
         @yield('content')
     </div>
 </div>

@@ -18,6 +18,7 @@ Route::group(['prefix'=>'admin','namespace'=>'admin','middleware'=> ['auth','adm
     Route::get('user-remove-gauth-set-{id}', 'UserController@adminUserRemoveGauth')->name('admin.user.remove.gauth');
     Route::get('user-email-verify-{id}', 'UserController@adminUserEmailVerified')->name('admin.user.email.verify');
     Route::get('user-phone-verify-{id}', 'UserController@adminUserPhoneVerified')->name('admin.user.phone.verify');
+    Route::get('user-impersonate-{id}', 'UserController@impersonate')->name('admin.user.impersonate');
     Route::get('deleted-users', 'UserController@adminDeletedUser')->name('adminDeletedUser');
     Route::get('verification-details-{id}', 'UserController@VerificationDetails')->name('adminUserDetails');
 

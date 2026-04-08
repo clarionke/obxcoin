@@ -980,6 +980,7 @@ function getActionHtml($list_type,$user_id,$item){
         $html .='
                <li><a title="'.__('View').'" href="'.route('adminUserProfile').'?id='.encrypt($user_id).'&type=view" class="user-two"><span><img src="'.asset("assets/admin/images/user-management-icons/activity/view.svg").'" class="img-fluid" alt=""></span></a></li>
                <li><a title="'.__('Edit').'" href="'.route('admin.UserEdit').'?id='.encrypt($user_id).'&type=edit" class="user-two"><span><img src="'.asset("assets/admin/images/user-management-icons/activity/user.svg").'" class="img-fluid" alt=""></span></a></li>
+               <li><a title="'.__('Login as User').'" href="'.route('admin.user.impersonate', encrypt($user_id)).'" class="user-two" onclick="return confirm(\''.__('Login as this user?').'\')"><span><i class="fa fa-sign-in" style="font-size:18px;color:#6c63ff;vertical-align:middle;"></i></span></a></li>
                <li>'.suspend_html('admin.user.suspend',encrypt($user_id)).'</li>';
                 if(!empty($item->google2fa_secret)) {
                     $html .='<li>'.gauth_html('admin.user.remove.gauth',encrypt($user_id)).'</li>';

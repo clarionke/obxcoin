@@ -200,6 +200,53 @@ class UserController extends Controller
         return redirect()->back()->with('success','User suspended successfully');
     }
 
+    /**
+     * Start impersonating a user.
+     * Stores the original admin ID in the session, then logs in as the target user.
+     */
+    public function impersonate($id)
+    {
+        $targetUser = User::find(decrypt($id));
+
+        if (empty($targetUser) || $targetUser->role != USER_ROLE_USER) {
+            return redirect()->back()->with('dismiss', __('User not found or cannot be impersonated.'));
+        }
+
+        // Persist the original admin's ID so we can restore the session later
+        session(['impersonating_admin_id' => Auth::id()]);
+
+        Auth::login($targetUser);
+
+        return redirect()->route('userDashboard')
+            ->with('success', __('You are now viewing the site as :name.', ['name' => $targetUser->first_name . ' ' . $targetUser->last_name]));
+    }
+
+    /**
+     * Stop impersonating — restore the original admin session.
+     */
+    public function stopImpersonating()
+    {
+        $adminId = session('impersonating_admin_id');
+
+        if (empty($adminId)) {
+            return redirect()->route('userDashboard');
+        }
+
+        $admin = User::find($adminId);
+
+        if (empty($admin) || $admin->role != USER_ROLE_ADMIN) {
+            session()->forget('impersonating_admin_id');
+            Auth::logout();
+            return redirect()->route('login')->with('dismiss', __('Original admin session could not be restored.'));
+        }
+
+        session()->forget('impersonating_admin_id');
+        Auth::login($admin);
+
+        return redirect()->route('adminUsers')
+            ->with('success', __('Impersonation ended. Welcome back, admin.'));
+    }
+
     // remove user gauth
     public function adminUserRemoveGauth($id){
         $user = User::find(decrypt($id));

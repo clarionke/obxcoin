@@ -2,6 +2,11 @@
 Route::post('user/withdrawal-coin/callback', 'user\CoinController@callback')->name('callback');
 Route::post('user/withdrawal-coin/deposit/callback', 'user\CoinController@depositCallback')->name('depositCallback');
 
+// Stop-impersonation route — accessible while logged in as impersonated user
+Route::get('admin/stop-impersonating', 'admin\UserController@stopImpersonating')
+    ->middleware(['auth', 'default_lang'])
+    ->name('admin.stop.impersonating');
+
 Route::group(['prefix'=>'user','namespace'=>'user','middleware'=> ['auth','user', 'lang']],function () {
 
     Route::get('dashboard', 'DashboardController@userDashboard')->name('userDashboard');
