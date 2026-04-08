@@ -3,6 +3,7 @@
 namespace App;
 
 use App\Model\AffiliationCode;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -10,7 +11,7 @@ use Laravel\Passport\HasApiTokens;
 
 class User extends Authenticatable
 {
-    use HasApiTokens, Notifiable;
+    use HasApiTokens, HasFactory, Notifiable;
 
     /**
      * The attributes that are mass assignable.
@@ -20,7 +21,8 @@ class User extends Authenticatable
     protected $fillable = [
         'first_name','last_name', 'email','g2f_enabled', 'password','role','photo','phone','status',
         'is_verified','country_code','country','phone_verified','google2fa_secret','reset_code','gender', 'birth_date',
-        'language', 'device_id', 'device_type', 'push_notification_status', 'email_notification_status'
+        'language', 'device_id', 'device_type', 'push_notification_status', 'email_notification_status',
+        'bsc_wallet',
     ];
 
     /**

@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class BuyCoinHistory extends Model
 {
-    protected $fillable = ['confirmations','status','coin_type','phase_id','referral_level','fees','bonus','requested_amount','referral_bonus','stripe_token'];
+    protected $fillable = ['confirmations','status','coin_type','phase_id','referral_level','fees','bonus','requested_amount','referral_bonus','stripe_token','tx_hash','buyer_wallet'];
 
     public function user()
     {

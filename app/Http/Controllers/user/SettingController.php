@@ -105,4 +105,22 @@ class SettingController extends Controller
             return redirect()->back()->with('dismiss', __('Something went wrong.'));
         }
     }
+
+    public function saveBscWallet(Request $request)
+    {
+        $request->validate([
+            'bsc_wallet' => ['nullable', 'regex:/^0x[0-9a-fA-F]{40}$/'],
+        ], [
+            'bsc_wallet.regex' => __('Must be a valid BSC/Ethereum address (0x followed by 40 hex characters).'),
+        ]);
+
+        try {
+            User::where('id', Auth::id())->update([
+                'bsc_wallet' => $request->bsc_wallet ? strtolower($request->bsc_wallet) : null,
+            ]);
+            return redirect()->back()->with('success', __('BSC wallet address saved successfully.'));
+        } catch (\Exception $e) {
+            return redirect()->back()->with('dismiss', __('Something went wrong.'));
+        }
+    }
 }

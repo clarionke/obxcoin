@@ -1,0 +1,12 @@
+{
+  "name": "obxcoin-contract-signer",
+  "version": "1.0.0",
+  "description": "Node.js signer for OBXPresale admin operations",
+  "main": "signer.js",
+  "scripts": {
+    "install-deps": "npm install"
+  },
+  "dependencies": {
+    "ethers": "^5.7.2"
+  }
+}

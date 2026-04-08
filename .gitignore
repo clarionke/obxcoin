@@ -20,3 +20,4 @@ storage/framework/views/*
 bootstrap/cache/*.php
 composer.lock
 package-lock.json
+phpunit_out.txt  

@@ -25,6 +25,7 @@ Route::group(['prefix'=>'user','namespace'=>'user','middleware'=> ['auth','user'
     Route::post('g2f-secret-save', 'SettingController@g2fSecretSave')->name('g2fSecretSave');
     Route::post('google-login-enable', 'SettingController@googleLoginEnable')->name('googleLoginEnable');
     Route::post('save-preference', 'SettingController@savePreference')->name('savePreference');
+    Route::post('save-bsc-wallet', 'SettingController@saveBscWallet')->name('saveBscWallet');
 
     Route::get('/generate/new-address', 'WalletController@generateNewAddress')->name('generateNewAddress');
     Route::get('/qrcode/generate', 'WalletController@qrCodeGenerate')->name('qrCodeGenerate');

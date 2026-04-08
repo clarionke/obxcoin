@@ -19,6 +19,11 @@ use Illuminate\Http\Request;
 
 Route::post('/coin-payment-notifier','Api\WalletNotifier@coinPaymentNotifier')->name('coinPaymentNotifier');
 
+// On-chain presale webhook — called by event relay (Alchemy Notify / Moralis Stream / cron)
+Route::post('/presale/webhook', 'Api\PresaleWebhookController@handleWebhook')->name('presale.webhook');
+// Cron-based BSCScan polling — protected by X-Api-Key header
+Route::post('/presale/sync-events', 'Api\PresaleWebhookController@syncEvents')->name('presale.syncEvents');
+
 Route::group(['namespace' => 'Api'], function () {
     Route::post('sign-up','AuthController@signUp');
     Route::post('login','AuthController@login');

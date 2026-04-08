@@ -140,6 +140,44 @@
                 </div>
             </div>
         </div>
+        {{-- BSC Wallet Address --}}
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="cp-user-setting-card">
+                    <div class="cp-user-card-header-area">
+                        <div class="cp-user-title">
+                            <h4>{{__('BSC Wallet Address')}}</h4>
+                            <p class="text-muted small">{{__('Link your BNB Smart Chain wallet to participate in on-chain OBXCoin presale rounds.')}}</p>
+                        </div>
+                    </div>
+                    <div class="cp-user-setting-card-inner">
+                        <div class="cp-user-content">
+                            <form method="post" action="{{route('saveBscWallet')}}">
+                                @csrf
+                                <div class="form-group">
+                                    <label>{{__('BSC Wallet Address (0x...)')}}</label>
+                                    <input type="text" name="bsc_wallet" class="form-control"
+                                           placeholder="0x..."
+                                           value="{{ Auth::user()->bsc_wallet ?? '' }}"
+                                           pattern="^0x[0-9a-fA-F]{40}$"
+                                           title="{{__('Must be a valid Ethereum/BSC address starting with 0x')}}"
+                                           maxlength="42">
+                                    <small class="form-text text-muted">
+                                        {{__('This address will receive your OBXCoin tokens after purchase. Make sure you use an address you control.')}}
+                                    </small>
+                                    @if($errors->has('bsc_wallet'))
+                                        <span class="text-danger"><strong>{{ $errors->first('bsc_wallet') }}</strong></span>
+                                    @endif
+                                </div>
+                                <div class="form-group">
+                                    <button class="btn cp-user-setupbtn">{{__('Save Wallet')}}</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
 

@@ -155,6 +155,20 @@
                                                         <p>{{ date('d M y', strtotime($phase->end_date))}}</p>
                                                     </div>
                                                 </div>
+                                                {{-- On-chain sync status --}}
+                                                <div class="card-footer" style="border-top:1px solid rgba(255,255,255,.07);padding:8px 14px;">
+                                                    @if($phase->contract_synced && $phase->contract_phase_index !== null)
+                                                        <span class="badge badge-success" title="Phase index #{{$phase->contract_phase_index}} is live on BSC">
+                                                            <i class="fa fa-link"></i> {{__('On-chain')}} #{{$phase->contract_phase_index}}
+                                                        </span>
+                                                        <a href="https://bscscan.com/address/{{config('blockchain.presale_contract')}}" target="_blank"
+                                                           class="ml-2 small" style="font-size:10px;opacity:.6;">BscScan &rarr;</a>
+                                                    @else
+                                                        <span class="badge badge-warning" title="Phase not yet confirmed on-chain">
+                                                            <i class="fa fa-clock-o"></i> {{__('Pending on-chain')}}
+                                                        </span>
+                                                    @endif
+                                                </div>
                                             </div>
                                         </div>
                                     </div><!-- col-4 -->

@@ -16,6 +16,12 @@ class IcoPhase extends Model
         'bonus',
         'status',
         'affiliation_level',
-        'affiliation_percentage'
+        'affiliation_percentage',
+        'contract_phase_index',
+        'contract_synced',
+    ];
+
+    protected $casts = [
+        'contract_synced' => 'boolean',
     ];
 }
