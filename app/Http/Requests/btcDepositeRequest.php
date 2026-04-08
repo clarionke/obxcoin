@@ -28,26 +28,13 @@ class btcDepositeRequest extends FormRequest
      */
     public function rules()
     {
-
         $check = [
             'payment_type' => ['required'],
-//            'btc_address' => ['required'],
-//            'total_coin_price_in_dollar' => ['required'],
             'coin' => ['required', 'numeric'],
         ];
-        if ($this->payment_type == BTC){
-//            $check['btc_address'] =  ['required'];
-        }
-        if ($this->payment_type == CARD){
-            $check['payment_method_nonce'] =  ['required'];
-        }
-        if ($this->payment_type == STRIPE){
-            $check['stripeToken'] =  ['required'];
-        }
-        if ($this->payment_type == BANK_DEPOSIT){
 
-            $check['sleep'] =  ['required','mimes:jpeg,jpg,png,gif|required|max:10000'];
-            $check['bank_id'] =  'required|integer';
+        if ($this->payment_type == NOWPAYMENTS) {
+            $check['pay_currency'] = ['required', 'string', 'max:20'];
         }
 
         return $check;

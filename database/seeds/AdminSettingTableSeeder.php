@@ -80,16 +80,16 @@ class AdminSettingTableSeeder extends Seeder
         //order settings
         AdminSetting::firstOrCreate(['slug' => 'deposit_time'], ['value' => 1]);
 
-        //coin payment
-        AdminSetting::firstOrCreate(['slug' => 'COIN_PAYMENT_PUBLIC_KEY'], ['value' => 'test']);
-        AdminSetting::firstOrCreate(['slug' => 'COIN_PAYMENT_PRIVATE_KEY'], ['value' => 'test']);
-        AdminSetting::firstOrCreate(['slug' => 'COIN_PAYMENT_CURRENCY'], ['value' => 'BTC']);
-        AdminSetting::firstOrCreate(['slug' => 'ipn_merchant_id'], ['value' => '']);
-        AdminSetting::firstOrCreate(['slug' => 'ipn_merchant_id'], ['value' => '']);
-        AdminSetting::firstOrCreate(['slug' => 'ipn_secret'], ['value' => '']);
+        // NOWPayments settings
+        AdminSetting::firstOrCreate(['slug' => 'nowpayments_api_key'],      ['value' => '']);
+        AdminSetting::firstOrCreate(['slug' => 'nowpayments_ipn_secret'],   ['value' => '']);
+        AdminSetting::firstOrCreate(['slug' => 'nowpayments_enabled'],      ['value' => 0]);
+        AdminSetting::firstOrCreate(['slug' => 'nowpayments_sandbox_mode'], ['value' => 1]);
 
-        AdminSetting::firstOrCreate(['slug' => 'payment_method_coin_payment'], ['value' => 1]);
-        AdminSetting::firstOrCreate(['slug' => 'payment_method_bank_deposit'], ['value' => 1]);
+        // WalletConnect settings
+        AdminSetting::firstOrCreate(['slug' => 'walletconnect_project_id'], ['value' => '']);
+        AdminSetting::firstOrCreate(['slug' => 'walletconnect_chain_id'],   ['value' => 56]);
+        AdminSetting::firstOrCreate(['slug' => 'walletconnect_enabled'],    ['value' => 0]);
 
         // Send Fees
         AdminSetting::firstOrCreate(['slug' => 'membership_bonus_type'], ['value' => 1]);

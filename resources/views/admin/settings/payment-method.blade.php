@@ -41,29 +41,20 @@
                                         {{$value}}
                                     </td>
                                     <td>
-                                        @if($key == BTC)
+                                        @if($key == NOWPAYMENTS)
                                             <div>
                                                 <label class="switch">
-                                                    <input type="checkbox" onclick="return processForm('payment_method_coin_payment')"
-                                                           id="notification" name="security" @if(isset($settings['payment_method_coin_payment']) && ($settings['payment_method_coin_payment'] == 1)) checked @endif>
+                                                    <input type="checkbox" onclick="return processForm('nowpayments_enabled')"
+                                                           id="pm_nowpayments" name="security" @if(isset($settings['nowpayments_enabled']) && ($settings['nowpayments_enabled'] == 1)) checked @endif>
                                                     <span class="slider" for="status"></span>
                                                 </label>
                                             </div>
                                         @endif
-                                        @if($key == BANK_DEPOSIT)
+                                        @if($key == WALLETCONNECT)
                                             <div>
                                                 <label class="switch">
-                                                    <input type="checkbox" onclick="return processForm('payment_method_bank_deposit')"
-                                                           id="notification" name="security" @if(isset($settings['payment_method_bank_deposit']) && ($settings['payment_method_bank_deposit'] == 1)) checked @endif>
-                                                    <span class="slider" for="status"></span>
-                                                </label>
-                                            </div>
-                                        @endif
-                                        @if($key == STRIPE)
-                                            <div>
-                                                <label class="switch">
-                                                    <input type="checkbox" onclick="return processForm('payment_method_stripe')"
-                                                           id="notification" name="security" @if(isset($settings['payment_method_stripe']) && ($settings['payment_method_stripe'] == 1)) checked @endif>
+                                                    <input type="checkbox" onclick="return processForm('walletconnect_enabled')"
+                                                           id="pm_walletconnect" name="security" @if(isset($settings['walletconnect_enabled']) && ($settings['walletconnect_enabled'] == 1)) checked @endif>
                                                     <span class="slider" for="status"></span>
                                                 </label>
                                             </div>

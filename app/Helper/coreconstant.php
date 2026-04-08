@@ -26,6 +26,8 @@ const PAYPAL = 3;
 const BANK_DEPOSIT = 4;
 const STRIPE = 5;
 const ONCHAIN_USDT = 6; // BEP-20 USDT payment via OBXPresale contract
+const NOWPAYMENTS = 7; // NOWPayments crypto processor (any crypto → OBX)
+const WALLETCONNECT = 8; // WalletConnect direct on-chain USDT → presale contract
 
 
 const  SEND_FEES_FIXED  = 1;
@@ -91,7 +93,7 @@ const USER_ACTIVITY_INACTIVE=11;
 const USER_ACTIVITY_LOGOUT=12;
 const USER_ACTIVITY_PROFILE_UPDATE=13;
 
-const DEFAULT_COIN_TYPE="Default";
+const DEFAULT_COIN_TYPE="OBXCoin";
 const COIN_TYPE_LTCT="LTCT";
 
 //wallet types

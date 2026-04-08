@@ -27,6 +27,9 @@ Route::post('/presale/sync-events', 'Api\PresaleWebhookController@syncEvents')->
 Route::get('/presale/phase-info/{index}', 'Api\PresaleWebhookController@phaseInfo')->name('presale.phaseInfo');
 Route::get('/presale/phase-info/{index}/preview/{usdt}', 'Api\PresaleWebhookController@previewPurchase')->name('presale.previewPurchase');
 
+// NOWPayments IPN webhook — unauthenticated, signature-verified internally
+Route::post('/nowpayments/ipn', 'Api\NowPaymentsWebhookController@handleIpn')->name('nowpayments.ipn');
+
 Route::group(['namespace' => 'Api'], function () {
     Route::post('sign-up','AuthController@signUp');
     Route::post('login','AuthController@login');

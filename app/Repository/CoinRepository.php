@@ -10,107 +10,18 @@ namespace App\Repository;
 
 use App\Http\Services\CommonService;
 use App\Jobs\GiveCoin;
-use App\Model\Bank;
 use App\Model\BuyCoinHistory;
 use App\Model\CoinRequest;
 use App\Model\Wallet;
-use App\Services\CoinPaymentsAPI;
+use App\Services\NowPaymentsService;
 use App\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Stripe\Charge;
-use Stripe\Stripe;
 
 
 class CoinRepository
 {
-    //create wallet
-    public function buyCoin($request)
-    {
-        $response = ['success' => false, 'message' => __('Invalid request')];
-        try {
-            $url = file_get_contents('https://min-api.cryptocompare.com/data/price?fsym=USD&tsyms=BTC');
-
-            if (isset(\GuzzleHttp\json_decode($url, true)['BTC'])) {
-                $coin_price_doller = bcmul($request->coin, settings('coin_price'),8);
-                $coin_price_btc = bcmul(\GuzzleHttp\json_decode($url, true)['BTC'], $coin_price_doller,8);
-                $coin_price_btc = number_format($coin_price_btc, 8);
-
-                if ($request->payment_type == BTC) {
-                    $btc_transaction = new BuyCoinHistories();
-                    $btc_transaction->address = settings('admin_coin_address');
-                    $btc_transaction->type = BTC;
-                    $btc_transaction->user_id = Auth::id();
-                    $btc_transaction->coin = $request->coin;
-                    $btc_transaction->doller = $coin_price_doller;
-                    $btc_transaction->btc = $coin_price_btc;
-                    $btc_transaction->save();
-
-                    $response = ['success' => true, 'message' => __('Request submitted successful,please send BTC with this address')];
-                } elseif ($request->payment_type == CARD) {
-                    $common_servie = new CommonService();
-                    $all_req = $request->all();
-                    $all_req['btn_amount'] = $coin_price_btc;
-                    $all_req['total_coin_price_in_dollar'] = $coin_price_doller;
-                    $trans = $common_servie->make_transaction((object)$all_req);
-                    if ($trans['success']) {
-                        DB::beginTransaction();
-                        try {
-                            $btc_transaction = new BuyCoinHistories();
-                            $btc_transaction->type = CARD;
-                            $btc_transaction->user_id = Auth::id();
-                            $btc_transaction->coin = $request->coin;
-                            $btc_transaction->address = $trans['data']->networkTransactionId;
-                            $btc_transaction->doller = $coin_price_doller;
-                            $btc_transaction->btc = $coin_price_btc;
-                            $btc_transaction->status = STATUS_SUCCESS;
-                            $btc_transaction->save();
-
-                            //  add  coin on balance //
-                            $default_wallet = Wallet::where('user_id', Auth::id())->where('is_primary', 1)->first();
-                            $default_wallet->balance = $default_wallet->balance + $request->coin;
-                            $default_wallet->save();
-
-                            DB::commit();
-                            $response = ['success' => true, 'message' => __('Coin purchased successfully')];
-
-                            // all good
-                        } catch (\Exception $e) {
-
-                            DB::rollback();
-                            $response = ['success' => false, 'message' => __('Something went wrong')];
-                            return $response;
-                        }
-                    } else {
-                        $response = ['success' => false, 'message' => $trans['message']];
-                    }
-                } elseif ($request->payment_type = BANK_DEPOSIT) {
-                    $btc_transaction = new BuyCoinHistories();
-                    $btc_transaction->type = BANK_DEPOSIT;
-                    $btc_transaction->address = 'N/A';
-                    $btc_transaction->user_id = Auth::id();
-                    $btc_transaction->doller = $coin_price_doller;
-                    $btc_transaction->btc = $coin_price_btc;
-                    $btc_transaction->coin = $request->coin;
-                    $btc_transaction->bank_id = $request->bank_id;
-                    $btc_transaction->bank_sleep = uploadFile($request->file('sleep'), IMG_SLEEP_PATH);
-                    $btc_transaction->save();
-
-                    $response = ['success' => true, 'message' => __('Request submitted successful,Please wait for admin approval')];
-                }
-            } else {
-                $response = ['success' => false, 'message' => __('Invalid request')];
-            }
-
-        } catch(\Exception $e) {
-            $response = ['success' => false, 'message' => __('Something went wrong')];
-            return $response;
-        }
-
-        return $response;
-    }
-
     // send coin amount request to user
     public function sendCoinAmountRequest($request)
     {
@@ -306,8 +217,157 @@ class CoinRepository
     }
 
 
-    // buy coin with coin payment
-    public function buyCoinWithCoinPayment($request, $coin_amount, $coin_price_doller,$phase_id,$referral_level, $phase_fees, $bonus, $affiliation_percentage)
+    /**
+     * Buy OBX tokens via NOWPayments (crypto payment processor).
+     *
+     * Creates a pending BuyCoinHistory record, calls the NOWPayments API to
+     * generate a payment address, and stores the payment details. The IPN
+     * webhook (NowPaymentsWebhookController) later credits OBX when the
+     * payment reaches 'finished' status.
+     *
+     * @return array{success: bool, message: string, data: BuyCoinHistory|object}
+     */
+    public function buyCoinWithNowPayments(
+        $request,
+        float  $coin_amount,
+        float  $coin_price_doller,
+        mixed  $phase_id,
+        mixed  $referral_level,
+        float  $phase_fees,
+        float  $bonus,
+        float  $affiliation_percentage
+    ): array {
+        $response = ['success' => false, 'message' => __('Something went wrong'), 'data' => (object)[]];
+
+        DB::beginTransaction();
+        try {
+            // Create a pending record first so we have an ID for the order reference
+            $purchase = new BuyCoinHistory();
+            $purchase->type             = NOWPAYMENTS;
+            $purchase->address          = 'pending';
+            $purchase->user_id          = Auth::id();
+            $purchase->phase_id         = $phase_id;
+            $purchase->referral_level   = $referral_level;
+            $purchase->fees             = $phase_fees;
+            $purchase->bonus            = $bonus;
+            $purchase->referral_bonus   = $affiliation_percentage;
+            $purchase->requested_amount = $coin_amount;
+            $purchase->coin             = $request->coin;
+            $purchase->doller           = $coin_price_doller;
+            $purchase->btc              = 0;
+            $purchase->coin_type        = strtolower($request->pay_currency ?? 'btc');
+            $purchase->status           = STATUS_PENDING;
+            $purchase->save();
+
+            // Call NOWPayments API
+            $nowPayments = new NowPaymentsService();
+            $ipnUrl      = route('nowpayments.ipn');
+            $payCurrency = strtolower($request->pay_currency ?? 'btc');
+
+            $npResponse = $nowPayments->createPayment(
+                priceAmount:    (float) $coin_price_doller,
+                payCurrency:    $payCurrency,
+                orderId:        $purchase->id,
+                ipnCallbackUrl: $ipnUrl,
+                description:    settings('coin_name') . " Purchase #{$purchase->id}"
+            );
+
+            if (empty($npResponse['payment_id'])) {
+                DB::rollBack();
+                return ['success' => false, 'message' => __('NOWPayments did not return a payment address. Please try again.'), 'data' => (object)[]];
+            }
+
+            // Persist NOWPayments details
+            $purchase->nowpayments_payment_id  = (string) $npResponse['payment_id'];
+            $purchase->nowpayments_pay_address = $npResponse['pay_address'] ?? null;
+            $purchase->nowpayments_pay_amount  = $npResponse['pay_amount']  ?? null;
+            $purchase->nowpayments_pay_currency= $npResponse['pay_currency'] ?? $payCurrency;
+            $purchase->address                 = $npResponse['pay_address']  ?? 'pending';
+            $purchase->save();
+
+            DB::commit();
+
+            $response = [
+                'success' => true,
+                'message' => __('Order placed. Please send the exact amount to the address shown.'),
+                'data'    => $purchase,
+            ];
+
+        } catch (\RuntimeException $e) {
+            DB::rollBack();
+            Log::error('buyCoinWithNowPayments NowPayments API error: ' . $e->getMessage());
+            $response = ['success' => false, 'message' => __('Payment gateway error. Please try again later.'), 'data' => (object)[]];
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('buyCoinWithNowPayments exception: ' . $e->getMessage());
+            $response = ['success' => false, 'message' => __('Something went wrong'), 'data' => (object)[]];
+        }
+
+        return $response;
+    }
+
+    /**
+     * Record a WalletConnect on-chain purchase initiation.
+     *
+     * The actual OBX credit happens via the existing PresaleWebhookController
+     * once the TokensPurchased event is detected on-chain. This method only
+     * creates a pending record so the user can see a "waiting for confirmation"
+     * state in their history. The tx_hash is supplied by the frontend after
+     * the wallet signs the transaction.
+     *
+     * @return array{success: bool, message: string, data: BuyCoinHistory|object}
+     */
+    public function buyCoinWithWalletConnect(
+        $request,
+        float  $coin_amount,
+        float  $coin_price_doller,
+        mixed  $phase_id,
+        mixed  $referral_level,
+        float  $phase_fees,
+        float  $bonus,
+        float  $affiliation_percentage
+    ): array {
+        $response = ['success' => false, 'message' => __('Something went wrong'), 'data' => (object)[]];
+
+        DB::beginTransaction();
+        try {
+            $purchase = new BuyCoinHistory();
+            $purchase->type             = WALLETCONNECT;
+            $purchase->address          = $request->wc_buyer_address ?? 'N/A';
+            $purchase->wc_buyer_address = $request->wc_buyer_address ?? null;
+            $purchase->tx_hash          = $request->tx_hash ?? null;
+            $purchase->user_id          = Auth::id();
+            $purchase->phase_id         = $phase_id;
+            $purchase->referral_level   = $referral_level;
+            $purchase->fees             = $phase_fees;
+            $purchase->bonus            = $bonus;
+            $purchase->referral_bonus   = $affiliation_percentage;
+            $purchase->requested_amount = $coin_amount;
+            $purchase->coin             = $request->coin;
+            $purchase->doller           = $coin_price_doller;
+            $purchase->btc              = 0;
+            $purchase->coin_type        = 'USDT';
+            $purchase->status           = STATUS_PENDING;
+            $purchase->save();
+
+            DB::commit();
+
+            $response = [
+                'success' => true,
+                'message' => __('Transaction submitted. Your OBX tokens will be credited once the block is confirmed.'),
+                'data'    => $purchase,
+            ];
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('buyCoinWithWalletConnect exception: ' . $e->getMessage());
+            $response = ['success' => false, 'message' => __('Something went wrong'), 'data' => (object)[]];
+        }
+
+        return $response;
+    }
+
+}
     {
         $response = ['success' => false, 'message' => __('Something went wrong'), 'data' => (object)[]];
 

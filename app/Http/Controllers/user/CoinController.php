@@ -4,7 +4,6 @@ namespace App\Http\Controllers\user;
 
 use App\Http\Requests\btcDepositeRequest;
 use App\Http\Services\TransactionService;
-use App\Model\Bank;
 use App\Model\BuyCoinHistory;
 use App\Model\BuyCoinReferralHistory;
 use App\Model\Coin;
@@ -15,7 +14,6 @@ use App\Model\WalletAddressHistory;
 use App\Model\WithdrawHistory;
 use App\Repository\AffiliateRepository;
 use App\Repository\CoinRepository;
-use App\Services\CoinPaymentsAPI;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
@@ -24,8 +22,6 @@ use App\Model\IcoPhase;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Validator;
-use Stripe\Charge;
-use Stripe\Stripe;
 
 class CoinController extends Controller
 {
@@ -33,19 +29,10 @@ class CoinController extends Controller
     public function buyCoinPage()
     {
         try {
-            $data['title'] = __('Buy Coin');
+            $data['title']    = __('Buy Coin');
             $data['settings'] = allsetting();
-            $data['banks'] = Bank::where(['status' => STATUS_ACTIVE])->get();
-            if(env('APP_ENV') == 'local') {
-                $data['coins'] = Coin::where(['status' => STATUS_ACTIVE])->where('type', '<>', DEFAULT_COIN_TYPE)->get();
-            } else {
-                $data['coins'] = Coin::where(['status' => STATUS_ACTIVE])->whereNotIn('type', [DEFAULT_COIN_TYPE,COIN_TYPE_LTCT])->get();
-            }
-            $baseCoin = strtoupper(allsetting('base_coin_type')) ?? 'BTC';
-            $url = file_get_contents('https://min-api.cryptocompare.com/data/price?fsym=USD&tsyms='.$baseCoin);
+
             $data['coin_price'] = settings('coin_price');
-            $data['btc_dlr'] = (settings('coin_price') * json_decode($url,true)[$baseCoin]);
-            $data['btc_dlr'] = custom_number_format($data['btc_dlr']);
 
             $activePhases = checkAvailableBuyPhase();
 
@@ -56,73 +43,51 @@ class CoinController extends Controller
                 if ($activePhases['futurePhase'] == false) {
                     $phase_info = $activePhases['pahse_info'];
                     if (isset($phase_info)) {
-                        $data['coin_price'] =  number_format($phase_info->rate,4);
-                        $data['btc_dlr'] = ($data['coin_price'] * json_decode($url,true)[$baseCoin]);
-                        $data['btc_dlr'] = custom_number_format($data['btc_dlr']);
+                        $data['coin_price'] = number_format($phase_info->rate, 4);
                     }
                 }
             }
             $data['activePhase'] = $activePhases;
 
+            // Pass enabled payment-method flags for the view
+            $data['nowpayments_enabled']  = (settings('nowpayments_enabled')   == '1');
+            $data['walletconnect_enabled']= (settings('walletconnect_enabled') == '1');
+            $data['wc_project_id']        = settings('walletconnect_project_id') ?? '';
+            $data['wc_chain_id']          = (int)(settings('walletconnect_chain_id') ?? 56);
+            $data['presale_contract']     = config('blockchain.presale_contract', '');
+            $data['usdt_address']         = config('blockchain.usdt_addresses.' . $data['wc_chain_id'], '');
 
-
-            return view('user.buy_coin.index',$data);
+            return view('user.buy_coin.index', $data);
         } catch (\Exception $e) {
-            Log::info('buy coin  '.$e->getMessage());
+            Log::info('buy coin page: ' . $e->getMessage());
             return redirect()->back()->with('dismiss', $e->getMessage());
         }
-
     }
 
     public function buyCoinRate(Request $request)
     {
         if ($request->ajax()) {
-            $data['amount'] = isset($request->amount) ? $request->amount : 0;
-
-            $data['coin_type'] = isset($request->payment_type) ? check_coin_type($request->payment_type) : strtoupper(allsetting('base_coin_type'));
-
-            $coin_price = settings('coin_price');
-            $activePhases = checkAvailableBuyPhase();
-            $data['phase_fees'] = 0;
-            $data['bonus'] = 0;
+            $data['amount']   = $request->amount ?? 0;
             $data['no_phase'] = false;
+            $data['phase_fees'] = 0;
+            $data['bonus']    = 0;
+
+            $coin_price   = settings('coin_price');
+            $activePhases = checkAvailableBuyPhase();
+
             if ($activePhases['status'] == false) {
                 $data['no_phase'] = true;
-            } else {
-                if ($activePhases['futurePhase'] == false) {
-
-                    $phase_info = $activePhases['pahse_info'];
-                    if (isset($phase_info)) {
-                        $coin_price =  customNumberFormat($phase_info->rate);
-                        $data['phase_fees'] = calculate_phase_percentage($data['amount'], $phase_info->fees);
-                        $affiliation_percentage = 0;
-                        $data['bonus'] = calculate_phase_percentage($data['amount'], $phase_info->bonus);
-
-
-                       // $coin_amount = ($data['amount'] + $data['bonus']) - ($data['phase_fees'] + $affiliation_percentage);
-                        $coin_amount = ($data['amount'] - $data['bonus']);
-                        $data['amount'] = $coin_amount;
-                        $data['phase_fees'] = customNumberFormat($data['phase_fees']);
-                    }
+            } elseif ($activePhases['futurePhase'] == false) {
+                $phase_info = $activePhases['pahse_info'];
+                if (isset($phase_info)) {
+                    $coin_price           = customNumberFormat($phase_info->rate);
+                    $data['phase_fees']   = customNumberFormat(calculate_phase_percentage($data['amount'], $phase_info->fees));
+                    $data['bonus']        = calculate_phase_percentage($data['amount'], $phase_info->bonus);
+                    $data['amount']       = $data['amount'] - $data['bonus'];
                 }
             }
 
-            $data['coin_price'] = bcmul($coin_price,$data['amount'],8);
-            $data['coin_price'] = customNumberFormat($data['coin_price']);
-            if ($request->pay_type == BTC) {
-                $coinpayment = new CoinPaymentsAPI();
-                $api_rate = $coinpayment->GetRates('');
-
-
-                $data['btc_dlr'] = converts_currency($data['coin_price'], $data['coin_type'],$api_rate);
-
-            } else {
-                $data['coin_type'] = allsetting('base_coin_type');
-                $url = file_get_contents('https://min-api.cryptocompare.com/data/price?fsym=USD&tsyms='.$data['coin_type']);
-                $data['btc_dlr'] = $data['coin_price'] * (json_decode($url,true)[$data['coin_type']]);
-            }
-
-            $data['btc_dlr'] = custom_number_format($data['btc_dlr']);
+            $data['coin_price'] = customNumberFormat(bcmul($coin_price, $data['amount'], 8));
 
             return response()->json($data);
         }
@@ -133,87 +98,68 @@ class CoinController extends Controller
     public function buyCoin(btcDepositeRequest $request)
     {
         try {
-            $baseCoin = strtoupper(allsetting('base_coin_type')) ?? 'BTC';
             $coinRepo = new CoinRepository();
-            $url = file_get_contents('https://min-api.cryptocompare.com/data/price?fsym=USD&tsyms='.$baseCoin);
 
-            if (isset(json_decode($url, true)[$baseCoin])) {
-                $phase_fees = 0;
-                $affiliation_percentage = 0;
-                $bonus = 0;
-                $coin_amount = $request->coin;
-                $phase_id = '';
-                $referral_level = '';
+            $phase_fees             = 0;
+            $affiliation_percentage = 0;
+            $bonus                  = 0;
+            $coin_amount            = (float) $request->coin;
+            $phase_id               = '';
+            $referral_level         = '';
+            $coin_price_doller      = bcmul($coin_amount, settings('coin_price'), 8);
 
-                if (isset($request->phase_id)) {
-                    $phase = IcoPhase::where('id',$request->phase_id)->first();
-                    if (isset($phase)) {
-                        $total_sell = BuyCoinHistory::where('phase_id',$phase->id)->sum('coin');
-                        if (($total_sell + $coin_amount) > $phase->amount) {
-                            return redirect()->back()->with('dismiss', __('Insufficient phase amount'));
-                        }
-                        $phase_id = $phase->id;
-                        $referral_level = $phase->affiliation_level;
-                        $phase_fees = calculate_phase_percentage($request->coin, $phase->fees);
-                        // $affiliation_percentage = calculate_phase_percentage($request->coin, $phase->affiliation_percentage);
-                        $affiliation_percentage = 0;
-                        $bonus = calculate_phase_percentage($request->coin, $phase->bonus);
-                        //  $coin_amount = ($request->coin + $bonus) - ($phase_fees + $affiliation_percentage);
-                        $coin_amount = ($request->coin - $bonus) ;
-
-                        $coin_price_doller = bcmul($coin_amount, $phase->rate,8);
-                        $coin_price_btc = bcmul(custom_number_format(json_decode($url, true)[$baseCoin]), $coin_price_doller,8);
-//                    $coin_price_btc = custom_number_format($coin_price_btc);
-
-                    } else {
-                        $coin_price_doller = bcmul($request->coin, settings('coin_price'),8);
-                        $coin_price_btc = bcmul(custom_number_format(json_decode($url, true)[$baseCoin]), $coin_price_doller,8);
-//                    $coin_price_btc = custom_number_format($coin_price_btc);
+            if (isset($request->phase_id)) {
+                $phase = IcoPhase::where('id', $request->phase_id)->first();
+                if (isset($phase)) {
+                    $total_sell = BuyCoinHistory::where('phase_id', $phase->id)->sum('coin');
+                    if (($total_sell + $coin_amount) > $phase->amount) {
+                        return redirect()->back()->with('dismiss', __('Insufficient phase amount'));
                     }
-
-                } else {
-                    $coin_price_doller = bcmul($request->coin, settings('coin_price'),8);
-                    $coin_price_btc = bcmul(custom_number_format(json_decode($url, true)[$baseCoin]), $coin_price_doller,8);
-//                $coin_price_btc = custom_number_format($coin_price_btc);
+                    $phase_id           = $phase->id;
+                    $referral_level     = $phase->affiliation_level;
+                    $phase_fees         = calculate_phase_percentage($request->coin, $phase->fees);
+                    $affiliation_percentage = 0;
+                    $bonus              = calculate_phase_percentage($request->coin, $phase->bonus);
+                    $coin_amount        = $request->coin - $bonus;
+                    $coin_price_doller  = bcmul($coin_amount, $phase->rate, 8);
                 }
+            }
 
-                if ($request->payment_type == BTC) {
-                    $buyCoinWithCoinPayment = $coinRepo->buyCoinWithCoinPayment($request, $coin_amount, $coin_price_doller,$phase_id,$referral_level, $phase_fees, $bonus, $affiliation_percentage);
-
-                    if($buyCoinWithCoinPayment['success'] = true) {
-                        return redirect()->route('buyCoinByAddress', $buyCoinWithCoinPayment['data']->address)->with('success', $buyCoinWithCoinPayment['message']);
-
-                    } else {
-                        return redirect()->back()->with('dismiss', $buyCoinWithCoinPayment['message']);
-                    }
-
-                }  elseif ($request->payment_type == BANK_DEPOSIT) {
-                    $buyCoinWithBank = $coinRepo->buyCoinWithBank($request, $coin_amount, $coin_price_doller, $coin_price_btc, $phase_id, $referral_level, $phase_fees, $bonus, $affiliation_percentage);
-
-                    if($buyCoinWithBank['success'] = true) {
-                        return redirect()->back()->with('success', $buyCoinWithBank['message']);
-
-                    } else {
-                        return redirect()->back()->with('dismiss', $buyCoinWithBank['message']);
-                    }
-                } elseif ($request->payment_type == STRIPE) {
-                    $buyCoinWithStripe = $coinRepo->buyCoinWithStripe($request, $coin_amount, $coin_price_doller, $coin_price_btc, $phase_id, $referral_level, $phase_fees, $bonus, $affiliation_percentage);
-
-                    if ($buyCoinWithStripe['success'] = true) {
-                        return redirect()->back()->with('success', $buyCoinWithStripe['message']);
-
-                    } else {
-                        return redirect()->back()->with('dismiss', $buyCoinWithStripe['message']);
-                    }
-                } else {
-                    return redirect()->back()->with('dismiss', "Something went wrong");
+            if ($request->payment_type == NOWPAYMENTS) {
+                if (settings('nowpayments_enabled') != '1') {
+                    return redirect()->back()->with('dismiss', __('NOWPayments is currently disabled.'));
                 }
+                $result = $coinRepo->buyCoinWithNowPayments(
+                    $request, $coin_amount, (float) $coin_price_doller,
+                    $phase_id, $referral_level, $phase_fees, $bonus, $affiliation_percentage
+                );
+                if ($result['success']) {
+                    return redirect()
+                        ->route('buyCoinByAddress', $result['data']->nowpayments_payment_id)
+                        ->with('success', $result['message']);
+                }
+                return redirect()->back()->with('dismiss', $result['message']);
+
+            } elseif ($request->payment_type == WALLETCONNECT) {
+                if (settings('walletconnect_enabled') != '1') {
+                    return redirect()->back()->with('dismiss', __('WalletConnect is currently disabled.'));
+                }
+                $result = $coinRepo->buyCoinWithWalletConnect(
+                    $request, $coin_amount, (float) $coin_price_doller,
+                    $phase_id, $referral_level, $phase_fees, $bonus, $affiliation_percentage
+                );
+                if ($result['success']) {
+                    return redirect()->back()->with('success', $result['message']);
+                }
+                return redirect()->back()->with('dismiss', $result['message']);
 
             } else {
-                return redirect()->back()->with('dismiss', "Something went wrong");
+                return redirect()->back()->with('dismiss', __('Invalid payment method selected.'));
             }
+
         } catch (\Exception $e) {
-            return redirect()->back()->with('dismiss', "Something went wrong");
+            Log::error('buyCoin: ' . $e->getMessage());
+            return redirect()->back()->with('dismiss', __('Something went wrong'));
         }
     }
 
@@ -242,21 +188,28 @@ class CoinController extends Controller
         return response()->json($data);
     }
 
-    // coin payment success page
+    // coin payment success / pending page
     public function buyCoinByAddress($address)
     {
-        $data['title'] = __('Coin Payment');
+        $data['title'] = __('Payment Details');
+
+        // Look up by numeric DB id
         if (is_numeric($address)) {
-            $coinAddress = BuyCoinHistory::where(['user_id' => Auth::id(), 'id' => $address, 'status' => STATUS_PENDING])->first();
+            $coinAddress = BuyCoinHistory::where(['user_id' => Auth::id(), 'id' => $address])->first();
         } else {
-            $coinAddress = BuyCoinHistory::where(['user_id' => Auth::id(), 'address' => $address, 'status' => STATUS_PENDING])->first();
+            // NOWPayments payment_id (UUID string)
+            $coinAddress = BuyCoinHistory::where(['user_id' => Auth::id(), 'nowpayments_payment_id' => $address])->first();
+            // Fallback: plain address
+            if (!$coinAddress) {
+                $coinAddress = BuyCoinHistory::where(['user_id' => Auth::id(), 'address' => $address])->first();
+            }
         }
+
         if (isset($coinAddress)) {
             $data['coinAddress'] = $coinAddress;
             return view('user.buy_coin.payment_success', $data);
-        } else {
-            return redirect()->back()->with('dismiss', __('Address not found'));
         }
+        return redirect()->back()->with('dismiss', __('Payment record not found'));
     }
 
     // buy coin history

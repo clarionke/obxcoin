@@ -1,639 +1,417 @@
 @extends('user.master',['menu'=>'coin', 'sub_menu'=>'buy_coin'])
 @section('title', isset($title) ? $title : '')
 @section('style')
-    <style type="text/css">
-        .panel-title {
-            display: inline;
-            font-weight: bold;
-        }
-        .display-table {
-            display: table;
-        }
-        .display-tr {
-            display: table-row;
-        }
-        .display-td {
-            display: table-cell;
-            vertical-align: middle;
-            width: 61%;
-        }
-    </style>
+<style>
+    .payment-card {
+        border: 2px solid transparent;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: border-color .2s, box-shadow .2s;
+        padding: 18px;
+        margin-bottom: 12px;
+    }
+    .payment-card:hover       { border-color: #4f8ef7; box-shadow: 0 0 0 3px rgba(79,142,247,.15); }
+    .payment-card.selected    { border-color: #4f8ef7; background: rgba(79,142,247,.07); }
+    .payment-card .pm-icon    { font-size: 22px; margin-right: 10px; }
+    .payment-card .pm-label   { font-weight: 600; }
+    .payment-card .pm-desc    { font-size: 12px; color: #888; }
+    #wc-panel, #np-panel      { display: none; margin-top: 16px; }
+    #wc-panel.show, #np-panel.show { display: block; }
+    .price-preview            { background: rgba(255,255,255,.04); border-radius: 8px; padding: 12px 16px; list-style:none; }
+    .price-preview li         { padding: 4px 0; }
+    #wc-status                { font-size: 13px; margin-top: 8px; }
+</style>
 @endsection
+
 @section('content')
-    <div class="row">
-        <div class="col-xl-6 mb-xl-0 mb-4">
-            <div class="card cp-user-custom-card">
-                <div class="card-body">
-                    <div class="cp-user-card-header-area">
-                        <h4>{{__('Buy Our Coin From Here')}}</h4>
-                    </div>
-                    <div class="cp-user-buy-coin-content-area">
-                        @if($no_phase)
-                            <p>
-                                <span class="text-danger"><i class="fa fa-exclamation-triangle"></i> {{__('No phase active yet')}}</span>
-                                <br>
-                                <span>{{__('Now you can buy our regular coin')}}</span>
-                            </p>
-                        @elseif($activePhase['futurePhase'] == true)
-                            <p>
-                                <span class="text-warning"> {{__('New Ico Phase will start soon')}}</span> <br>
-                                <span>{{__('Now you can buy our regular coin')}}</span>
-                            </p>
-                        @else
-                            @php
-                                $phase = $activePhase['pahse_info'];
-                                $total_sell = \App\Model\BuyCoinHistory::where('status',STATUS_SUCCESS)->where('phase_id',$phase->id)->sum('coin');
-                                $progress_bar = 0;
+<div class="row">
 
-                                $target = $phase->amount;
-                                $unsold = ($target >=  $total_sell ) ? bcsub($target,$total_sell) : 0;
-                                if ($target != 0) {
-                                  $sale = bcmul(100, $total_sell);
-                                  $progress_bar = ceil(bcdiv($sale,$target));
-                                }
-                            @endphp
-                            <p>
-                                <span class="text-success">{{__('New Ico Phase are available now')}}</span> <br>
-                                <span
-                                    class="text-warning">{{__('Now you can get some extra facility  when buy coin')}}</span>
-                            </p>
-
-                        @endif
-                        <div class="cp-user-coin-info">
-                            <form action="{{route('buyCoinProcess')}}" method="POST" enctype="multipart/form-data"
-                                  id="buy_coin">
-                                @csrf
-                                <div class="form-group">
-                                    @if(isset($phase))
-                                        <input type="hidden" name="phase_id" value="{{$phase->id}}">
-                                    @endif
-                                    <label>{{__('Coin Amount')}}</label>
-                                    <input
-                                        oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');"
-                                        name="coin" autocomplete="off" id="amount" class="form-control"
-                                        placeholder="{{__('Your Amount')}}">
-                                    <ul class="coin_price">
-                                        <li>{{$coin_price}} x <span class="coinAmount">1</span> = <span
-                                                class="CoinInDoller">{{$coin_price}} </span> USD
-                                        </li>
-                                        <li>$<span class="CoinInDoller">{{$coin_price}} USD</span> = <span
-                                                class="totalBTC">{{$btc_dlr}}</span> <span class="coinType"> {{allsetting('base_coin_type')}}</span>
-                                        </li>
-                                        @if(isset($phase))
-{{--                                            <li><span class="">{{__('Fees')}}</span> = <span--}}
-{{--                                                    class="coinFees">0 </span> {{settings('coin_name')}}</li>--}}
-                                            <li><span class="">{{__('Bonus')}}</span> = <span
-                                                    class="coinBonus">0 </span> {{settings('coin_name')}}</li>
-                                        @endif
-                                    </ul>
-                                </div>
-                                <div class="cp-user-payment-type">
-                                    <h3>{{__('Payment Type')}}</h3>
-                                    @if(isset($settings['payment_method_coin_payment']) && $settings['payment_method_coin_payment'] == 1)
-                                        <div class="form-group">
-                                            <input type="radio" onclick="call_coin_payment();"
-                                                   onchange="$('.payment_method').addClass('d-none');$('.bank-details').addClass('d-none');$('.bank-details').removeClass('d-block'); $('.payment-stripe').addClass('d-none').removeClass('d-block');$('.btc_payment').toggleClass('d-none');$('.normal-btn').addClass('d-block').removeClass('d-none')"
-                                                   value="{{BTC}}" id="coin-option" name="payment_type">
-                                            <label for="coin-option">{{__('Coin Payment')}}</label>
-                                        </div>
-                                    @endif
-                                    @if(isset($settings['payment_method_bank_deposit']) && $settings['payment_method_bank_deposit'] == 1)
-                                        <div class="form-group">
-                                            <input type="radio" onclick="call_coin_payment();" value="{{BANK_DEPOSIT}}"
-                                                   onchange="$('.payment_method').addClass('d-none');$('.bank-details').addClass('d-block');$('.bank-details').removeClass('d-none');$('.payment-stripe').addClass('d-none').removeClass('d-block');$('.bank_payment').toggleClass('d-none');$('.normal-btn').addClass('d-block').removeClass('d-none')"
-                                                   id="f-option" name="payment_type">
-                                            <label for="f-option">{{__('Bank Deposit')}}</label>
-                                        </div>
-                                    @endif
-                                    @if(isset($settings['payment_method_stripe']) && $settings['payment_method_stripe'] == 1)
-                                        <div class="form-group">
-                                            <input type="radio" onclick="call_coin_payment();" value="{{STRIPE}}"
-                                                   onchange="$('.normal-btn').addClass('d-none');$('.payment_method').addClass('d-none');$('.bank-details').addClass('d-none');$('.payment-stripe').addClass('d-block');$('.payment-stripe').removeClass('d-none');$('.payment-stripe-div').toggleClass('d-none');"
-                                                   id="stripe-option" name="payment_type">
-                                            <label for="stripe-option">{{__('Credit Card')}}</label>
-                                        </div>
-                                    @endif
-                                </div>
-
-                                <div class="check-box-list btc_payment payment_method d-none">
-
-                                    <div class="form-group buy_coin_address_input ">
-                                        <p>
-                                            <span id="coinpayment_address"></span>
-                                        </p>
-                                        <div class="row">
-                                            <div class="col-md-6">
-                                                <label for="">{{__('Payable Coin')}}</label>
-                                                <input class="form-control" disabled type="text"
-                                                       oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');"
-                                                       readonly name="total_price" id="total_price"
-                                                       placeholder="Amount">
-                                            </div>
-                                            <div class="col-md-6">
-                                                <label for="">{{__('Select')}}</label>
-                                                <div class="cp-select-area">
-                                                    <select name="payment_coin_type"
-                                                            class="selet-im vodiapicker form-control "
-                                                            id="payment_type">
-                                                        @if(isset($coins[0]))
-                                                            @foreach($coins as $key)
-                                                                <option
-                                                                    value="{{$key->type}}">
-                                                                    {{$key->type}}
-                                                                </option>
-                                                            @endforeach
-                                                        @endif
-                                                    </select>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="check-box-list bank_payment payment_method d-none">
-                                    <div class="form-group">
-                                        <label>{{__('Select Bank')}}</label>
-                                        <div class="cp-select-area">
-                                            <select name="bank_id" class="bank-id form-control ">
-                                                <option value="">{{__('Select')}}</option>
-                                                @if(isset($banks[0]))
-                                                    @foreach($banks as $value)
-                                                        <option
-                                                            @if((old('bank_id') != null) && (old('bank_id') == $value->id)) @endif value="{{ $value->id }}">{{$value->bank_name}}</option>
-                                                        <span
-                                                            class="text-danger"><strong>{{ $errors->first('bank_id') }}</strong></span>
-                                                    @endforeach
-                                                @endif
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div class="form-group buy_coin_address_input mt-4">
-                                        <div id="file-upload" class="section-p">
-                                            <input type="hidden" name="bank_deposit_id" value="">
-                                            <input type="file" placeholder="0.00" name="sleep" value="" id="file"
-                                                   ref="file" class="dropify"
-                                                   data-default-file="{{asset('assets/img/placeholder-image.png')}}"/>
-                                        </div>
-                                    </div>
-
-                                </div>
-
-                                <button id="buy_button" type="submit" class="btn normal-btn theme-btn">{{__('Buy Now')}}</button>
-                            </form>
-
-                            <div class="payment-stripe payment-stripe-div  d-none card card-body dark-bg2">
-                                <form role="form" action="{{ route('buyCoinProcess') }}" method="post" class="require-validation"
-                                      data-cc-on-file="false"
-                                      data-stripe-publishable-key="{{ isset(settings()['STRIPE_KEY']) ? settings()['STRIPE_KEY'] : ''}}"
-                                      id="payment-form">
-                                    @csrf
-                                    @if(isset($phase))
-                                        <input type="hidden" name="phase_id" value="{{$phase->id}}">
-                                    @endif
-                                    <input type="hidden" name="payment_type" value="{{STRIPE}}">
-                                    <input type="hidden" name="coin" value="" id="amountCoin" class="form-control" >
-                                    <div class='form-row row'>
-                                        <div class='col-12 form-group required'>
-                                            <label class='control-label'>{{__('Name on Card')}}</label>
-                                            <input class='form-control' size="50" type='text'>
-                                        </div>
-                                    </div>
-
-                                    <div class='form-row row'>
-                                        <div class='col-12 form-group required'>
-                                            <label class='control-label'>{{__('Card Number')}}</label>
-                                            <input autocomplete='off' size="50" class='form-control card-number' type='text'>
-                                        </div>
-                                    </div>
-
-                                    <div class='form-row row'>
-                                        <div class='col-xs-12 col-md-4 form-group cvc required'>
-                                            <label class='control-label'>{{__('CVC')}}</label>
-                                            <input autocomplete='off' class='form-control card-cvc' placeholder='ex. 311' size='4' type='text'>
-                                        </div>
-                                        <div class='col-xs-12 col-md-4 form-group expiration required'>
-                                            <label class='control-label'>{{__('Expiration Month')}}</label>
-                                            <input class='form-control card-expiry-month' placeholder='MM' size='2' type='text'>
-                                        </div>
-                                        <div class='col-xs-12 col-md-4 form-group expiration required'>
-                                            <label class='control-label'>{{__('Expiration Year')}}</label>
-                                            <input class='form-control card-expiry-year' placeholder='YYYY' size='4' type='text'>
-                                        </div>
-                                    </div>
-
-                                    <div class='form-row row'>
-                                        <div class='col-md-12 error form-group hide'>
-                                            <div class='alert-danger card-alert'></div>
-                                        </div>
-                                    </div>
-
-                                    <div class="form-row row">
-                                        <div class="col-xs-12">
-                                            <button id="buy_button" type="submit" class="btn theme-btn">{{__('Buy Now')}}</button>
-                                        </div>
-                                    </div>
-
-                                </form>
-                            </div>
-                        </div>
-                    </div>
+    {{-- ── LEFT: Buy Form ──────────────────────────────────────────────────────── --}}
+    <div class="col-xl-6 mb-xl-0 mb-4">
+        <div class="card cp-user-custom-card">
+            <div class="card-body">
+                <div class="cp-user-card-header-area">
+                    <h4>{{__('Buy')}} {{ settings('coin_name') }}</h4>
                 </div>
-            </div>
-        </div>
-        <div class="col-xl-6">
-            <div class="card cp-user-custom-card ico-phase-info-list">
-                <div class="card-body">
-                    @if($no_phase)
-                        <div class="cp-user-card-header-area">
-                            <h4>{{__("Today’s Coin Rate")}}</h4>
-                        </div>
-                    @elseif($activePhase['futurePhase'] == true)
-                        <div class="cp-user-card-header-area future-ico-phase">
-                            <h4 class="mb-3">{{__("New Ico Phase will start soon")}}</h4>
-                            <p>Start at  : {{date('d M y', strtotime($activePhase['futureDate']))}}</p>
-                        </div>
-                    @else
-                        <div class="cp-user-card-header-area">
-                            <h4>{{__("New Ico Phase is running")}}</h4>
-                        </div>
+
+                @if(session('success'))
+                    <div class="alert alert-success mt-2">{{ session('success') }}</div>
+                @endif
+                @if(session('dismiss'))
+                    <div class="alert alert-danger mt-2">{{ session('dismiss') }}</div>
+                @endif
+                @if($errors->any())
+                    <div class="alert alert-danger mt-2">
+                        @foreach($errors->all() as $err) <div>{{ $err }}</div> @endforeach
+                    </div>
+                @endif
+
+                @if($no_phase)
+                    <p class="text-danger mt-3"><i class="fa fa-exclamation-triangle"></i> {{__('No active ICO phase.')}}</p>
+                @elseif($activePhase['futurePhase'] == true)
+                    <p class="text-warning mt-3"><i class="fa fa-clock-o"></i> {{__('New ICO phase starting soon.')}}</p>
+                @endif
+
+                <form action="{{route('buyCoinProcess')}}" method="POST" id="buy_coin_form">
+                    @csrf
+                    @if(!$no_phase && !$activePhase['futurePhase'] && isset($activePhase['pahse_info']))
+                        <input type="hidden" name="phase_id" value="{{$activePhase['pahse_info']->id}}">
                     @endif
-                    <div class="cp-user-coin-rate">
-                        @if($no_phase)
-                            <ul class="">
-                                <li>1 {{ settings('coin_name') }}</li>
-                                <li>=</li>
-                                <li>{{number_format($coin_price,6)}} USD</li>
-                            </ul>
+                    <input type="hidden" name="payment_type" id="payment_type_input" value="">
 
-                            <div class="img" id="r-side-img">
-                                <img src="{{ asset('assets/user/images/buy-coin-vector.svg') }}" class="img-fluid"
-                                     alt="">
-                            </div>
-                        @elseif($activePhase['futurePhase'] == true)
-                            <div id="futurePhase" class="countdown-row">
-                                <div class="countdown-section">
-                                    <span class="days"></span>
-                                    <div class="smalltext">{{__('Days')}}</div>
-                                </div>
-                                <div class="countdown-section">
-                                    <span class="hours"></span>
-                                    <div class="smalltext">{{__('Hours')}}</div>
-                                </div>
-                                <div class="countdown-section">
-                                    <span class="minutes"></span>
-                                    <div class="smalltext">{{__('Minutes')}}</div>
-                                </div>
-                                <div class="countdown-section">
-                                    <span class="seconds"></span>
-                                    <div class="smalltext">{{__('Seconds')}}</div>
-                                </div>
-                            </div>
-
-                            <ul class="">
-                                <li>1 {{ settings('coin_name') }}</li>
-                                <li>=</li>
-                                <li>{{number_format($coin_price,6)}} USD</li>
-                            </ul>
-                            <div class="img" id="r-side-img">
-                                <img src="{{ asset('assets/user/images/buy-coin-vector.svg') }}" class="img-fluid"
-                                     alt="">
-                            </div>
-                        @else
-
-                            <ul class="ico-phase-ul">
-                                <li><p>{{ $phase->phase_name }}</p></li>
-                                <li>
-                                    <p>{{ __('Phase Rate')}} :</p>
-                                    <p>1 {{ settings('coin_name') }} = {{number_format($phase->rate,6)}} USD</p>
-                                </li>
-{{--                                <li><p>{{ __('Fees Percentage')}} :</p>--}}
-{{--                                    <p>{{ $phase->fees }}%</p></li>--}}
-                                <li><p>{{ __('Bonus Percentage')}} :</p>
-                                    <p>{{ number_format($phase->bonus,2) }}%</p></li>
-                                <li><p>{{__('Start at')}} :</p>
-                                    <p>{{ date('d M y', strtotime($phase->start_date))}}</p></li>
-                                <li><p>{{__('End at')}} : </p>
-                                    <p>{{ date('d M y', strtotime($phase->end_date))}}</p></li>
-                            </ul>
-                            <hr>
-                            <h5 class="ico-phase-amount-title">{{ settings('coin_name') }} {{__(' Sales Progress')}}</h5>
-                            <ul class="ico-phase-ul ico-phase-amount">
-                                <li class="total_sale">
-                                    <span>{{__('RAISED AMOUNT')}}</span>
-                                    <span>{{number_format($total_sell,2)}} {{ settings('coin_name') }}</span>
-                                </li>
-                                <li class="total_target">
-                                    <span>{{__('TARGET AMOUNT')}}</span>
-                                    {{ number_format($target,6) }} {{ settings('coin_name') }}
-                                </li>
-                            </ul>
-                            <div class="ico-phase-progress-bar">
-                                <div class="progress" data-toggle="tooltip" data-placement="top"
-                                     title="{{__('Raised Amount')}} ({{number_format($progress_bar,6)}} %)">
-                                    <div class="progress-bar" role="progressbar" style="width: {{$progress_bar}}%;"
-                                         aria-valuenow="{{$progress_bar}}" aria-valuemin="0"
-                                         aria-valuemax="100">{{$progress_bar}}%
-                                    </div>
-                                </div>
-                                {{--<div class="progress">
-                                    <div class="bar" style="width:{{$progress_bar}}">
-                                    <span class="tool-tips">
-                                        <p>{{__('Raised Amount')}} ({{$progress_bar}} %)</p>
-                                    </span>
-                                    </div>
-                                </div>--}}
-                            </div>
-                            <p class="card-text card-text-2 mb-2">
-                                <span>{{__("SALES END IN")}}</span>
-                                <span>{{date('d M y', strtotime($phase->end_date))}}</span>
-                            </p>
-                            <div id="clockdiv" class="countdown-row">
-                                <div class="countdown-section">
-                                    <span class="days"></span>
-                                    <div class="smalltext">{{__('Days')}}</div>
-                                </div>
-                                <div class="countdown-section">
-                                    <span class="hours"></span>
-                                    <div class="smalltext">{{__('Hours')}}</div>
-                                </div>
-                                <div class="countdown-section">
-                                    <span class="minutes"></span>
-                                    <div class="smalltext">{{__('Minutes')}}</div>
-                                </div>
-                                <div class="countdown-section">
-                                    <span class="seconds"></span>
-                                    <div class="smalltext">{{__('Seconds')}}</div>
-                                </div>
-                            </div>
-
-                        @endif
-                        <div class="bank-details">
-                        </div>
+                    {{-- Amount --}}
+                    <div class="form-group mt-3">
+                        <label>{{__('Amount of')}} {{ settings('coin_name') }} {{__('to buy')}}</label>
+                        <input type="number" step="any" min="1" name="coin" id="coin_amount"
+                               class="form-control" placeholder="e.g. 1000"
+                               oninput="updatePreview()" autocomplete="off"
+                               value="{{ old('coin') }}">
                     </div>
-                </div>
+
+                    {{-- Price preview --}}
+                    <ul class="price-preview mb-3">
+                        <li>1 {{ settings('coin_name') }} = <strong id="pr_rate">{{ $coin_price }}</strong> USD</li>
+                        <li>{{__('Total')}} ≈ <strong id="pr_total">—</strong> USD</li>
+                        @if(!$no_phase && !$activePhase['futurePhase'] && isset($activePhase['pahse_info']))
+                        <li>{{__('Bonus')}} = <span id="pr_bonus">0</span> {{ settings('coin_name') }}</li>
+                        @endif
+                    </ul>
+
+                    {{-- Payment method selection --}}
+                    <div class="cp-user-payment-type">
+                        <h5 class="mb-2">{{__('Choose Payment Method')}}</h5>
+
+                        @if($nowpayments_enabled)
+                        <div class="payment-card dark-bg2" id="pm_nowpayments" onclick="selectPayment('nowpayments')">
+                            <span class="pm-icon">💳</span>
+                            <span class="pm-label">NOWPayments</span>
+                            <span class="pm-desc d-block mt-1">{{__('Pay with BTC, ETH, USDT, or 300+ cryptocurrencies')}}</span>
+                        </div>
+                        @endif
+
+                        @if($walletconnect_enabled)
+                        <div class="payment-card dark-bg2" id="pm_walletconnect" onclick="selectPayment('walletconnect')">
+                            <span class="pm-icon">🔗</span>
+                            <span class="pm-label">WalletConnect</span>
+                            <span class="pm-desc d-block mt-1">{{__('Connect MetaMask / Trust Wallet — pay USDT directly on-chain')}}</span>
+                        </div>
+                        @endif
+
+                        @if(!$nowpayments_enabled && !$walletconnect_enabled)
+                        <p class="text-warning">{{__('No payment methods are currently active. Please contact the administrator.')}}</p>
+                        @endif
+                    </div>
+
+                    {{-- NOWPayments panel --}}
+                    <div id="np-panel">
+                        <div class="form-group">
+                            <label>{{__('Currency to pay with')}}</label>
+                            <select name="pay_currency" class="form-control" id="np_currency">
+                                <option value="btc">BTC — Bitcoin</option>
+                                <option value="eth">ETH — Ethereum</option>
+                                <option value="usdtbsc" selected>USDT (BEP-20)</option>
+                                <option value="usdterc20">USDT (ERC-20)</option>
+                                <option value="bnbbsc">BNB</option>
+                                <option value="ltc">LTC — Litecoin</option>
+                                <option value="trx">TRX — Tron</option>
+                                <option value="sol">SOL — Solana</option>
+                                <option value="doge">DOGE</option>
+                                <option value="xrp">XRP</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn theme-btn">
+                            <i class="fa fa-credit-card mr-1"></i> {{__('Pay with NOWPayments')}}
+                        </button>
+                    </div>
+
+                    {{-- WalletConnect panel --}}
+                    <div id="wc-panel">
+                        <div class="alert alert-info py-2 mb-3" style="font-size:13px;">
+                            <strong>{{__('How it works')}}:</strong>
+                            {{__('Connect your wallet → approve USDT → tokens are sent automatically on-chain.')}}
+                        </div>
+                        <button type="button" class="btn theme-btn mb-2" id="wc_connect_btn" onclick="wcConnect()">
+                            <i class="fa fa-link mr-1"></i> {{__('Connect Wallet')}}
+                        </button>
+                        <div id="wc_connected" style="display:none;">
+                            <p class="text-success" id="wc_address_display"></p>
+                            <button type="button" class="btn theme-btn" id="wc_buy_btn" onclick="wcBuyTokens()">
+                                <i class="fa fa-exchange mr-1"></i> {{__('Approve & Buy')}} {{ settings('coin_name') }}
+                            </button>
+                        </div>
+                        <div id="wc-status"></div>
+                    </div>
+
+                </form>
             </div>
         </div>
     </div>
 
+    {{-- ── RIGHT: Phase Info ──────────────────────────────────────────────────── --}}
+    <div class="col-xl-6">
+        <div class="card cp-user-custom-card ico-phase-info-list">
+            <div class="card-body">
+                @if($no_phase)
+                    <div class="cp-user-card-header-area"><h4>{{__("Today's Rate")}}</h4></div>
+                    <ul class="ico-phase-ul">
+                        <li>1 {{ settings('coin_name') }} = {{number_format($coin_price, 6)}} USD</li>
+                    </ul>
+
+                @elseif($activePhase['futurePhase'] == true)
+                    <div class="cp-user-card-header-area future-ico-phase">
+                        <h4 class="mb-3">{{__("New ICO Phase Starting Soon")}}</h4>
+                        <p>{{__('Start at')}}: {{date('d M Y', strtotime($activePhase['futureDate']))}}</p>
+                    </div>
+                    <ul class="ico-phase-ul">
+                        <li>1 {{ settings('coin_name') }} = {{number_format($coin_price, 6)}} USD</li>
+                    </ul>
+
+                @else
+                    @php
+                        $phase      = $activePhase['pahse_info'];
+                        $total_sell = \App\Model\BuyCoinHistory::where('status', STATUS_SUCCESS)->where('phase_id', $phase->id)->sum('coin');
+                        $target     = $phase->amount;
+                        $progress   = $target > 0 ? min(100, (int) ceil(bcmul(100, $total_sell) / $target)) : 0;
+                    @endphp
+                    <div class="cp-user-card-header-area">
+                        <h4>{{__("ICO Phase Running")}}: {{ $phase->phase_name }}</h4>
+                    </div>
+                    <ul class="ico-phase-ul">
+                        <li><p>{{__('Rate')}}:</p><p>1 {{ settings('coin_name') }} = {{number_format($phase->rate,6)}} USD</p></li>
+                        <li><p>{{__('Bonus')}}:</p><p>{{ number_format($phase->bonus,2) }}%</p></li>
+                        <li><p>{{__('Start')}}:</p><p>{{ date('d M Y', strtotime($phase->start_date)) }}</p></li>
+                        <li><p>{{__('End')}}:</p><p>{{ date('d M Y', strtotime($phase->end_date)) }}</p></li>
+                    </ul>
+                    <hr>
+                    <h5>{{ settings('coin_name') }} {{__('Sales Progress')}}</h5>
+                    <ul class="ico-phase-ul ico-phase-amount">
+                        <li class="total_sale"><span>{{__('RAISED')}}</span><span>{{number_format($total_sell,2)}} {{ settings('coin_name') }}</span></li>
+                        <li class="total_target"><span>{{__('TARGET')}}</span><span>{{number_format($target,2)}} {{ settings('coin_name') }}</span></li>
+                    </ul>
+                    <div class="progress mb-3">
+                        <div class="progress-bar" role="progressbar" style="width:{{$progress}}%"
+                             aria-valuenow="{{$progress}}" aria-valuemin="0" aria-valuemax="100">{{$progress}}%</div>
+                    </div>
+                    <p class="card-text card-text-2 mb-2">
+                        <span>{{__("SALES END IN")}}</span>
+                        <span>{{ date('d M Y', strtotime($phase->end_date)) }}</span>
+                    </p>
+                    <div id="clockdiv" class="countdown-row">
+                        <div class="countdown-section"><span class="days"></span><div class="smalltext">{{__('Days')}}</div></div>
+                        <div class="countdown-section"><span class="hours"></span><div class="smalltext">{{__('Hours')}}</div></div>
+                        <div class="countdown-section"><span class="minutes"></span><div class="smalltext">{{__('Minutes')}}</div></div>
+                        <div class="countdown-section"><span class="seconds"></span><div class="smalltext">{{__('Seconds')}}</div></div>
+                    </div>
+                @endif
+            </div>
+        </div>
+    </div>
+
+</div>
 @endsection
 
 @section('script')
-    <script type="text/javascript" src="https://js.stripe.com/v2/"></script>
+<script>
+// ── Price preview ────────────────────────────────────────────────────────────
+const COIN_PRICE = {{ (float) $coin_price }};
+@if(!$no_phase && !$activePhase['futurePhase'] && isset($activePhase['pahse_info']))
+const PHASE_BONUS_PCT = {{ (float) $activePhase['pahse_info']->bonus }};
+@else
+const PHASE_BONUS_PCT = 0;
+@endif
 
-    <script type="text/javascript">
-        $(function() {
-            var $form         = $(".require-validation");
-            $('form.require-validation').bind('submit', function(e) {
-                var $form         = $(".require-validation"),
-                    inputSelector = ['input[type=email]', 'input[type=password]',
-                        'input[type=text]', 'input[type=file]',
-                        'textarea'].join(', '),
-                    $inputs       = $form.find('.required').find(inputSelector),
-                    $errorMessage = $form.find('div.error'),
-                    valid         = true;
-                $errorMessage.addClass('hide');
+function updatePreview() {
+    const amt   = parseFloat(document.getElementById('coin_amount').value) || 0;
+    const bonus = amt * PHASE_BONUS_PCT / 100;
+    const net   = amt - bonus;
+    document.getElementById('pr_total').innerText = (net * COIN_PRICE).toFixed(4) + ' USD';
+    const bonusEl = document.getElementById('pr_bonus');
+    if (bonusEl) bonusEl.innerText = bonus.toFixed(4);
+}
 
-                $('.has-error').removeClass('has-error');
-                $inputs.each(function(i, el) {
-                    var $input = $(el);
-                    if ($input.val() === '') {
-                        $input.parent().addClass('has-error');
-                        $errorMessage.removeClass('hide');
-                        e.preventDefault();
-                    }
-                });
+// ── Payment method selection ─────────────────────────────────────────────────
+function selectPayment(method) {
+    document.querySelectorAll('.payment-card').forEach(el => el.classList.remove('selected'));
+    document.getElementById('np-panel').classList.remove('show');
+    document.getElementById('wc-panel').classList.remove('show');
+    document.getElementById('payment_type_input').value = '';
 
-                if (!$form.data('cc-on-file')) {
-                    e.preventDefault();
-                    Stripe.setPublishableKey($form.data('stripe-publishable-key'));
-                    Stripe.createToken({
-                        number: $('.card-number').val(),
-                        cvc: $('.card-cvc').val(),
-                        exp_month: $('.card-expiry-month').val(),
-                        exp_year: $('.card-expiry-year').val()
-                    }, stripeResponseHandler);
-                }
+    if (method === 'nowpayments') {
+        const el = document.getElementById('pm_nowpayments');
+        if (el) el.classList.add('selected');
+        document.getElementById('np-panel').classList.add('show');
+        document.getElementById('payment_type_input').value = '{{ NOWPAYMENTS }}';
+    } else if (method === 'walletconnect') {
+        const el = document.getElementById('pm_walletconnect');
+        if (el) el.classList.add('selected');
+        document.getElementById('wc-panel').classList.add('show');
+        document.getElementById('payment_type_input').value = '{{ WALLETCONNECT }}';
+    }
+}
 
-            });
-
-            function stripeResponseHandler(status, response) {
-                console.log(response);
-                if (response.error) {
-                    $('.error')
-                        .removeClass('hide')
-                        .find('.card-alert')
-                        .text(response.error.message);
-                } else {
-                    var amount = $('input[name=coin]').val();
-                    $('#amountCoin').val(amount);
-                    // token contains id, last4, and card type
-                    $('.error')
-                        .addClass('hide')
-                        .find('.card-alert')
-                    var token = response['id'];
-                    // insert the token into the form so it gets submitted to the server
-                    $form.find('input[type=text]').empty();
-                    $form.append("<input type='hidden' name='stripeToken' value='" + token + "'/>");
-                    $form.get(0).submit();
-                }
+// Guard: require payment method selection before form submit
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('buy_coin_form');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            if (!document.getElementById('payment_type_input').value) {
+                e.preventDefault();
+                alert('{{ __("Please select a payment method first.") }}');
             }
-
         });
-    </script>
-    <script>
-        $('[data-toggle="tooltip"]').tooltip()
-        //bank details
+    }
+});
 
-        $('.bank-id').change(function () {
-            var id = $(this).val();
-            $.ajax({
-                url: "{{route('bankDetails')}}?val=" + id,
-                type: "get",
-                success: function (data) {
-                    // console.log(data);
-                    $('div.bank-details').html(data.data_genetare);
-                    $('#r-side-img').hide();
-                },
-                error: function (jqXHR, textStatus, errorThrown) {
+// ── Countdown (phase active) ─────────────────────────────────────────────────
+@if(!$no_phase && !$activePhase['futurePhase'] && isset($activePhase['pahse_info']))
+(function countdown() {
+    const endDate = new Date('{{ $activePhase['pahse_info']->end_date }}').getTime();
+    const tick = setInterval(function() {
+        const diff = endDate - Date.now();
+        if (diff <= 0) { clearInterval(tick); return; }
+        const el = document.getElementById('clockdiv');
+        if (!el) return;
+        el.querySelector('.days').innerText    = String(Math.floor(diff / 86400000)).padStart(2,'0');
+        el.querySelector('.hours').innerText   = String(Math.floor((diff % 86400000) / 3600000)).padStart(2,'0');
+        el.querySelector('.minutes').innerText = String(Math.floor((diff % 3600000) / 60000)).padStart(2,'0');
+        el.querySelector('.seconds').innerText = String(Math.floor((diff % 60000) / 1000)).padStart(2,'0');
+    }, 1000);
+})();
+@endif
 
-                }
-            });
-        });
-    </script>
+// ── WalletConnect ────────────────────────────────────────────────────────────
+const WC_PROJECT_ID   = @json($wc_project_id);
+const WC_CHAIN_ID     = {{ $wc_chain_id }};
+const PRESALE_ADDRESS = @json($presale_contract);
+const USDT_ADDRESS    = @json($usdt_address);
 
-    <script>
-        //change payment type
+const ERC20_ABI = [
+    {"inputs":[{"name":"spender","type":"address"},{"name":"amount","type":"uint256"}],"name":"approve","outputs":[{"name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},
+    {"inputs":[{"name":"owner","type":"address"}],"name":"balanceOf","outputs":[{"name":"","type":"uint256"}],"stateMutability":"view","type":"function"}
+];
+const PRESALE_ABI = [
+    {"inputs":[{"name":"contractPhaseIndex","type":"uint256"},{"name":"usdtAmount","type":"uint256"}],"name":"buyTokens","outputs":[],"stateMutability":"nonpayable","type":"function"},
+    {"inputs":[],"name":"activePhaseIndex","outputs":[{"name":"","type":"uint256"}],"stateMutability":"view","type":"function"}
+];
 
-        $('#payment_type').change(function () {
-            var id = $(this).val();
-            var amount = $('input[name=coin]').val();
-            var pay_type = document.querySelector('input[name="payment_type"]:checked').value;
-            var payment_type = $('#payment_type').val();
-            call_coin_rate(amount, pay_type, payment_type);
+let wcProvider = null, wcSigner = null, wcAddress = null;
 
-        });
-    </script>
+function loadScript(src) {
+    return new Promise((res, rej) => {
+        if (document.querySelector(`script[src="${src}"]`)) { res(); return; }
+        const s = document.createElement('script');
+        s.src = src; s.onload = res; s.onerror = rej;
+        document.head.appendChild(s);
+    });
+}
 
-    <script>
-        function call_coin_rate(amount, pay_type, payment_type) {
-            // console.log(amount,pay_type,payment_type);
-            $.ajax({
-                type: "POST",
-                url: "{{ route('buyCoinRate') }}",
-                data: {
-                    '_token': "{{ csrf_token() }}",
-                    'amount': amount,
-                    'payment_type': payment_type,
-                    'pay_type': pay_type,
-                },
-                dataType: 'JSON',
+async function wcConnect() {
+    if (!WC_PROJECT_ID) {
+        setStatus('<span class="text-danger">WalletConnect Project ID not configured. Contact admin.</span>');
+        return;
+    }
+    try {
+        setStatus('⏳ Loading libraries…');
+        if (!window.ethers)
+            await loadScript('https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js');
+        if (!window.WalletConnectProvider)
+            await loadScript('https://cdn.jsdelivr.net/npm/@walletconnect/web3-provider@1.8.0/dist/umd/index.min.js');
 
-                success: function (data) {
-                    // console.log(data);
-                    $('.coinAmount').text(data.amount);
-                    $('.CoinInDoller').text(data.coin_price);
-                    $('.totalBTC').text(data.btc_dlr);
-                    $('#total_price').val(data.btc_dlr);
-                    $('.coinType').text(data.coin_type);
-                    if(data.no_phase == false) {
-                      //  $('.coinFees').text(data.phase_fees);
-                        $('.coinBonus').text(data.bonus);
-                    }
-                },
-                error: function () {
-                    $('.btc-price').addClass('d-none');
-                    $('.private-sell-submit').attr('disabled', false);
-                }
-            });
-        }
-    </script>
+        const rpcMap = {};
+        rpcMap[WC_CHAIN_ID] = WC_CHAIN_ID === 56
+            ? 'https://bsc-dataseed.binance.org/'
+            : 'https://data-seed-prebsc-1-s1.binance.org:8545/';
 
-    <script>
-        function delay(callback, ms) {
-            var timer = 0;
-            return function () {
-                var context = this, args = arguments;
-                clearTimeout(timer);
-                timer = setTimeout(function () {
-                    callback.apply(context, args);
-                }, ms || 0);
-            };
+        wcProvider = new WalletConnectProvider.default({ projectId: WC_PROJECT_ID, rpc: rpcMap });
+        await wcProvider.enable();
+
+        const web3Provider = new ethers.providers.Web3Provider(wcProvider);
+        const network = await web3Provider.getNetwork();
+        if (network.chainId !== WC_CHAIN_ID) {
+            setStatus(`<span class="text-danger">Wrong network (chain ${network.chainId}). Switch to chain ID ${WC_CHAIN_ID} in your wallet.</span>`);
+            return;
         }
 
-        function call_coin_payment() {
-            var amount = $('input[name=coin]').val();
-            var pay_type = document.querySelector('input[name="payment_type"]:checked').value;
-            var payment_type = $('#payment_type').val();
-            call_coin_rate(amount, pay_type, payment_type);
+        wcSigner  = web3Provider.getSigner();
+        wcAddress = await wcSigner.getAddress();
+
+        document.getElementById('wc_connect_btn').style.display = 'none';
+        document.getElementById('wc_connected').style.display   = 'block';
+        document.getElementById('wc_address_display').innerText =
+            '✅ Connected: ' + wcAddress.substring(0,6) + '…' + wcAddress.substring(38);
+        setStatus('');
+    } catch (e) {
+        setStatus('<span class="text-danger">Connection failed: ' + e.message + '</span>');
+    }
+}
+
+async function wcBuyTokens() {
+    const coinAmt = parseFloat(document.getElementById('coin_amount').value);
+    if (!coinAmt || coinAmt <= 0) { setStatus('<span class="text-danger">Enter a valid amount first.</span>'); return; }
+    if (!wcSigner)                { setStatus('<span class="text-danger">Connect your wallet first.</span>'); return; }
+    if (!PRESALE_ADDRESS)         { setStatus('<span class="text-danger">Presale contract not configured. Contact admin.</span>'); return; }
+
+    try {
+        setStatus('⏳ Calculating USDT cost…');
+        const netCoins  = coinAmt - (coinAmt * PHASE_BONUS_PCT / 100);
+        const usdtCost  = netCoins * COIN_PRICE;
+        // USDT-BEP20 uses 18 decimals
+        const usdtWei   = ethers.utils.parseUnits(Math.max(usdtCost, 0.000001).toFixed(6), 18);
+
+        const usdtContract    = new ethers.Contract(USDT_ADDRESS, ERC20_ABI, wcSigner);
+        const presaleContract = new ethers.Contract(PRESALE_ADDRESS, PRESALE_ABI, wcSigner);
+
+        const balance = await usdtContract.balanceOf(wcAddress);
+        if (balance.lt(usdtWei)) {
+            setStatus(`<span class="text-danger">Insufficient USDT balance. Need ≈ ${usdtCost.toFixed(4)} USDT.</span>`);
+            return;
         }
 
-        $("#amount").keyup(delay(function (e) {
-            var amount = $('input[name=coin]').val();
-            // if(document.querySelector('input[name="payment_type"]:checked') == null) {
-            //     var pay_type = 4;
-            // } else {
-              //  var pay_type = document.querySelector('input[name="payment_type"]:checked').value;
-            // }
-           if (document.getElementById('payment_type').checked){
-               var payment_type = $('#payment_type').val();
-               call_coin_rate(amount, pay_type, payment_type);
-           }
+        let phaseIndex;
+        try   { phaseIndex = await presaleContract.activePhaseIndex(); }
+        catch (_) { phaseIndex = ethers.BigNumber.from(0); }
 
+        // Step 1: Approve
+        setStatus('⏳ Step 1/2: Approving USDT spend… (confirm in wallet)');
+        const approveTx = await usdtContract.approve(PRESALE_ADDRESS, usdtWei);
+        setStatus('⏳ Waiting for approval…');
+        await approveTx.wait(1);
 
-        }, 500));
+        // Step 2: Buy
+        setStatus('⏳ Step 2/2: Buying tokens… (confirm in wallet)');
+        const buyTx = await presaleContract.buyTokens(phaseIndex, usdtWei);
+        setStatus('⏳ Waiting for confirmation…');
+        await buyTx.wait(1);
 
+        // Notify backend (fire & forget — presale webhook also picks up on-chain event)
+        const phaseIdInput = document.querySelector('input[name="phase_id"]');
+        fetch('{{ route("buyCoinProcess") }}', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+            body: JSON.stringify({
+                coin:             coinAmt,
+                payment_type:     {{ WALLETCONNECT }},
+                phase_id:         phaseIdInput ? phaseIdInput.value : '',
+                tx_hash:          buyTx.hash,
+                wc_buyer_address: wcAddress
+            })
+        }).catch(() => {});
 
-    </script>
+        setStatus(
+            `<span class="text-success">✅ Purchase confirmed!<br>` +
+            `Tx: <a href="https://bscscan.com/tx/${buyTx.hash}" target="_blank">${buyTx.hash.substring(0,20)}…</a><br>` +
+            `Your tokens will appear in your wallet shortly.</span>`
+        );
+        document.getElementById('wc_buy_btn').disabled = true;
 
-    <script>
-        @if(isset($phase))
-        function getTimeRemaining(endtime) {
-            const total = Date.parse(endtime) - Date.parse(new Date());
-            const seconds = Math.floor((total / 1000) % 60);
-            const minutes = Math.floor((total / 1000 / 60) % 60);
-            const hours = Math.floor((total / (1000 * 60 * 60)) % 24);
-            const days = Math.floor(total / (1000 * 60 * 60 * 24));
+    } catch (e) {
+        setStatus('<span class="text-danger">Transaction failed: ' + (e.reason || e.message) + '</span>');
+    }
+}
 
-            return {
-                total,
-                days,
-                hours,
-                minutes,
-                seconds
-            };
-        }
-
-        function initializeClock(id, endtime) {
-            const clock = document.getElementById(id);
-            const daysSpan = clock.querySelector('.days');
-            const hoursSpan = clock.querySelector('.hours');
-            const minutesSpan = clock.querySelector('.minutes');
-            const secondsSpan = clock.querySelector('.seconds');
-
-            function updateClock() {
-                const t = getTimeRemaining(endtime);
-
-                daysSpan.innerHTML = t.days;
-                hoursSpan.innerHTML = ('0' + t.hours).slice(-2);
-                minutesSpan.innerHTML = ('0' + t.minutes).slice(-2);
-                secondsSpan.innerHTML = ('0' + t.seconds).slice(-2);
-
-                if (t.total <= 0) {
-                    clearInterval(timeinterval);
-                }
-            }
-
-            updateClock();
-            const timeinterval = setInterval(updateClock, 1000);
-        }
-
-        // const deadline = new Date(Date.parse(new Date()) + 15 * 24 * 60 * 60 * 1000);
-        initializeClock('clockdiv', '{{$phase->end_date}}');
-        @endif
-        @if(isset($activePhase['futurePhase']) &&  ($activePhase['futurePhase']== true))
-        function getTimeRemaining(endtime) {
-            const total = Date.parse(endtime) - Date.parse(new Date());
-            const seconds = Math.floor((total / 1000) % 60);
-            const minutes = Math.floor((total / 1000 / 60) % 60);
-            const hours = Math.floor((total / (1000 * 60 * 60)) % 24);
-            const days = Math.floor(total / (1000 * 60 * 60 * 24));
-
-            return {
-                total,
-                days,
-                hours,
-                minutes,
-                seconds
-            };
-        }
-
-        function initializeClock(id, endtime) {
-            const clock = document.getElementById(id);
-            const daysSpan = clock.querySelector('.days');
-            const hoursSpan = clock.querySelector('.hours');
-            const minutesSpan = clock.querySelector('.minutes');
-            const secondsSpan = clock.querySelector('.seconds');
-
-            function updateClock() {
-                const t = getTimeRemaining(endtime);
-
-                daysSpan.innerHTML = t.days;
-                hoursSpan.innerHTML = ('0' + t.hours).slice(-2);
-                minutesSpan.innerHTML = ('0' + t.minutes).slice(-2);
-                secondsSpan.innerHTML = ('0' + t.seconds).slice(-2);
-
-                if (t.total <= 0) {
-                    clearInterval(timeinterval);
-                }
-            }
-
-            updateClock();
-            const timeinterval = setInterval(updateClock, 1000);
-        }
-
-        // const deadline = new Date(Date.parse(new Date()) + 15 * 24 * 60 * 60 * 1000);
-        initializeClock('futurePhase', '{{$activePhase['futureDate']}}');
-        @endif
-    </script>
-
-
+function setStatus(html) {
+    const el = document.getElementById('wc-status');
+    if (el) el.innerHTML = html;
+}
+</script>
 @endsection

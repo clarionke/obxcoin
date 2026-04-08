@@ -87,11 +87,13 @@ function deposit_status($input = null)
 function byCoinType($input = null)
 {
     $output = [
-        CARD => __('CARD'),
-        BTC => __('Coin Payment'),
+        BTC          => __('Coin Payment'),
+        CARD         => __('CARD'),
         BANK_DEPOSIT => __('BANK DEPOSIT'),
-        STRIPE => __('Credit Card'),
-
+        STRIPE       => __('Credit Card'),
+        ONCHAIN_USDT => __('On-chain USDT'),
+        NOWPAYMENTS  => __('NOWPayments'),
+        WALLETCONNECT=> __('WalletConnect'),
     ];
     if (is_null($input)) {
         return $output;
@@ -228,9 +230,8 @@ function paymentTypes($input = null)
 function paymentMethods($input = null)
 {
     $output = [
-        BTC => __('Coin Payment'),
-        BANK_DEPOSIT => __('Bank Deposit'),
-        STRIPE => __('Credit card')
+        NOWPAYMENTS   => __('NOWPayments'),
+        WALLETCONNECT => __('WalletConnect'),
     ];
     if (is_null($input)) {
         return $output;

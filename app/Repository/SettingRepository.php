@@ -173,49 +173,33 @@ class SettingRepository
         $response = ['success' => false, 'message' => __('Invalid request')];
         DB::beginTransaction();
         try {
+            // NOWPayments settings
+            if (isset($request->nowpayments_api_key)) {
+                AdminSetting::updateOrCreate(['slug' => 'nowpayments_api_key'], ['value' => $request->nowpayments_api_key]);
+            }
+            if (isset($request->nowpayments_ipn_secret)) {
+                AdminSetting::updateOrCreate(['slug' => 'nowpayments_ipn_secret'], ['value' => $request->nowpayments_ipn_secret]);
+            }
+            // Checkboxes: if not posted the key won't be in request, so default to 0
+            AdminSetting::updateOrCreate(['slug' => 'nowpayments_enabled'],      ['value' => $request->has('nowpayments_enabled')      ? '1' : '0']);
+            AdminSetting::updateOrCreate(['slug' => 'nowpayments_sandbox_mode'], ['value' => $request->has('nowpayments_sandbox_mode') ? '1' : '0']);
 
-            if (isset($request->COMPARE_WEBSITE)) {
-                AdminSetting::updateOrCreate(['slug' => 'COMPARE_WEBSITE'], ['value' => $request->COMPARE_WEBSITE]);
+            // WalletConnect settings
+            if (isset($request->walletconnect_project_id)) {
+                AdminSetting::updateOrCreate(['slug' => 'walletconnect_project_id'], ['value' => $request->walletconnect_project_id]);
             }
-            if (isset($request->COIN_PAYMENT_PUBLIC_KEY)) {
-                AdminSetting::updateOrCreate(['slug' => 'COIN_PAYMENT_PUBLIC_KEY'], ['value' => $request->COIN_PAYMENT_PUBLIC_KEY]);
+            if (isset($request->walletconnect_chain_id)) {
+                AdminSetting::updateOrCreate(['slug' => 'walletconnect_chain_id'], ['value' => (int) $request->walletconnect_chain_id]);
             }
-            if (isset($request->COIN_PAYMENT_PRIVATE_KEY)) {
-                AdminSetting::updateOrCreate(['slug' => 'COIN_PAYMENT_PRIVATE_KEY'], ['value' => $request->COIN_PAYMENT_PRIVATE_KEY]);
-            }
-            if (isset($request->COINPAYMENT_CURRENCY)) {
-                AdminSetting::updateOrCreate(['slug' => 'COINPAYMENT_CURRENCY'], ['value' => $request->COINPAYMENT_CURRENCY]);
-            }
-            if (isset($request->base_coin_type)) {
-                AdminSetting::updateOrCreate(['slug' => 'base_coin_type'], ['value' => $request->base_coin_type]);
-            }
-            if (isset($request->base_coin_type)) {
-                AdminSetting::updateOrCreate(['slug' => 'base_coin_type'], ['value' => $request->base_coin_type]);
-            }
-            if (isset($request->ipn_merchant_id)) {
-                AdminSetting::updateOrCreate(['slug' => 'ipn_merchant_id'], ['value' => $request->ipn_merchant_id]);
-            }
-            if (isset($request->ipn_secret)) {
-                AdminSetting::updateOrCreate(['slug' => 'ipn_secret'], ['value' => $request->ipn_secret]);
-            }
-            if (isset($request->STRIPE_KEY)) {
-                AdminSetting::updateOrCreate(['slug' => 'STRIPE_KEY'], ['value' => $request->STRIPE_KEY]);
-            }
-            if (isset($request->STRIPE_SECRET)) {
-                AdminSetting::updateOrCreate(['slug' => 'STRIPE_SECRET'], ['value' => $request->STRIPE_SECRET]);
-            }
+            AdminSetting::updateOrCreate(['slug' => 'walletconnect_enabled'], ['value' => $request->has('walletconnect_enabled') ? '1' : '0']);
 
             $response = [
                 'success' => true,
-                'message' => __('Payment setting updated successfully')
+                'message' => __('Payment settings updated successfully'),
             ];
         } catch (\Exception $e) {
             DB::rollBack();
-            $response = [
-                'success' => false,
-                'message' => __('Something went wrong')
-            ];
-            return $response;
+            return ['success' => false, 'message' => __('Something went wrong')];
         }
         DB::commit();
         return $response;

@@ -439,32 +439,13 @@ class SettingsController extends Controller
     public function adminSavePaymentSettings(Request $request)
     {
         if ($request->post()) {
-            $rules = [
-                'COIN_PAYMENT_PUBLIC_KEY' => 'required',
-                'COIN_PAYMENT_PRIVATE_KEY' => 'required',
-//                'STRIPE_KEY' => 'required',
-//                'STRIPE_SECRET' => 'required'
-            ];
-
-            $validator = Validator::make($request->all(), $rules);
-            if ($validator->fails()) {
-                $errors = [];
-                $e = $validator->errors()->all();
-                foreach ($e as $error) {
-                    $errors[] = $error;
-                }
-                $data['message'] = $errors;
-                return redirect()->route('adminSettings', ['tab' => 'payment'])->with(['dismiss' => $errors[0]]);
-            }
-
             try {
                 $response = $this->settingRepo->savePaymentSetting($request);
-                if ($response['success'] == true) {
+                if ($response['success']) {
                     return redirect()->route('adminSettings', ['tab' => 'payment'])->with('success', $response['message']);
-                } else {
-                    return redirect()->route('adminSettings', ['tab' => 'payment'])->withInput()->with('success', $response['message']);
                 }
-            } catch(\Exception $e) {
+                return redirect()->route('adminSettings', ['tab' => 'payment'])->withInput()->with('dismiss', $response['message']);
+            } catch (\Exception $e) {
                 return redirect()->back()->with(['dismiss' => $e->getMessage()]);
             }
         }
