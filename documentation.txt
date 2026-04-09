@@ -1,0 +1,956 @@
+══════════════════════════════════════════════════════════════════════════════════
+  OBXCoin Platform — Full Deployment & Server Requirements Documentation
+  Version: 3.0 | Date: April 2026
+══════════════════════════════════════════════════════════════════════════════════
+
+TABLE OF CONTENTS
+─────────────────
+  1.  Platform Overview
+  2.  Server Requirements
+  3.  Required Services & APIs
+  4.  PHP Extension Requirements
+  5.  Node.js / Blockchain Tooling Requirements
+  6.  Laravel Application Setup
+  7.  Environment Variables Reference (.env)
+  8.  Database Setup
+  9.  Queue & Scheduler Setup
+  10. Smart Contract Deployment (Full Step-by-Step)
+       10a. Pre-Deployment Checklist
+       10b. Install Hardhat & Compile Contracts
+       10c. Deploy to BSC Testnet (dry run)
+       10d. Deploy to BSC Mainnet (production)
+       10e. Post-Deployment Contract Configuration
+       10f. Verify Contracts on BSCScan
+       10g. Update .env with Deployed Addresses
+       10h. Configure Admin Panel Settings
+  11. Airdrop Campaign Setup
+  12. Staking Pool Setup
+  13. CoinMarketCap Integration
+  14. Real-Time Features (WebSockets / Reverb)
+  15. Cron Jobs & Scheduled Commands
+  16. Storage & File Permissions
+  17. Web Server Configuration (Apache / Nginx)
+  18. SSL/HTTPS
+  19. Production Optimizations
+  20. Troubleshooting
+
+══════════════════════════════════════════════════════════════════════════════════
+1. PLATFORM OVERVIEW
+══════════════════════════════════════════════════════════════════════════════════
+
+OBXCoin is a full-stack cryptocurrency platform built on Laravel 10 with:
+
+  • ERC-20 / BEP-20 deflationary token (OBXToken.sol)
+      - 100,000,000 initial supply
+      - 0.05% burn per transfer (stops at 41M floor)
+      - Multichain: BSC, Ethereum, Polygon
+
+  • Presale contract (OBXPresale.sol)
+      - 20,000,000 OBX (20% of supply) allocated
+      - Phase-based sales with configurable price & bonus
+      - Auto-liquidity to PancakeSwap/Uniswap V2
+
+  • Airdrop contract (OBXAirdrop.sol)
+      - 5,000,000 OBX (5% of supply) allocated
+      - Daily claim campaigns with locked unlock mechanism
+
+  • Staking contract (OBXStaking.sol)
+      - 5,000,000 OBX (5% of supply) reward reserve
+      - Multiple pool tiers (APY / duration)
+      - Burn on stake + burn on unstake
+
+  • Laravel 10 backend (PHP 8.3)
+  • MySQL database
+  • Redis for queues and caching
+  • Laravel Horizon for queue workers
+  • Laravel Reverb for WebSockets
+  • CoinMarketCap API integration for live price feeds
+  • WalletConnect + MetaMask support (Web3 frontend)
+
+
+══════════════════════════════════════════════════════════════════════════════════
+2. SERVER REQUIREMENTS
+══════════════════════════════════════════════════════════════════════════════════
+
+  MINIMUM PRODUCTION SERVER SPECS
+  ─────────────────────────────────
+  CPU:    2 vCPU (4 vCPU recommended for queue workers)
+  RAM:    2 GB minimum (4 GB recommended)
+  Disk:   20 GB SSD (50 GB recommended with logs and uploads)
+  OS:     Ubuntu 20.04 LTS / Ubuntu 22.04 LTS / Debian 11+
+          (Windows: XAMPP 8.3+ for local dev only — not for production)
+
+  SOFTWARE VERSIONS (REQUIRED)
+  ─────────────────────────────
+  PHP:          8.3.x  (minimum 8.2, recommended 8.3)
+  MySQL:        8.0+   (or MariaDB 10.6+)
+  Redis:        6.0+   (7.x recommended)
+  Node.js:      18.x LTS or 20.x LTS
+  npm:          9.x+
+  Composer:     2.x
+  Web server:   Apache 2.4+ (with mod_rewrite) OR Nginx 1.20+
+
+  OPTIONAL BUT RECOMMENDED
+  ─────────────────────────
+  Supervisor:   For managing Laravel Horizon queue workers
+  Certbot:      For Let's Encrypt SSL
+  PM2:          For managing signer.js Node.js process (if needed)
+
+
+══════════════════════════════════════════════════════════════════════════════════
+3. REQUIRED SERVICES & EXTERNAL APIS
+══════════════════════════════════════════════════════════════════════════════════
+
+  SERVICE                   PURPOSE                         REQUIRED?
+  ─────────────────────────────────────────────────────────────────────
+  MySQL / MariaDB           Application database             YES
+  Redis                     Queues, caching, sessions        YES
+  SMTP Email Server         User notifications/verification  YES
+  CoinMarketCap Pro API     Live OBX price feed              YES (for price)
+  BSC RPC (or ETH/Polygon)  Blockchain read/write            YES
+  BscScan API Key           Contract verification            YES (verify only)
+  Twilio (optional)         SMS 2FA                          NO
+  Stripe (optional)         Payment gateway                  NO
+  Google reCAPTCHA          Bot protection                   NO (configurable)
+  Pusher / Reverb           Real-time WebSockets             YES (for live UI)
+
+  BSC RPC PROVIDER OPTIONS (choose one):
+  ─────────────────────────────────────
+  • Binance public:  https://bsc-dataseed.binance.org/
+  • Ankr:            https://rpc.ankr.com/bsc
+  • QuickNode:       (paid, most reliable for production)
+  • Alchemy:         (paid, supports BSC add-on)
+
+  RECOMMENDED: Use a paid RPC provider for production to avoid rate limits.
+
+
+══════════════════════════════════════════════════════════════════════════════════
+4. PHP EXTENSION REQUIREMENTS
+══════════════════════════════════════════════════════════════════════════════════
+
+  REQUIRED EXTENSIONS
+  ────────────────────
+  php8.3-cli          CLI for artisan commands
+  php8.3-fpm          FPM for web server (or mod_php for Apache)
+  php8.3-mysql        MySQL/MariaDB driver
+  php8.3-mbstring     String handling
+  php8.3-xml          XML processing
+  php8.3-curl         HTTP requests (Guzzle, API calls)
+  php8.3-zip          Package handling
+  php8.3-bcmath       Arbitrary precision math (REQUIRED for crypto)
+  php8.3-gd           Image processing (user avatars, QR codes)
+  php8.3-intl         Internationalization
+  php8.3-fileinfo     File type detection
+  php8.3-tokenizer    Laravel requirement
+  php8.3-json         JSON support
+  php8.3-openssl      Encryption (wallet key storage)
+  php8.3-pcntl        Process control (Laravel Horizon)
+  php8.3-posix        POSIX functions (Laravel Horizon)
+  php8.3-redis        Redis driver (or use predis via Composer)
+  php8.3-dom          DOM manipulation
+  php8.3-ctype        Character type checking
+
+  Install on Ubuntu:
+  ──────────────────
+  sudo apt install php8.3-cli php8.3-fpm php8.3-mysql php8.3-mbstring \
+    php8.3-xml php8.3-curl php8.3-zip php8.3-bcmath php8.3-gd php8.3-intl \
+    php8.3-fileinfo php8.3-tokenizer php8.3-json php8.3-openssl \
+    php8.3-pcntl php8.3-posix php8.3-redis php8.3-dom php8.3-ctype
+
+
+══════════════════════════════════════════════════════════════════════════════════
+5. NODE.JS / BLOCKCHAIN TOOLING REQUIREMENTS
+══════════════════════════════════════════════════════════════════════════════════
+
+  Node.js 18+ and npm 9+ are required for:
+    - Compiling and deploying Solidity contracts via Hardhat
+    - Running contracts/signer.js (signs blockchain transactions for the backend)
+
+  CONTRACTS DIRECTORY DEPENDENCIES (contracts/package.json or root)
+  ──────────────────────────────────────────────────────────────────
+  Production (signer.js only):
+    npm install ethers@5           # v5 required — signer.js uses ethers v5 API
+
+  Development / Deployment (Hardhat tools):
+    npm install --save-dev hardhat
+    npm install --save-dev @nomicfoundation/hardhat-toolbox
+    npm install --save-dev dotenv
+
+  Install all at once from project root:
+    npm install                    # installs package.json devDependencies
+
+  SIGNER.JS LOCATION
+  ──────────────────
+  The file contracts/signer.js must be accessible by the PHP backend
+  (BlockchainService.php calls it via proc_open).
+
+  The contracts/ directory must have its own node_modules:
+    cd contracts/
+    npm install ethers@5           # v5 only
+
+  Or install ethers at the root level and symlink — either works.
+
+
+══════════════════════════════════════════════════════════════════════════════════
+6. LARAVEL APPLICATION SETUP
+══════════════════════════════════════════════════════════════════════════════════
+
+  STEP 1: Clone / Upload the project
+  ────────────────────────────────────
+    git clone <repo-url> /var/www/obxcoin
+    cd /var/www/obxcoin
+
+  STEP 2: Install PHP dependencies
+  ──────────────────────────────────
+    composer install --no-dev --optimize-autoloader
+
+  STEP 3: Install Node.js dependencies & build assets
+  ─────────────────────────────────────────────────────
+    npm install
+    npm run production
+
+  STEP 4: Copy environment file
+  ──────────────────────────────
+    cp .env.example .env        # (or copy example.htaccess if using Apache)
+    php artisan key:generate
+
+  STEP 5: Configure .env (see Section 7)
+
+  STEP 6: Run database migrations and seeders (see Section 8)
+
+  STEP 7: Set file permissions
+  ──────────────────────────────
+    sudo chown -R www-data:www-data /var/www/obxcoin
+    sudo chmod -R 755 /var/www/obxcoin
+    sudo chmod -R 775 /var/www/obxcoin/storage
+    sudo chmod -R 775 /var/www/obxcoin/bootstrap/cache
+
+  STEP 8: Create storage symlink
+  ───────────────────────────────
+    php artisan storage:link
+
+  STEP 9: Install Laravel Passport
+  ──────────────────────────────────
+    php artisan passport:install
+
+  STEP 10: Clear and cache config
+  ────────────────────────────────
+    php artisan config:cache
+    php artisan route:cache
+    php artisan view:cache
+
+
+══════════════════════════════════════════════════════════════════════════════════
+7. ENVIRONMENT VARIABLES REFERENCE (.env)
+══════════════════════════════════════════════════════════════════════════════════
+
+  CORE APPLICATION
+  ─────────────────
+  APP_NAME=OBXCoin
+  APP_ENV=production
+  APP_KEY=                          # auto-generated by php artisan key:generate
+  APP_DEBUG=false                   # MUST be false in production
+  APP_URL=https://yourdomain.com
+
+  DATABASE
+  ─────────
+  DB_CONNECTION=mysql
+  DB_HOST=127.0.0.1
+  DB_PORT=3306
+  DB_DATABASE=obxcoin
+  DB_USERNAME=obxcoin_user
+  DB_PASSWORD=your_strong_password
+
+  REDIS
+  ──────
+  REDIS_HOST=127.0.0.1
+  REDIS_PASSWORD=null
+  REDIS_PORT=6379
+  CACHE_DRIVER=redis
+  SESSION_DRIVER=redis
+  QUEUE_CONNECTION=redis
+
+  EMAIL
+  ──────
+  MAIL_MAILER=smtp
+  MAIL_HOST=smtp.yourdomain.com
+  MAIL_PORT=587
+  MAIL_USERNAME=noreply@yourdomain.com
+  MAIL_PASSWORD=your_mail_password
+  MAIL_ENCRYPTION=tls
+  MAIL_FROM_ADDRESS=noreply@yourdomain.com
+  MAIL_FROM_NAME="OBXCoin"
+
+  BLOCKCHAIN — CORE
+  ──────────────────
+  # Chain to use: 56=BSC Mainnet, 97=BSC Testnet, 1=Ethereum, 137=Polygon
+  PRESALE_CHAIN_ID=56
+  BSC_RPC_URL=https://bsc-dataseed.binance.org/
+
+  # Contract addresses (filled AFTER deployment — see Section 10)
+  OBX_TOKEN_CONTRACT=
+  PRESALE_CONTRACT=
+  AIRDROP_CONTRACT=
+  STAKING_CONTRACT=
+
+  # Per-chain OBX token addresses (same token, multiple chains)
+  OBX_TOKEN_BSC=                    # BSC Mainnet address
+  OBX_TOKEN_BSC_TEST=               # BSC Testnet address
+  OBX_TOKEN_ETH=                    # Ethereum address (if deployed)
+  OBX_TOKEN_POLYGON=                # Polygon address (if deployed)
+
+  # USDT addresses per chain (defaults are Mainnet — change for testnet)
+  USDT_BSC_ADDRESS=0x55d398326f99059fF775485246999027B3197955
+  USDT_BSC_TEST_ADDRESS=0x337610d27c682E347C9cD60BD4b3b107C9d34eDd
+
+  BLOCKCHAIN — SECURITY
+  ──────────────────────
+  # NEVER commit private keys to git. Use .env only.
+  OWNER_PRIVATE_KEY=                # Deployer/admin wallet private key (hex, no 0x)
+  SIGNER_PRIVATE_KEY=               # Hot wallet for user OBX transfers (separate key)
+
+  # Webhook security
+  PRESALE_WEBHOOK_SECRET=           # Random 32+ char secret for webhook HMAC
+  PRESALE_SYNC_API_KEY=             # Bearer token for cron sync endpoint
+  PRESALE_START_BLOCK=0             # Set to deployment block number after deploy
+
+  # Explorer API keys (for contract verification)
+  BSCSCAN_API_KEY=
+  ETHERSCAN_API_KEY=
+  POLYGONSCAN_API_KEY=
+
+  COINMARKETCAP
+  ──────────────
+  # Set in Admin Panel > Settings > CoinMarketCap, or via .env:
+  # CMC_API_KEY=your_cmc_pro_api_key
+  # CMC_OBX_ID=your_obx_listing_id
+
+  REAL-TIME / WEBSOCKETS
+  ───────────────────────
+  BROADCAST_DRIVER=reverb           # or 'pusher'
+  REVERB_APP_ID=obxcoin
+  REVERB_APP_KEY=your_reverb_key
+  REVERB_APP_SECRET=your_reverb_secret
+  REVERB_HOST=127.0.0.1
+  REVERB_PORT=8080
+  REVERB_SCHEME=https
+
+  OPTIONAL SERVICES
+  ──────────────────
+  TWILIO_SID=                       # SMS 2FA
+  TWILIO_TOKEN=
+  TWILIO_FROM=
+  STRIPE_KEY=                       # Stripe payments
+  STRIPE_SECRET=
+  NOCAPTCHA_SITEKEY=                # Google reCAPTCHA
+  NOCAPTCHA_SECRET=
+
+
+══════════════════════════════════════════════════════════════════════════════════
+8. DATABASE SETUP
+══════════════════════════════════════════════════════════════════════════════════
+
+  CREATE DATABASE
+  ────────────────
+    mysql -u root -p
+    CREATE DATABASE obxcoin CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+    CREATE USER 'obxcoin_user'@'localhost' IDENTIFIED BY 'your_strong_password';
+    GRANT ALL PRIVILEGES ON obxcoin.* TO 'obxcoin_user'@'localhost';
+    FLUSH PRIVILEGES;
+    EXIT;
+
+  RUN MIGRATIONS
+  ───────────────
+    php artisan migrate
+
+  RUN SEEDERS (initial data)
+  ───────────────────────────
+    php artisan db:seed
+
+  This will run all seeders including:
+    - AdminSettingTableSeeder    (admin settings including CMC defaults)
+    - CoinSeeder                 (creates default OBX coin row)
+    - Any other configured seeders
+
+  NOTE: The migration 2026_04_09_150731_seed_default_obx_coin.php also
+  ensures the OBXCoin row exists in the coins table (idempotent, safe to re-run).
+
+
+══════════════════════════════════════════════════════════════════════════════════
+9. QUEUE & SCHEDULER SETUP
+══════════════════════════════════════════════════════════════════════════════════════
+
+  LARAVEL HORIZON (Queue Worker Dashboard)
+  ─────────────────────────────────────────
+  Horizon must be running for background jobs (price sync, wallet adjustments,
+  token deposits, staking rewards, etc.).
+
+  Start Horizon:
+    php artisan horizon
+
+  In production, use Supervisor to keep it running:
+
+  /etc/supervisor/conf.d/horizon.conf:
+  ─────────────────────────────────────
+  [program:obxcoin-horizon]
+  process_name=%(program_name)s
+  command=php /var/www/obxcoin/artisan horizon
+  autostart=true
+  autorestart=true
+  user=www-data
+  redirect_stderr=true
+  stdout_logfile=/var/www/obxcoin/storage/logs/horizon.log
+  stopwaitsecs=3600
+
+  Apply:
+    sudo supervisorctl reread
+    sudo supervisorctl update
+    sudo supervisorctl start obxcoin-horizon
+
+  LARAVEL SCHEDULER (Cron)
+  ─────────────────────────
+  Add ONE cron entry to run Laravel's scheduler every minute:
+
+    crontab -e
+    * * * * * cd /var/www/obxcoin && php artisan schedule:run >> /dev/null 2>&1
+
+  SCHEDULED COMMANDS (run automatically via scheduler)
+  ──────────────────────────────────────────────────────
+  FetchCMCPrice      — Every 5 minutes: pulls live OBX price from CoinMarketCap
+                       and writes to admin_settings (coin_price, change_24h, etc.)
+  ReportCMCSupply    — Daily: reports circulating supply to CoinMarketCap
+  (Other commands as configured in app/Console/Kernel.php)
+
+
+══════════════════════════════════════════════════════════════════════════════════
+10. SMART CONTRACT DEPLOYMENT (FULL STEP-BY-STEP)
+══════════════════════════════════════════════════════════════════════════════════
+
+  ── 10a. PRE-DEPLOYMENT CHECKLIST ──────────────────────────────────────────
+
+  Before deploying, ensure you have:
+
+  [ ] A funded deployer wallet (needs BNB for gas)
+      - BSC Mainnet: ~0.05–0.1 BNB minimum recommended
+      - BSC Testnet: free tBNB from https://testnet.bnbchain.org/faucet-smart
+
+  [ ] Deployer private key stored in .env as OWNER_PRIVATE_KEY
+      - Format: hex string, NO "0x" prefix
+      - NEVER share or commit this key
+
+  [ ] A treasury wallet address ready
+      - This wallet receives USDT from presale purchases
+      - Can be a multisig (Gnosis Safe recommended for production)
+
+  [ ] Node.js 18+ installed
+  [ ] npm 9+ installed
+  [ ] .env file configured with OWNER_PRIVATE_KEY and BSC_RPC_URL
+
+  ── 10b. INSTALL HARDHAT & COMPILE CONTRACTS ────────────────────────────────
+
+    From the project root:
+
+    # Install Hardhat and toolbox
+    npm install --save-dev hardhat @nomicfoundation/hardhat-toolbox dotenv
+
+    # Compile all contracts (checks for errors)
+    npx hardhat compile
+
+    Expected output:
+      Compiled 4 Solidity files successfully (evm target: paris).
+      Artifacts: artifacts/contracts/
+
+  ── 10c. DEPLOY TO BSC TESTNET (dry run — RECOMMENDED FIRST) ───────────────
+
+    # Set these in .env for testnet:
+    PRESALE_CHAIN_ID=97
+    BSC_RPC_URL=https://data-seed-prebsc-1-s1.binance.org:8545/
+    OWNER_PRIVATE_KEY=<your_testnet_wallet_key>
+    USDT_BSC_TEST_ADDRESS=0x337610d27c682E347C9cD60BD4b3b107C9d34eDd
+
+    # Run deployment:
+    npx hardhat run scripts/deploy.js --network bsc_testnet
+
+    The script will:
+      1. Deploy OBXToken(100_000_000)          — creates 100M OBX
+      2. Deploy OBXPresale(token, usdt, treasury)
+      3. Deploy OBXAirdrop(token, usdt)
+      4. Deploy OBXStaking(token, burnOnStake, burnOnUnstake)
+      5. setFeeExempt(presale, true)
+      6. transfer(presale, 20_000_000 OBX)    — 20% presale allocation
+      7. setFeeExempt(airdrop, true)
+      8. transfer(airdrop, 5_000_000 OBX)     — 5% airdrop allocation
+      9. setFeeExempt(staking, true)
+     10. transfer(staking, 5_000_000 OBX)     — 5% staking reward reserve
+     11. setFeeExempt(router, true)           — PancakeSwap router
+     12. setRouter(router)                    — Enable auto-liquidity
+     13. Add default staking pools
+
+    Output will include all contract addresses. Save them!
+
+  ── 10d. DEPLOY TO BSC MAINNET (PRODUCTION) ─────────────────────────────────
+
+    # Update .env for mainnet:
+    PRESALE_CHAIN_ID=56
+    BSC_RPC_URL=https://bsc-dataseed.binance.org/
+    OWNER_PRIVATE_KEY=<your_mainnet_wallet_key>
+    USDT_BSC_ADDRESS=0x55d398326f99059fF775485246999027B3197955
+
+    # Run deployment:
+    npx hardhat run scripts/deploy.js --network bsc_mainnet
+
+    EXPECTED OUTPUT (save all addresses):
+    ══════════════════════════════════════════════════════════
+     OBXCoin Deployment Script
+    ══════════════════════════════════════════════════════════
+     Network:   bnb (chainId=56)
+     Deployer:  0xYOUR_DEPLOYER_ADDRESS
+     Balance:   0.1 BNB
+     USDT:      0x55d398326f99059fF775485246999027B3197955
+     Router:    0x10ED43C718714eb63d5aA57B78B54704E256024E
+
+    1. Deploying OBXToken …
+       ✔ OBXToken  deployed at: 0x<TOKEN_ADDRESS>
+    2. Deploying OBXPresale …
+       ✔ OBXPresale deployed at: 0x<PRESALE_ADDRESS>
+    5. Deploying OBXAirdrop …
+       ✔ OBXAirdrop deployed at: 0x<AIRDROP_ADDRESS>
+    9. Deploying OBXStaking …
+       ✔ OBXStaking deployed at: 0x<STAKING_ADDRESS>
+
+    ══ DEPLOYMENT COMPLETE ══
+    OBX_TOKEN_CONTRACT=0x<TOKEN_ADDRESS>
+    PRESALE_CONTRACT=0x<PRESALE_ADDRESS>
+    AIRDROP_CONTRACT=0x<AIRDROP_ADDRESS>
+    STAKING_CONTRACT=0x<STAKING_ADDRESS>
+    OBX_TOKEN_BSC=0x<TOKEN_ADDRESS>
+
+  ── 10e. POST-DEPLOYMENT CONTRACT CONFIGURATION ──────────────────────────────
+
+  After deployment, a few manual configuration steps are needed:
+
+  1. SET LP PAIR FEE-EXEMPT (after creating the OBX/USDT liquidity pool):
+     Once you add liquidity to PancakeSwap, get the LP pair address from:
+     https://bscscan.com/address/<PRESALE_ADDRESS>
+     Look for the LiquidityAdded event to find the pair address, then:
+
+     OPTION A — via Admin Panel (BlockchainService):
+       Admin Panel > Blockchain > Set Fee Exempt > LP Pair Address
+
+     OPTION B — via signer.js directly:
+       echo '{"action":"setFeeExempt","contractAddress":"<TOKEN_ADDRESS>","chainId":56,"rpcUrl":"https://bsc-dataseed.binance.org/","params":{"account":"<LP_PAIR_ADDRESS>","exempt":true}}' \
+       | OWNER_PRIVATE_KEY=<key> node contracts/signer.js
+
+  2. SET PRESALE START BLOCK in .env:
+     PRESALE_START_BLOCK=<block_number_at_deployment>
+     (Find this on BscScan — the block OBXToken was deployed in)
+
+  ── 10f. VERIFY CONTRACTS ON BSCSCAN ────────────────────────────────────────
+
+  Contract verification makes source code publicly visible on BscScan.
+  Run these AFTER deployment (replace addresses with actual deployed addresses):
+
+    BSCSCAN_API_KEY=<your_api_key>  # set in .env
+
+    # Verify OBXToken
+    npx hardhat verify --network bsc_mainnet \
+      <TOKEN_ADDRESS> \
+      100000000
+
+    # Verify OBXPresale
+    npx hardhat verify --network bsc_mainnet \
+      <PRESALE_ADDRESS> \
+      <TOKEN_ADDRESS> \
+      0x55d398326f99059fF775485246999027B3197955 \
+      <TREASURY_WALLET_ADDRESS>
+
+    # Verify OBXAirdrop
+    npx hardhat verify --network bsc_mainnet \
+      <AIRDROP_ADDRESS> \
+      <TOKEN_ADDRESS> \
+      0x55d398326f99059fF775485246999027B3197955
+
+    # Verify OBXStaking
+    npx hardhat verify --network bsc_mainnet \
+      <STAKING_ADDRESS> \
+      <TOKEN_ADDRESS> \
+      100 \
+      200
+
+    NOTE: 100 = burnOnStakeBps (1%), 200 = burnOnUnstakeBps (2%)
+          Adjust to your configured values.
+
+  ── 10g. UPDATE .env WITH DEPLOYED ADDRESSES ────────────────────────────────
+
+  After successful deployment, update your .env:
+
+    OBX_TOKEN_CONTRACT=0x<TOKEN_ADDRESS>
+    PRESALE_CONTRACT=0x<PRESALE_ADDRESS>
+    AIRDROP_CONTRACT=0x<AIRDROP_ADDRESS>
+    STAKING_CONTRACT=0x<STAKING_ADDRESS>
+    OBX_TOKEN_BSC=0x<TOKEN_ADDRESS>
+    PRESALE_START_BLOCK=<deployment_block_number>
+
+  Then clear config cache:
+    php artisan config:cache
+
+  ── 10h. CONFIGURE ADMIN PANEL SETTINGS ─────────────────────────────────────
+
+  Log in to Admin Panel and configure:
+
+  Settings > General:
+    - App Name, Logo, Coin Name (e.g. "OBXCoin")
+    - Coin Symbol (e.g. "OBX")
+
+  Settings > OBXCoin Send Settings (default coin):
+    - Token Contract Address: <TOKEN_ADDRESS>
+    - Token Decimals: 18
+    - Token Symbol: OBX
+    - Min Withdrawal / Max Withdrawal
+    - Withdrawal Fee
+
+  Settings > Presale:
+    - Presale Contract: <PRESALE_ADDRESS>
+    - Chain ID: 56
+
+  Settings > CoinMarketCap:
+    - CMC Pro API Key
+    - OBX CMC Listing ID (once listed on CoinMarketCap)
+
+
+══════════════════════════════════════════════════════════════════════════════════
+11. AIRDROP CAMPAIGN SETUP
+══════════════════════════════════════════════════════════════════════════════════
+
+  After deploying OBXAirdrop, create the first campaign:
+
+  OPTION A — Via Admin Panel:
+    Admin Panel > Airdrop > Create Campaign
+    - Set start date, end date, daily claim amount
+
+  OPTION B — Direct contract call (via signer.js):
+    Calculate Unix timestamps for start and end:
+      Start: 1714521600  (example)
+      End:   1717200000  (example — 31 days later)
+      Daily: 10          (10 OBX per day per user)
+
+    echo '{
+      "action":"createCampaign",
+      "contractAddress":"<AIRDROP_ADDRESS>",
+      "chainId":56,
+      "rpcUrl":"https://bsc-dataseed.binance.org/",
+      "params":{"start":1714521600,"end":1717200000,"dailyAmount":"10000000000000000000"}
+    }' | OWNER_PRIVATE_KEY=<key> node contracts/signer.js
+
+    NOTE: dailyAmount is in wei (10 OBX = 10 * 10^18 = "10000000000000000000")
+
+  After the campaign ends, reveal the unlock fee:
+    Admin Panel > Airdrop > Reveal Unlock Fee > set USDT fee amount
+
+
+══════════════════════════════════════════════════════════════════════════════════
+12. STAKING POOL SETUP
+══════════════════════════════════════════════════════════════════════════════════
+
+  The deploy script auto-adds default staking pools. To add/modify:
+
+  Admin Panel > Staking > Pools > Add Pool
+    - Pool Name (e.g. "Silver 30-Day")
+    - Min Amount (e.g. 500 OBX)
+    - Duration Days (e.g. 30)
+    - APY BPS (e.g. 1200 = 12% APY)
+    - Burn on Stake BPS (e.g. 100 = 1%)
+    - Burn on Unstake BPS (e.g. 200 = 2%)
+
+  Fund the on-chain staking reward reserve:
+    Admin Panel > Staking > Fund Rewards
+    (Transfers OBX from admin wallet to OBXStaking contract reward reserve)
+
+
+══════════════════════════════════════════════════════════════════════════════════
+13. COINMARKETCAP INTEGRATION
+══════════════════════════════════════════════════════════════════════════════════
+
+  1. Get a CMC Pro API key:
+     https://coinmarketcap.com/api/ → Sign up → Developers → API Keys
+
+  2. Find your OBX listing ID on CMC (once listed):
+     https://pro-api.coinmarketcap.com/v1/cryptocurrency/map?symbol=OBX
+
+  3. Enter in Admin Panel > Settings > CoinMarketCap:
+     - CMC Pro API Key
+     - OBX CMC ID (numeric, e.g. 12345)
+
+  4. The scheduler runs FetchCMCPrice every 5 minutes automatically.
+     Force a manual sync: php artisan obx:fetch-cmc-price
+
+  The following will be auto-populated in admin_settings:
+    - coin_price             (current USD price)
+    - obx_price_change_24h   (24h % change)
+    - obx_market_cap         (market cap USD)
+    - obx_volume_24h         (24h volume USD)
+    - obx_circulating_supply (tokens in circulation)
+    - obx_price_last_updated (timestamp)
+
+
+══════════════════════════════════════════════════════════════════════════════════
+14. REAL-TIME FEATURES (WEBSOCKETS / REVERB)
+══════════════════════════════════════════════════════════════════════════════════
+
+  Laravel Reverb provides WebSocket support for live notifications, price
+  updates, and real-time balance changes.
+
+  START REVERB SERVER:
+    php artisan reverb:start --host=0.0.0.0 --port=8080
+
+  IN PRODUCTION (Supervisor):
+  /etc/supervisor/conf.d/reverb.conf:
+  ─────────────────────────────────────
+  [program:obxcoin-reverb]
+  command=php /var/www/obxcoin/artisan reverb:start --host=0.0.0.0 --port=8080
+  autostart=true
+  autorestart=true
+  user=www-data
+  redirect_stderr=true
+  stdout_logfile=/var/www/obxcoin/storage/logs/reverb.log
+
+  NGINX PROXY FOR REVERB (add to site config):
+  ─────────────────────────────────────────────
+  location /app {
+      proxy_http_version 1.1;
+      proxy_set_header Upgrade $http_upgrade;
+      proxy_set_header Connection "Upgrade";
+      proxy_set_header Host $host;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_pass http://127.0.0.1:8080;
+  }
+
+
+══════════════════════════════════════════════════════════════════════════════════
+15. CRON JOBS & SCHEDULED COMMANDS
+══════════════════════════════════════════════════════════════════════════════════
+
+  Single cron entry (runs Laravel scheduler):
+    * * * * * cd /var/www/obxcoin && php artisan schedule:run >> /dev/null 2>&1
+
+  MANUAL COMMAND REFERENCE:
+  ──────────────────────────
+  php artisan obx:fetch-cmc-price         Force fetch price from CoinMarketCap
+  php artisan obx:report-cmc-supply       Report circulating supply to CMC
+  php artisan horizon                     Start queue workers
+  php artisan reverb:start                Start WebSocket server
+  php artisan queue:work redis            Run single queue worker (no Horizon)
+  php artisan migrate                     Run pending migrations
+  php artisan db:seed                     Run database seeders
+  php artisan config:cache                Cache configuration
+  php artisan route:cache                 Cache routes
+  php artisan view:clear                  Clear compiled Blade views
+  php artisan cache:clear                 Clear application cache
+  php artisan passport:install            Install OAuth keys
+  php artisan storage:link                Create public storage symlink
+
+
+══════════════════════════════════════════════════════════════════════════════════
+16. STORAGE & FILE PERMISSIONS
+══════════════════════════════════════════════════════════════════════════════════
+
+  REQUIRED WRITABLE DIRECTORIES:
+    storage/app/public/        (uploaded files, user avatars)
+    storage/framework/cache/   (cache files)
+    storage/framework/sessions/(session files)
+    storage/framework/views/   (compiled Blade views)
+    storage/logs/              (application logs)
+    bootstrap/cache/           (framework cache)
+
+  SET PERMISSIONS (Ubuntu/Debian):
+    sudo chown -R www-data:www-data /var/www/obxcoin/storage
+    sudo chown -R www-data:www-data /var/www/obxcoin/bootstrap/cache
+    sudo chmod -R 775 /var/www/obxcoin/storage
+    sudo chmod -R 775 /var/www/obxcoin/bootstrap/cache
+
+  CREATE STORAGE SYMLINK:
+    php artisan storage:link
+    # Creates: public/storage -> storage/app/public
+
+
+══════════════════════════════════════════════════════════════════════════════════
+17. WEB SERVER CONFIGURATION
+══════════════════════════════════════════════════════════════════════════════════
+
+  ── APACHE ──────────────────────────────────────────────────────────────────
+
+  1. Enable required modules:
+     sudo a2enmod rewrite headers ssl
+
+  2. Create virtual host /etc/apache2/sites-available/obxcoin.conf:
+
+  <VirtualHost *:80>
+      ServerName yourdomain.com
+      DocumentRoot /var/www/obxcoin/public
+      <Directory /var/www/obxcoin/public>
+          AllowOverride All
+          Require all granted
+      </Directory>
+      ErrorLog ${APACHE_LOG_DIR}/obxcoin_error.log
+      CustomLog ${APACHE_LOG_DIR}/obxcoin_access.log combined
+  </VirtualHost>
+
+  3. Rename example.htaccess → .htaccess:
+     cp /var/www/obxcoin/example.htaccess /var/www/obxcoin/.htaccess
+     cp /var/www/obxcoin/example.htaccess /var/www/obxcoin/public/.htaccess
+
+  4. Enable site:
+     sudo a2ensite obxcoin
+     sudo systemctl reload apache2
+
+  ── NGINX ───────────────────────────────────────────────────────────────────
+
+  /etc/nginx/sites-available/obxcoin:
+
+  server {
+      listen 80;
+      server_name yourdomain.com;
+      root /var/www/obxcoin/public;
+      index index.php;
+
+      add_header X-Frame-Options "SAMEORIGIN";
+      add_header X-Content-Type-Options "nosniff";
+
+      charset utf-8;
+
+      location / {
+          try_files $uri $uri/ /index.php?$query_string;
+      }
+
+      location = /favicon.ico { access_log off; log_not_found off; }
+      location = /robots.txt  { access_log off; log_not_found off; }
+
+      error_page 404 /index.php;
+
+      location ~ \.php$ {
+          fastcgi_pass unix:/var/run/php/php8.3-fpm.sock;
+          fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+          include fastcgi_params;
+      }
+
+      location ~ /\.(?!well-known).* {
+          deny all;
+      }
+
+      # WebSocket proxy for Reverb
+      location /app {
+          proxy_http_version 1.1;
+          proxy_set_header Upgrade $http_upgrade;
+          proxy_set_header Connection "Upgrade";
+          proxy_set_header Host $host;
+          proxy_pass http://127.0.0.1:8080;
+      }
+  }
+
+  Enable:
+    sudo ln -s /etc/nginx/sites-available/obxcoin /etc/nginx/sites-enabled/
+    sudo nginx -t
+    sudo systemctl reload nginx
+
+
+══════════════════════════════════════════════════════════════════════════════════
+18. SSL / HTTPS
+══════════════════════════════════════════════════════════════════════════════════
+
+  Using Let's Encrypt (Certbot) — FREE:
+
+    sudo apt install certbot python3-certbot-nginx   # for Nginx
+    sudo apt install certbot python3-certbot-apache  # for Apache
+
+    sudo certbot --nginx -d yourdomain.com           # Nginx
+    sudo certbot --apache -d yourdomain.com          # Apache
+
+  Auto-renew (already handled by certbot cron, verify with):
+    sudo certbot renew --dry-run
+
+  After SSL, update .env:
+    APP_URL=https://yourdomain.com
+    REVERB_SCHEME=https
+    SESSION_SECURE_COOKIE=true
+
+
+══════════════════════════════════════════════════════════════════════════════════
+19. PRODUCTION OPTIMIZATIONS
+══════════════════════════════════════════════════════════════════════════════════
+
+  # Cache everything for maximum performance
+  php artisan config:cache
+  php artisan route:cache
+  php artisan view:cache
+  php artisan event:cache
+
+  # Optimize Composer autoloader
+  composer install --no-dev --optimize-autoloader
+
+  # Build production frontend assets
+  npm run production
+
+  # Set APP_DEBUG=false in .env (CRITICAL)
+  APP_DEBUG=false
+
+  # PHP OPcache (add to php.ini or /etc/php/8.3/fpm/conf.d/10-opcache.ini)
+  opcache.enable=1
+  opcache.memory_consumption=256
+  opcache.max_accelerated_files=20000
+  opcache.validate_timestamps=0    # Disable in production (clear on deploy)
+
+  # MySQL query cache / buffer pool (add to my.cnf)
+  innodb_buffer_pool_size=512M     # Set to 50-70% of available RAM
+
+
+══════════════════════════════════════════════════════════════════════════════════
+20. TROUBLESHOOTING
+══════════════════════════════════════════════════════════════════════════════════
+
+  ISSUE: "Coin configuration not found"
+  FIX:   Run: php artisan migrate  (runs the seed_default_obx_coin migration)
+         Or:  php artisan db:seed --class=CoinSeeder
+
+  ISSUE: "Route [adminSaveSettings] not defined"
+  FIX:   Already fixed — route is adminCommonSettings.
+         Run: php artisan route:cache
+
+  ISSUE: "Cannot redeclare fmtBigNum()"
+  FIX:   Run: php artisan view:clear
+
+  ISSUE: Blockchain transactions fail / signer.js not found
+  FIX:   1. Ensure Node.js 18+ is installed: node --version
+         2. Install ethers in contracts/: cd contracts && npm install ethers@5
+         3. Check OWNER_PRIVATE_KEY is set in .env
+         4. Verify contracts/signer.js is executable
+
+  ISSUE: Queue jobs not processing
+  FIX:   Start Horizon: php artisan horizon
+         Or check Supervisor: sudo supervisorctl status obxcoin-horizon
+
+  ISSUE: Live price not showing in topbar
+  FIX:   1. Check CMC API key in Admin > Settings > CoinMarketCap
+         2. Run: php artisan obx:fetch-cmc-price
+         3. Check storage/logs/laravel.log for errors
+
+  ISSUE: WebSocket / real-time not working
+  FIX:   1. Start Reverb: php artisan reverb:start
+         2. Check BROADCAST_DRIVER=reverb in .env
+         3. Verify Nginx WebSocket proxy config (location /app)
+
+  ISSUE: 500 error on admin staking page
+  FIX:   Already fixed — stats variable key mismatch was corrected.
+         If persists: php artisan view:clear && php artisan config:cache
+
+  ISSUE: Migrations fail with "table already exists"
+  FIX:   php artisan migrate --pretend   (see what would run without running it)
+         Check migration status: php artisan migrate:status
+
+  VIEW LOGS:
+    tail -f storage/logs/laravel.log
+    php artisan logs  # (if log viewer installed at /admin/logs)
+
+══════════════════════════════════════════════════════════════════════════════════
+  END OF DOCUMENTATION
+  OBXCoin Platform v3 — April 2026
+══════════════════════════════════════════════════════════════════════════════════
