@@ -123,5 +123,15 @@ class AdminSettingTableSeeder extends Seeder
         AdminSetting::firstOrCreate(['slug' => 'admin_send_default_minimum'], ['value' => 1]);
         AdminSetting::firstOrCreate(['slug' => 'admin_send_default_maximum'], ['value' => 10000]);
 
+        // CoinMarketCap integration
+        AdminSetting::firstOrCreate(['slug' => 'coinmarketcap_api_key'],   ['value' => '']);
+        AdminSetting::firstOrCreate(['slug' => 'coinmarketcap_obx_id'],    ['value' => '']);
+        AdminSetting::firstOrCreate(['slug' => 'obx_total_supply'],        ['value' => '100000000']);
+        AdminSetting::firstOrCreate(['slug' => 'obx_circulating_supply'],  ['value' => '']);
+        AdminSetting::firstOrCreate(['slug' => 'obx_price_change_24h'],    ['value' => '0']);
+        AdminSetting::firstOrCreate(['slug' => 'obx_market_cap'],          ['value' => '0']);
+        AdminSetting::firstOrCreate(['slug' => 'obx_volume_24h'],          ['value' => '0']);
+        AdminSetting::firstOrCreate(['slug' => 'obx_price_last_updated'],  ['value' => '']);
+
     }
 }
