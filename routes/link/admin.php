@@ -128,6 +128,12 @@ Route::group(['prefix'=>'admin','namespace'=>'admin','middleware'=> ['auth','adm
 
     Route::get('referral-bonus-history', 'ReferralController@adminReferralBonusHistory')->name('adminReferralBonusHistory');
 
+    // ─── Staking ──────────────────────────────────────────────────────────────
+    Route::get('staking',                    'StakingController@index')->name('admin.staking.index');
+    Route::get('staking/pools',              'StakingController@pools')->name('admin.staking.pools');
+    Route::post('staking/pool-save',         'StakingController@savePool')->name('admin.staking.savePool');
+    Route::get('staking/transactions',       'StakingController@transactions')->name('admin.staking.transactions');
+
     // ─── Airdrop ──────────────────────────────────────────────────────────────
     Route::get('airdrop',                      'AirdropController@index')->name('admin.airdrop.index');
     Route::get('airdrop/create',               'AirdropController@create')->name('admin.airdrop.create');

@@ -158,6 +158,23 @@
                         </li>
                     </ul>
                 </li>
+                <li class="@if(isset($menu) && $menu == 'staking') active-page @endif">
+                    <a href="#" aria-expanded="true">
+                        <span class="icon"><img src="{{asset('assets/admin/images/sidebar-icons/phase.svg')}}" class="img-fluid" alt=""></span>
+                        <span class="name">{{__('Staking')}}</span>
+                    </a>
+                    <ul class="@if(isset($menu) && $menu == 'staking')  mm-show  @endif">
+                        <li class="@if(isset($sub_menu) && $sub_menu == 'staking_positions') submenu-active @endif">
+                            <a href="{{route('admin.staking.index')}}">{{__('Positions')}}</a>
+                        </li>
+                        <li class="@if(isset($sub_menu) && $sub_menu == 'staking_pools') submenu-active @endif">
+                            <a href="{{route('admin.staking.pools')}}">{{__('Pools')}}</a>
+                        </li>
+                        <li class="@if(isset($sub_menu) && $sub_menu == 'staking_transactions') submenu-active @endif">
+                            <a href="{{route('admin.staking.transactions')}}">{{__('Transactions')}}</a>
+                        </li>
+                    </ul>
+                </li>
                 <li class="@if(isset($menu) && $menu == 'buy_coin') active-page @endif">
                     <a href="#" aria-expanded="true">
                         <span class="icon"><img src="{{asset('assets/admin/images/sidebar-icons/coin-order-list.svg')}}" class="img-fluid" alt=""></span>

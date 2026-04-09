@@ -73,6 +73,19 @@ const PAYMENT_TYPE_USDT = 9;
 const PLAN_BONUS_TYPE_FIXED = 1;
 const PLAN_BONUS_TYPE_PERCENTAGE = 2;
 
+// Staking positions
+const STAKING_STATUS_PENDING  = 'pending';
+const STAKING_STATUS_ACTIVE   = 'active';
+const STAKING_STATUS_UNSTAKED = 'unstaked';
+const STAKING_STATUS_FAILED   = 'failed';
+
+// Staking transaction types
+const STAKING_TX_STAKE_IN      = 'stake_in';
+const STAKING_TX_UNSTAKE_OUT   = 'unstake_out';
+const STAKING_TX_BURN_STAKE    = 'burn_stake';
+const STAKING_TX_BURN_UNSTAKE  = 'burn_unstake';
+const STAKING_TX_REWARD        = 'reward';
+
 //
 const CREDIT = 1;
 const DEBIT = 2;

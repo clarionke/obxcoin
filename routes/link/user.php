@@ -73,6 +73,13 @@ Route::group(['prefix'=>'user','namespace'=>'user','middleware'=> ['auth','user'
     Route::get('accept-coin-request-{id}', 'CoinController@acceptCoinRequest')->name('acceptCoinRequest');
     Route::get('decline-coin-request-{id}', 'CoinController@declineCoinRequest')->name('declineCoinRequest');
 
+    // ─── Staking ──────────────────────────────────────────────────────────────
+    Route::get('staking',                   'StakingController@index')->name('user.staking.index');
+    Route::get('staking/history',           'StakingController@history')->name('user.staking.history');
+    Route::get('staking/transactions',      'StakingController@transactions')->name('user.staking.transactions');
+    Route::post('staking/confirm-stake',    'StakingController@confirmStake')->name('user.staking.confirmStake');
+    Route::post('staking/confirm-unstake',  'StakingController@confirmUnstake')->name('user.staking.confirmUnstake');
+
     // ─── Airdrop ──────────────────────────────────────────────────────────────
     Route::get('airdrop',                'AirdropController@index')->name('user.airdrop');
     Route::post('airdrop/claim',         'AirdropController@claim')->name('user.airdrop.claim');

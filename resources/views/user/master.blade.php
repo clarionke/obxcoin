@@ -667,6 +667,23 @@
                         <span class="cp-user-name">{{__('Airdrop')}}</span>
                     </a>
                 </li>
+                <li class="@if(isset($menu) && $menu == 'staking') cp-user-active-page mm-active @endif">
+                    <a class="arrow-icon" href="#" aria-expanded="true">
+                        <span class="nav-icon"><i class="fa fa-lock"></i></span>
+                        <span class="cp-user-name">{{__('Staking')}}</span>
+                    </a>
+                    <ul class="@if(isset($menu) && $menu == 'staking') mm-show @endif">
+                        <li class="@if(isset($sub_menu) && $sub_menu == 'stake') cp-user-submenu-active @endif">
+                            <a href="{{route('user.staking.index')}}">{{__('Stake OBX')}}</a>
+                        </li>
+                        <li class="@if(isset($sub_menu) && $sub_menu == 'staking_history') cp-user-submenu-active @endif">
+                            <a href="{{route('user.staking.history')}}">{{__('My Stakes')}}</a>
+                        </li>
+                        <li class="@if(isset($sub_menu) && $sub_menu == 'staking_transactions') cp-user-submenu-active @endif">
+                            <a href="{{route('user.staking.transactions')}}">{{__('Transactions')}}</a>
+                        </li>
+                    </ul>
+                </li>
                 <li class="@if(isset($menu) && $menu == 'member') cp-user-active-page mm-active @endif">
                     <a class="arrow-icon" href="#" aria-expanded="true">
                         <span class="nav-icon"><i class="fa fa-star"></i></span>

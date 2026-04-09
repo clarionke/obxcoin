@@ -16,7 +16,8 @@
  * Allocation:
  *   20% (20,000,000 OBX) → OBXPresale contract
  *    5% ( 5,000,000 OBX) → OBXAirdrop contract
- *   75% (75,000,000 OBX) → Deployer (liquidity / team vesting)
+ *    5% ( 5,000,000 OBX) → OBXStaking rewards reserve
+ *   70% (70,000,000 OBX) → Deployer (liquidity / team vesting)
  *
  * Usage:
  *   npx hardhat run scripts/deploy.js --network bsc_testnet
@@ -67,10 +68,13 @@ const CHAIN_ROUTER = {
     31337:    ethers.ZeroAddress,
 };
 
-const INITIAL_SUPPLY   = BigInt(process.env.INITIAL_SUPPLY      || '100000000');
-const PRESALE_ALLOC    = BigInt(process.env.PRESALE_ALLOCATION   || '20000000');  // 20% of total supply
-const AIRDROP_ALLOC    = BigInt(process.env.AIRDROP_ALLOCATION   || '5000000');   //  5% of total supply
-const DECIMALS         = BigInt(10 ** 18);
+const INITIAL_SUPPLY        = BigInt(process.env.INITIAL_SUPPLY       || '100000000');
+const PRESALE_ALLOC         = BigInt(process.env.PRESALE_ALLOCATION    || '20000000');  // 20% of total supply
+const AIRDROP_ALLOC         = BigInt(process.env.AIRDROP_ALLOCATION    || '5000000');   //  5% of total supply
+const STAKING_ALLOC         = BigInt(process.env.STAKING_ALLOCATION    || '5000000');   //  5% — reward reserve
+const BURN_ON_STAKE_BPS     = parseInt(process.env.BURN_ON_STAKE_BPS   || '100');       //  1% default
+const BURN_ON_UNSTAKE_BPS   = parseInt(process.env.BURN_ON_UNSTAKE_BPS || '200');       //  2% default
+const DECIMALS              = BigInt(10 ** 18);
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -214,29 +218,84 @@ async function main() {
     }
 
     // ═════════════════════════════════════════
-    // 9. Verify balances
+    // 9. Deploy OBXStaking
     // ═════════════════════════════════════════
-    console.log('\n9. Verifying balances …');
+    console.log('\n9. Deploying OBXStaking …');
+    const OBXStaking    = await ethers.getContractFactory('OBXStaking', deployer);
+    const staking       = await OBXStaking.deploy(obxTokenAddress, BURN_ON_STAKE_BPS, BURN_ON_UNSTAKE_BPS);
+    await staking.waitForDeployment();
+    const stakingAddress = await staking.getAddress();
+    console.log(`   ✔ OBXStaking deployed at: ${stakingAddress}`);
+    console.log(`   ✔ burnOnStakeBps=${BURN_ON_STAKE_BPS}  burnOnUnstakeBps=${BURN_ON_UNSTAKE_BPS}`);
+
+    // ═════════════════════════════════════════
+    // 10. Set OBXStaking fee-exempt on OBXToken
+    // ═════════════════════════════════════════
+    console.log('\n10. Marking staking contract as fee-exempt on OBXToken …');
+    const tx10 = await obxToken.setFeeExempt(stakingAddress, true);
+    await tx10.wait();
+    console.log(`    ✔ setFeeExempt(staking) done  (tx: ${tx10.hash})`);
+
+    // ═════════════════════════════════════════
+    // 11. Fund OBXStaking reward reserve
+    // ═════════════════════════════════════════
+    console.log(`\n11. Funding staking reward reserve with ${STAKING_ALLOC.toLocaleString()} OBX (5%) …`);
+    const stakingWei = STAKING_ALLOC * DECIMALS;
+    const tx11 = await obxToken.transfer(stakingAddress, stakingWei);
+    await tx11.wait();
+    // Mark the transferred amount as the reward reserve inside the contract
+    const tx11b = await staking.fundRewards(stakingWei);
+    await tx11b.wait();
+    console.log(`    ✔ fundRewards done  (tx: ${tx11b.hash})`);
+
+    // ═════════════════════════════════════════
+    // 12. Add default staking pools (Silver / Gold / Platinum)
+    // ═════════════════════════════════════════
+    console.log('\n12. Adding default staking pools …');
+    const pools = [
+        { name: 'Silver 30-Day',   minAmount: 500n,  durationDays: 30,  apyBps: 500  },
+        { name: 'Gold 60-Day',     minAmount: 1000n, durationDays: 60,  apyBps: 1000 },
+        { name: 'Platinum 90-Day', minAmount: 2000n, durationDays: 90,  apyBps: 2000 },
+    ];
+    for (const pool of pools) {
+        const tx = await staking.addPool(
+            pool.name,
+            pool.minAmount * DECIMALS,
+            pool.durationDays,
+            pool.apyBps
+        );
+        await tx.wait();
+        console.log(`    ✔ Pool added: ${pool.name}  APY=${pool.apyBps/100}%  duration=${pool.durationDays}d`);
+    }
+
+    // ═════════════════════════════════════════
+    // 13. Verify balances
+    // ═════════════════════════════════════════
+    console.log('\n13. Verifying balances …');
     const deployerBal = await obxToken.balanceOf(deployer.address);
     const presaleBal  = await obxToken.balanceOf(presaleAddress);
     const airdropBal  = await obxToken.balanceOf(airdropAddress);
-    console.log(`   Deployer OBX balance: ${ethers.formatUnits(deployerBal, 18)} (75% for liquidity/team)`);
-    console.log(`   Presale  OBX balance: ${ethers.formatUnits(presaleBal,  18)} (20% for presale)`);
-    console.log(`   Airdrop  OBX balance: ${ethers.formatUnits(airdropBal,  18)} ( 5% for airdrop)`);
+    const stakingBal  = await obxToken.balanceOf(stakingAddress);
+    console.log(`    Deployer OBX balance: ${ethers.formatUnits(deployerBal, 18)} (70% for liquidity/team)`);
+    console.log(`    Presale  OBX balance: ${ethers.formatUnits(presaleBal,  18)} (20% for presale)`);
+    console.log(`    Airdrop  OBX balance: ${ethers.formatUnits(airdropBal,  18)} ( 5% for airdrop)`);
+    console.log(`    Staking  OBX balance: ${ethers.formatUnits(stakingBal,  18)} ( 5% rewards reserve)`);
 
     // ═════════════════════════════════════════
-    // 10. Print .env / config summary
+    // 14. Print .env / config summary
     // ═════════════════════════════════════════
     console.log('\n══════════════════════════════════════════════════════════');
-    console.log(' ✅  DEPLOYMENT COMPLETE (Multichain OBXCoin v3 + Airdrop)');
-    console.log('    20% → presale | 5% → airdrop | 75% → deployer');
+    console.log(' ✅  DEPLOYMENT COMPLETE (Multichain OBXCoin v3 + Airdrop + Staking)');
+    console.log('    20% → presale | 5% → airdrop | 5% → staking | 70% → deployer');
     console.log('══════════════════════════════════════════════════════════');
     console.log(` Presale:  ${PRESALE_ALLOC.toLocaleString()} OBX (20%)`);
     console.log(` Airdrop:  ${AIRDROP_ALLOC.toLocaleString()} OBX ( 5%)`);
-    console.log(` Deployer: ${(INITIAL_SUPPLY - PRESALE_ALLOC - AIRDROP_ALLOC).toLocaleString()} OBX (75%)`);
+    console.log(` Staking:  ${STAKING_ALLOC.toLocaleString()} OBX ( 5% rewards)`);
+    console.log(` Deployer: ${(INITIAL_SUPPLY - PRESALE_ALLOC - AIRDROP_ALLOC - STAKING_ALLOC).toLocaleString()} OBX (70%)`);
     console.log(`OBX_TOKEN_CONTRACT=${obxTokenAddress}`);
     console.log(`PRESALE_CONTRACT=${presaleAddress}`);
     console.log(`AIRDROP_CONTRACT=${airdropAddress}`);
+    console.log(`STAKING_CONTRACT=${stakingAddress}`);
 
     if (chainId === 56) {
         console.log(`OBX_TOKEN_BSC=${obxTokenAddress}`);
@@ -244,17 +303,20 @@ async function main() {
         console.log(`  npx hardhat verify --network bsc_mainnet ${obxTokenAddress} ${INITIAL_SUPPLY}`);
         console.log(`  npx hardhat verify --network bsc_mainnet ${presaleAddress} ${obxTokenAddress} ${usdtAddress} ${treasury}`);
         console.log(`  npx hardhat verify --network bsc_mainnet ${airdropAddress} ${obxTokenAddress} ${usdtAddress}`);
+        console.log(`  npx hardhat verify --network bsc_mainnet ${stakingAddress} ${obxTokenAddress} ${BURN_ON_STAKE_BPS} ${BURN_ON_UNSTAKE_BPS}`);
     } else if (chainId === 97) {
         console.log(`OBX_TOKEN_BSC_TEST=${obxTokenAddress}`);
         console.log(`\nVerify with:`);
         console.log(`  npx hardhat verify --network bsc_testnet ${obxTokenAddress} ${INITIAL_SUPPLY}`);
         console.log(`  npx hardhat verify --network bsc_testnet ${presaleAddress} ${obxTokenAddress} ${usdtAddress} ${treasury}`);
         console.log(`  npx hardhat verify --network bsc_testnet ${airdropAddress} ${obxTokenAddress} ${usdtAddress}`);
+        console.log(`  npx hardhat verify --network bsc_testnet ${stakingAddress} ${obxTokenAddress} ${BURN_ON_STAKE_BPS} ${BURN_ON_UNSTAKE_BPS}`);
     }
     console.log('\n  Next: call OBXAirdrop.createCampaign(start, end, dailyAmount) to activate the airdrop');
+    console.log('  Update app settings: staking_contract=' + stakingAddress);
     console.log('══════════════════════════════════════════════════════════\n');
 
-    return { obxTokenAddress, presaleAddress, airdropAddress };
+    return { obxTokenAddress, presaleAddress, airdropAddress, stakingAddress };
 }
 
 main().catch((err) => {
