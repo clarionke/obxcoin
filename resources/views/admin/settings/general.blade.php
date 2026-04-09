@@ -77,6 +77,13 @@
                             <span>{{__('Others')}}</span>
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a class="@if(isset($tab) && $tab=='coinmarketcap') active @endif nav-link " id="pills-cmc-tab"
+                           data-toggle="pill" data-controls="coinmarketcap" href="#coinmarketcap" role="tab"
+                           aria-controls="pills-cmc" aria-selected="true">
+                            <span>{{__('CoinMarketCap')}}</span>
+                        </a>
+                    </li>
                 </ul>
                 <div class="tab-content" id="pills-tabContent">
                     <div class="tab-pane show @if(isset($tab) && $tab=='general')  active @endif" id="general"
@@ -110,6 +117,10 @@
                     <div class="tab-pane @if(isset($tab) && $tab=='others') show active @endif" id="others"
                          role="tabpanel" aria-labelledby="pills-email-tab">
                         @include('admin.settings.include.others')
+                    </div>
+                    <div class="tab-pane @if(isset($tab) && $tab=='coinmarketcap') show active @endif" id="coinmarketcap"
+                         role="tabpanel" aria-labelledby="pills-cmc-tab">
+                        @include('admin.settings.include.coinmarketcap')
                     </div>
                 </div>
             </div>

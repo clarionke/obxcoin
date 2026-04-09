@@ -26,6 +26,13 @@
 .position-row           { background: var(--dark4); border-radius: 8px; padding: 12px 16px; margin-bottom: 8px; }
 .position-row .pr-pool  { font-weight: 600; }
 .position-row .pr-lock  { font-size: 12px; color: var(--muted); }
+#obx-price-bar          { background: rgba(99,102,241,.08); border-radius: 8px; padding: 10px 16px;
+                           display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;
+                           border: 1px solid rgba(99,102,241,.2); font-size: 13px; }
+#obx-price-bar .pbar-lbl{ color: var(--muted); font-size: 12px; }
+#obx-price-bar .pbar-val{ font-weight: 700; color: var(--text); }
+#wallet-balance-row     { background: rgba(99,102,241,.06); border-radius: 8px; padding: 8px 14px;
+                           margin-bottom: 10px; font-size: 13px; display: none; }
 </style>
 @endsection
 
@@ -38,6 +45,30 @@
             <div class="card-body">
                 <div class="cp-user-card-header-area">
                     <h4><i class="fa fa-lock mr-2" style="color:var(--accent);"></i>{{__('Stake OBX')}}</h4>
+                </div>
+
+                {{-- ── Live price ticker ──────────────────────────────── --}}
+                <div id="obx-price-bar">
+                    <div>
+                        <div class="pbar-lbl">{{__('OBX Price')}}</div>
+                        <div class="pbar-val" id="pbar_price">${{ settings('coin_price') ?? '—' }}</div>
+                    </div>
+                    <div>
+                        <div class="pbar-lbl">{{__('24h Change')}}</div>
+                        <div class="pbar-val" id="pbar_change">{{ settings('obx_price_change_24h') !== null ? settings('obx_price_change_24h').'%' : '—' }}</div>
+                    </div>
+                    <div>
+                        <div class="pbar-lbl">{{__('Market Cap')}}</div>
+                        <div class="pbar-val" id="pbar_mcap">{{ settings('obx_market_cap') ? '$'.number_format((float)settings('obx_market_cap'),0) : '—' }}</div>
+                    </div>
+                    <div>
+                        <div class="pbar-lbl">{{__('24h Volume')}}</div>
+                        <div class="pbar-val" id="pbar_vol">{{ settings('obx_volume_24h') ? '$'.number_format((float)settings('obx_volume_24h'),0) : '—' }}</div>
+                    </div>
+                    <div class="ml-auto" style="font-size:11px;color:var(--muted);">
+                        <i class="fa fa-refresh mr-1" id="price_refresh_icon"></i>
+                        {{__('Auto-updates every 30s')}}
+                    </div>
                 </div>
 
                 @if(session('success'))
@@ -83,9 +114,21 @@
                 {{-- Amount --}}
                 <div class="form-group">
                     <label>{{__('Amount to stake (OBX)')}}</label>
-                    <input type="number" step="any" min="0.001" id="stake_amount"
-                           class="form-control" placeholder="e.g. 1000"
-                           oninput="updateStakePreview()" autocomplete="off">
+                    {{-- Wallet balance shown after connect --}}
+                    <div id="wallet-balance-row">
+                        <i class="fa fa-wallet mr-1" style="color:var(--accent);"></i>
+                        {{__('Wallet OBX Balance:')}} <strong id="wallet_obx_balance">—</strong> OBX
+                        &nbsp;
+                        <button type="button" class="btn btn-xs btn-outline-info" onclick="useMaxBalance()" style="font-size:11px;padding:1px 8px;">Max</button>
+                    </div>
+                    <div class="input-group">
+                        <input type="number" step="any" min="0.001" id="stake_amount"
+                               class="form-control" placeholder="e.g. 1000"
+                               oninput="updateStakePreview()" autocomplete="off">
+                        <div class="input-group-append">
+                            <span class="input-group-text" id="stake_usd_val" style="font-size:12px;min-width:90px;">≈ $0.00</span>
+                        </div>
+                    </div>
                 </div>
 
                 {{-- Preview --}}
@@ -93,12 +136,12 @@
                     <li>{{__('Pool')}}:         <strong id="pr_pool_name">—</strong></li>
                     <li>{{__('Lock period')}}:  <strong id="pr_duration">—</strong></li>
                     <li>{{__('APY')}}:          <strong id="pr_apy">—</strong></li>
-                    <li>{{__('Gross stake')}}: <strong id="pr_gross">—</strong> OBX</li>
+                    <li>{{__('Gross stake')}}: <strong id="pr_gross">—</strong> OBX <em id="pr_gross_usd" style="color:var(--muted);font-size:12px;"></em></li>
                     <li style="color:var(--danger);">{{__('Burn on stake')}}: <strong id="pr_burn_stake">—</strong> OBX</li>
                     <li>{{__('Net staked')}}:  <strong id="pr_net">—</strong> OBX</li>
                     <li style="color:var(--success);">{{__('Est. reward at maturity')}}: <strong id="pr_reward">—</strong> OBX</li>
                     <li style="color:var(--danger);">{{__('Burn on unstake')}}:   <strong id="pr_burn_unstake">—</strong> OBX</li>
-                    <li style="color:var(--success);">{{__('Est. total return')}}:  <strong id="pr_return">—</strong> OBX</li>
+                    <li style="color:var(--success);">{{__('Est. total return')}}:  <strong id="pr_return">—</strong> OBX <em id="pr_return_usd" style="color:var(--muted);font-size:12px;"></em></li>
                 </ul>
 
                 {{-- Connect & Stake flow --}}
@@ -209,6 +252,7 @@ const OBX_TOKEN_ADDRESS = @json($obx_token_contract);
 const STAKING_ADDRESS   = @json($staking_contract);
 const OBX_SYMBOL        = @json($obx_token_symbol);
 const OBX_DECIMALS      = {{ (int) $obx_token_decimals }};
+const OBX_PRICE_API     = '{{ url("/api/obx-price") }}';
 const EXPLORER_TX_BASE  = WC_CHAIN_ID === 56  ? 'https://bscscan.com/tx/'
                         : WC_CHAIN_ID === 97  ? 'https://testnet.bscscan.com/tx/'
                         : WC_CHAIN_ID === 1   ? 'https://etherscan.io/tx/'
@@ -228,11 +272,46 @@ const STAKING_ABI = [
 ];
 
 // ── Selected pool state ──────────────────────────────────────────────────
-let selectedPool = null;
-let wcProvider   = null;
-let wcSigner     = null;
-let wcAddress    = null;
+let selectedPool       = null;
+let wcProvider         = null;
+let wcSigner           = null;
+let wcAddress          = null;
+let liveObxPrice       = parseFloat('{{ settings("coin_price") ?: "0" }}') || 0;
+let walletObxBalance   = 0;  // balance in OBX (human units)
 
+// ── Live price auto-refresh ─────────────────────────────────────────────
+function fetchLivePrice() {
+    const icon = document.getElementById('price_refresh_icon');
+    if (icon) icon.classList.add('fa-spin');
+
+    fetch(OBX_PRICE_API)
+        .then(r => r.json())
+        .then(data => {
+            liveObxPrice = data.price || 0;
+            const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+            set('pbar_price',  liveObxPrice > 0    ? '$' + liveObxPrice.toFixed(6) : '—');
+
+            const change = data.change_24h || 0;
+            const changeEl = document.getElementById('pbar_change');
+            if (changeEl) {
+                changeEl.textContent = (change >= 0 ? '+' : '') + change.toFixed(2) + '%';
+                changeEl.style.color = change >= 0 ? 'var(--success)' : 'var(--danger)';
+            }
+            set('pbar_mcap', data.market_cap > 0 ? '$' + Number(data.market_cap).toLocaleString('en-US', {maximumFractionDigits:0}) : '—');
+            set('pbar_vol',  data.volume_24h  > 0 ? '$' + Number(data.volume_24h).toLocaleString('en-US',  {maximumFractionDigits:0}) : '—');
+
+            // Update USD value in stake amount
+            updateStakePreview();
+        })
+        .catch(() => {}) // fail silently — cached price still shown
+        .finally(() => { if (icon) icon.classList.remove('fa-spin'); });
+}
+
+// Refresh price every 30 seconds
+setInterval(fetchLivePrice, 30_000);
+document.addEventListener('DOMContentLoaded', fetchLivePrice);
+
+// ── Pool selection ───────────────────────────────────────────────────────
 function selectPool(id, name, minAmt, days, apyBps, burnStakeBps, burnUnstakeBps) {
     document.querySelectorAll('.pool-card').forEach(el => el.classList.remove('selected'));
     const card = document.getElementById('pool-card-' + id);
@@ -246,6 +325,11 @@ function selectPool(id, name, minAmt, days, apyBps, burnStakeBps, burnUnstakeBps
 function updateStakePreview() {
     if (!selectedPool) return;
     const gross = parseFloat(document.getElementById('stake_amount').value) || 0;
+
+    // Update USD value next to input
+    const usdEl = document.getElementById('stake_usd_val');
+    if (usdEl) usdEl.textContent = liveObxPrice > 0 ? '≈ $' + (gross * liveObxPrice).toFixed(2) : '';
+
     if (gross <= 0) { document.getElementById('stake-preview').style.display = 'none'; return; }
 
     const burnStake   = gross * selectedPool.burnStakeBps / 10000;
@@ -259,12 +343,23 @@ function updateStakePreview() {
     document.getElementById('pr_duration').innerText   = selectedPool.days + ' days';
     document.getElementById('pr_apy').innerText        = (selectedPool.apyBps / 100).toFixed(2) + ' %';
     document.getElementById('pr_gross').innerText      = gross.toFixed(4);
-    document.getElementById('pr_burn_stake').innerText = burnStake.toFixed(4);
-    document.getElementById('pr_net').innerText        = net.toFixed(4);
-    document.getElementById('pr_reward').innerText     = reward.toFixed(4);
+    const grossUsdEl = document.getElementById('pr_gross_usd');
+    if (grossUsdEl && liveObxPrice > 0) grossUsdEl.textContent = '(≈ $' + (gross * liveObxPrice).toFixed(2) + ')';
+    document.getElementById('pr_burn_stake').innerText   = burnStake.toFixed(4);
+    document.getElementById('pr_net').innerText          = net.toFixed(4);
+    document.getElementById('pr_reward').innerText       = reward.toFixed(4);
     document.getElementById('pr_burn_unstake').innerText = burnUnstake.toFixed(4);
-    document.getElementById('pr_return').innerText     = totalReturn.toFixed(4);
+    document.getElementById('pr_return').innerText       = totalReturn.toFixed(4);
+    const returnUsdEl = document.getElementById('pr_return_usd');
+    if (returnUsdEl && liveObxPrice > 0) returnUsdEl.textContent = '(≈ $' + (totalReturn * liveObxPrice).toFixed(2) + ')';
     document.getElementById('stake-preview').style.display = 'block';
+}
+
+function useMaxBalance() {
+    if (walletObxBalance > 0) {
+        document.getElementById('stake_amount').value = walletObxBalance.toFixed(4);
+        updateStakePreview();
+    }
 }
 
 // ── Wallet connect ──────────────────────────────────────────────────────
@@ -303,6 +398,17 @@ async function wcConnect() {
         wcSigner  = web3Provider.getSigner();
         wcAddress = await wcSigner.getAddress();
 
+        // Fetch wallet OBX balance to show + enable Max button
+        try {
+            const obxReadOnly = new ethers.Contract(OBX_TOKEN_ADDRESS, ERC20_ABI, web3Provider);
+            const balWei      = await obxReadOnly.balanceOf(wcAddress);
+            walletObxBalance  = parseFloat(ethers.utils.formatUnits(balWei, OBX_DECIMALS));
+            const balEl = document.getElementById('wallet_obx_balance');
+            if (balEl) balEl.textContent = walletObxBalance.toLocaleString('en-US', {maximumFractionDigits: 4});
+            const balRow = document.getElementById('wallet-balance-row');
+            if (balRow) balRow.style.display = 'block';
+        } catch (_) {}
+
         document.getElementById('wc_connect_btn').style.display = 'none';
         document.getElementById('wc_connected').style.display   = 'block';
         document.getElementById('wc_address_display').innerText =
@@ -328,7 +434,12 @@ async function wcStake() {
 
         const balance = await obxContract.balanceOf(wcAddress);
         if (balance.lt(grossWei)) {
-            setStatus('<span class="text-danger">Insufficient OBX balance.</span>');
+            const have = parseFloat(ethers.utils.formatUnits(balance, OBX_DECIMALS));
+            setStatus(
+                '<span class="text-danger">Insufficient OBX balance. ' +
+                'Your wallet holds <strong>' + have.toLocaleString('en-US', {maximumFractionDigits:4}) + ' OBX</strong>. ' +
+                'Purchase OBX first via the <a href="{{ route(\'buy_coin\') ?? \'#\' }}">Buy Coin</a> page.</span>'
+            );
             return;
         }
 

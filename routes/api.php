@@ -19,6 +19,13 @@ use Illuminate\Http\Request;
 
 Route::post('/coin-payment-notifier','Api\WalletNotifier@coinPaymentNotifier')->name('coinPaymentNotifier');
 
+// ── Public OBX price endpoint (AJAX polling from staking/dashboard pages) ──
+Route::get('/obx-price', 'Api\CmcTickerController@obxPrice')->name('api.obx.price');
+
+// ── CoinMarketCap exchange integration endpoints (CMC polls these during listing) ──
+Route::get('/cmc/summary', 'Api\CmcTickerController@summary')->name('api.cmc.summary');
+Route::get('/cmc/ticker',  'Api\CmcTickerController@ticker')->name('api.cmc.ticker');
+
 // On-chain presale webhook — called by event relay (Alchemy Notify / Moralis Stream / cron)
 Route::post('/presale/webhook', 'Api\PresaleWebhookController@handleWebhook')->name('presale.webhook');
 // Cron-based BSCScan polling — protected by X-Api-Key header

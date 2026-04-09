@@ -16,6 +16,8 @@ class Kernel extends ConsoleKernel
         Commands\MemberBonusDistribute::class,
         Commands\CustomTokenDeposit::class,
         Commands\AdjustCustomTokenDeposit::class,
+        Commands\FetchCMCPrice::class,
+        Commands\ReportCMCSupply::class,
     ];
 
     /**
@@ -33,6 +35,17 @@ class Kernel extends ConsoleKernel
 
         $schedule->command('adjust-token-deposit')
             ->everyThirtyMinutes();
+
+        // Fetch live OBX price from CoinMarketCap every 5 minutes
+        $schedule->command('cmc:fetch-price')
+            ->everyFiveMinutes()
+            ->withoutOverlapping()
+            ->runInBackground();
+
+        // Report circulating supply to CoinMarketCap daily
+        $schedule->command('cmc:report-supply')
+            ->daily()
+            ->withoutOverlapping();
     }
 
     /**
