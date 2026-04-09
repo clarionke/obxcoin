@@ -20,6 +20,11 @@
     .price-preview            { background: rgba(255,255,255,.04); border-radius: 8px; padding: 12px 16px; list-style:none; }
     .price-preview li         { padding: 4px 0; }
     #wc-status                { font-size: 13px; margin-top: 8px; }
+    /* CMC live price bar */
+    #cmc-price-bar { background:rgba(0,0,0,.3); border-radius:10px; border-left:3px solid #4f8ef7; padding:12px 16px; margin-bottom:16px; }
+    #cmc-price-bar .pstat .val { font-size:15px; font-weight:700; display:block; }
+    #cmc-price-bar .pstat .lbl { font-size:10px; color:#888; text-transform:uppercase; letter-spacing:.5px; }
+    .chg-up { color:#00e676; } .chg-dn { color:#f44336; }
 </style>
 @endsection
 
@@ -157,6 +162,32 @@
     <div class="col-xl-6">
         <div class="card cp-user-custom-card ico-phase-info-list">
             <div class="card-body">
+                {{-- CMC Live Market Price --}}
+                <div id="cmc-price-bar">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <small><i class="fa fa-circle text-success" style="font-size:8px;"></i> <strong>{{__('Live Market Price')}}</strong></small>
+                        <small class="text-muted" id="cmc_last_updated">—</small>
+                    </div>
+                    <div class="row text-center">
+                        <div class="col-6 col-sm-3 pstat mb-2">
+                            <span class="val" id="cmc_price">{{ number_format((float)settings('coin_price'), 6) }}</span>
+                            <span class="lbl">OBX/USD</span>
+                        </div>
+                        <div class="col-6 col-sm-3 pstat mb-2">
+                            <span class="val" id="cmc_change">{{ settings('obx_price_change_24h') ? number_format((float)settings('obx_price_change_24h'),2).'%' : '—' }}</span>
+                            <span class="lbl">24h Change</span>
+                        </div>
+                        <div class="col-6 col-sm-3 pstat mb-2">
+                            <span class="val" id="cmc_mcap">—</span>
+                            <span class="lbl">Mkt Cap</span>
+                        </div>
+                        <div class="col-6 col-sm-3 pstat mb-2">
+                            <span class="val" id="cmc_vol">—</span>
+                            <span class="lbl">24h Volume</span>
+                        </div>
+                    </div>
+                </div>
+
                 @if($no_phase)
                     <div class="cp-user-card-header-area"><h4>{{__("Today's Rate")}}</h4></div>
                     <ul class="ico-phase-ul">
@@ -219,7 +250,7 @@
 @section('script')
 <script>
 // ── Price preview ────────────────────────────────────────────────────────────
-const COIN_PRICE = {{ (float) $coin_price }};
+let COIN_PRICE = {{ (float) $coin_price }};
 @if(!$no_phase && !$activePhase['futurePhase'] && isset($activePhase['pahse_info']))
 const PHASE_BONUS_PCT = {{ (float) $activePhase['pahse_info']->bonus }};
 @else
@@ -254,6 +285,47 @@ function selectPayment(method) {
         document.getElementById('payment_type_input').value = '{{ WALLETCONNECT }}';
     }
 }
+
+// ── CMC Live Price ──────────────────────────────────────────────────────────
+const OBX_PRICE_API = '{{ route("api.obx.price") }}';
+
+function fmtCurrency(n) {
+    return n >= 1e9 ? '$' + (n/1e9).toFixed(2) + 'B'
+         : n >= 1e6 ? '$' + (n/1e6).toFixed(1) + 'M'
+         : n >= 1e3 ? '$' + (n/1e3).toFixed(1) + 'K'
+         : '$' + Number(n).toFixed(2);
+}
+
+function fetchLivePrice() {
+    fetch(OBX_PRICE_API)
+        .then(r => r.json())
+        .then(d => {
+            if (!d || !d.price) return;
+            const p   = parseFloat(d.price);
+            const chg = parseFloat(d.change_24h || 0);
+            COIN_PRICE = p;
+
+            const priceEl = document.getElementById('cmc_price');
+            const chgEl   = document.getElementById('cmc_change');
+            const mcapEl  = document.getElementById('cmc_mcap');
+            const volEl   = document.getElementById('cmc_vol');
+            const updEl   = document.getElementById('cmc_last_updated');
+            const rateEl  = document.getElementById('pr_rate');
+
+            if (priceEl) priceEl.innerText  = p.toFixed(6);
+            if (chgEl)   chgEl.innerHTML    = '<span class="' + (chg >= 0 ? 'chg-up' : 'chg-dn') + '">' + (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%</span>';
+            if (mcapEl)  mcapEl.innerText   = fmtCurrency(parseFloat(d.market_cap  || 0));
+            if (volEl)   volEl.innerText    = fmtCurrency(parseFloat(d.volume_24h  || 0));
+            if (updEl)   updEl.innerText    = d.last_updated ? new Date(d.last_updated).toLocaleTimeString() : '';
+            if (rateEl)  rateEl.innerText   = p.toFixed(6);
+
+            updatePreview();
+        })
+        .catch(function() {});
+}
+
+fetchLivePrice();
+setInterval(fetchLivePrice, 30000);
 
 // Guard: require payment method selection before form submit
 document.addEventListener('DOMContentLoaded', function() {

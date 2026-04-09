@@ -449,10 +449,8 @@ async function wcStake() {
         setStatus('⏳ Waiting for approval confirmation…');
         await approveTx.wait(1);
 
-        // Step 2: Stake — contract pool ID = onchain index (0-based)
-        const onchainPoolId = {{ isset($pools) ? 'window._poolOnchainIds && window._poolOnchainIds[' : '0' }};
-        // Use pool_id_onchain if available (set at pool creation), fall back to pool DB id - 1
-        const poolIdOnchain = selectedPool.id - 1; // default assumption: 0-indexed
+        // Step 2: Stake — use 0-based pool index (DB id - 1)
+        const poolIdOnchain = selectedPool.id - 1;
 
         setStatus('⏳ Step 2/2: Staking OBX… (confirm in wallet)');
         const stakeTx = await stakingContract.stake(poolIdOnchain, grossWei);
