@@ -203,12 +203,18 @@ class StakingRepository
     {
         DB::beginTransaction();
         try {
+            $fillable = ['name', 'min_amount', 'duration_days', 'apy_bps',
+                         'burn_on_stake_bps', 'burn_on_unstake_bps', 'description',
+                         'status', 'pool_id_onchain'];
+
+            $values = array_intersect_key($data, array_flip($fillable));
+
             if (!empty($data['edit_id'])) {
-                StakingPool::where('id', $data['edit_id'])->update($data);
+                StakingPool::where('id', $data['edit_id'])->update($values);
                 DB::commit();
                 return ['success' => true, 'message' => __('Pool updated.')];
             }
-            StakingPool::create($data);
+            StakingPool::create($values);
             DB::commit();
             return ['success' => true, 'message' => __('Pool created.')];
         } catch (\Throwable $e) {

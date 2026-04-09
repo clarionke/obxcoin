@@ -57,6 +57,13 @@ class StakingController extends Controller
         $data['total_rewards'] = StakingTransaction::where('type', 'reward')->sum('amount');
         $data['active_count']  = StakingPosition::where('status', 'active')->count();
 
+        $data['stats'] = [
+            'total_staked'  => $data['total_staked'],
+            'total_burned'  => $data['total_burned'],
+            'total_rewards' => $data['total_rewards'],
+            'active_count'  => $data['active_count'],
+        ];
+
         return view('admin.staking.index', $data);
     }
 
@@ -90,8 +97,12 @@ class StakingController extends Controller
             'burn_on_stake_bps', 'burn_on_unstake_bps', 'description', 'status',
             'pool_id_onchain',
         ]);
-        if ($request->filled('edit_id')) {
-            $payload['edit_id'] = $request->edit_id;
+
+        // Accept either 'id' or 'edit_id' to identify an existing pool
+        $editId = $request->filled('id') ? $request->id
+                : ($request->filled('edit_id') ? $request->edit_id : null);
+        if ($editId) {
+            $payload['edit_id'] = $editId;
         }
 
         $result = $this->repo->savePool($payload);
