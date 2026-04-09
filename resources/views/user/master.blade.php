@@ -661,6 +661,12 @@
                     </a>
                 </li>
                 @endif
+                <li class="@if(isset($menu) && $menu == 'airdrop') cp-user-active-page @endif">
+                    <a href="{{route('user.airdrop')}}">
+                        <span class="nav-icon"><i class="fa fa-gift"></i></span>
+                        <span class="cp-user-name">{{__('Airdrop')}}</span>
+                    </a>
+                </li>
                 <li class="@if(isset($menu) && $menu == 'member') cp-user-active-page mm-active @endif">
                     <a class="arrow-icon" href="#" aria-expanded="true">
                         <span class="nav-icon"><i class="fa fa-star"></i></span>

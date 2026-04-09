@@ -73,6 +73,12 @@ Route::group(['prefix'=>'user','namespace'=>'user','middleware'=> ['auth','user'
     Route::get('accept-coin-request-{id}', 'CoinController@acceptCoinRequest')->name('acceptCoinRequest');
     Route::get('decline-coin-request-{id}', 'CoinController@declineCoinRequest')->name('declineCoinRequest');
 
+    // ─── Airdrop ──────────────────────────────────────────────────────────────
+    Route::get('airdrop',                'AirdropController@index')->name('user.airdrop');
+    Route::post('airdrop/claim',         'AirdropController@claim')->name('user.airdrop.claim');
+    Route::post('airdrop/unlock',        'AirdropController@requestUnlock')->name('user.airdrop.unlock');
+    Route::post('airdrop/confirm-unlock','AirdropController@confirmUnlock')->name('user.airdrop.confirmUnlock');
+
     Route::group(['middleware'=> ['co-wallet']], function () {
         Route::any('/wallet-import', 'WalletController@importWallet')->name('importWallet');
         Route::get('/wallet/{id}/users', 'WalletController@coWalletUsers')->name('coWalletUsers');

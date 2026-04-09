@@ -144,6 +144,20 @@
                         </li>
                     </ul>
                 </li>
+                <li class="@if(isset($menu) && $menu == 'airdrop') active-page @endif">
+                    <a href="#" aria-expanded="true">
+                        <span class="icon"><img src="{{asset('assets/admin/images/sidebar-icons/phase.svg')}}" class="img-fluid" alt=""></span>
+                        <span class="name">{{__('Airdrop')}}</span>
+                    </a>
+                    <ul class="@if(isset($menu) && $menu == 'airdrop')  mm-show  @endif">
+                        <li class="@if(isset($sub_menu) && $sub_menu == 'airdrop_list') submenu-active @endif">
+                            <a href="{{route('admin.airdrop.index')}}">{{__('Campaigns')}}</a>
+                        </li>
+                        <li class="@if(isset($sub_menu) && $sub_menu == 'airdrop_create') submenu-active @endif">
+                            <a href="{{route('admin.airdrop.create')}}">{{__('New Campaign')}}</a>
+                        </li>
+                    </ul>
+                </li>
                 <li class="@if(isset($menu) && $menu == 'buy_coin') active-page @endif">
                     <a href="#" aria-expanded="true">
                         <span class="icon"><img src="{{asset('assets/admin/images/sidebar-icons/coin-order-list.svg')}}" class="img-fluid" alt=""></span>

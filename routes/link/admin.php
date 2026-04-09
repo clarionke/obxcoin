@@ -128,4 +128,15 @@ Route::group(['prefix'=>'admin','namespace'=>'admin','middleware'=> ['auth','adm
 
     Route::get('referral-bonus-history', 'ReferralController@adminReferralBonusHistory')->name('adminReferralBonusHistory');
 
+    // ─── Airdrop ──────────────────────────────────────────────────────────────
+    Route::get('airdrop',                      'AirdropController@index')->name('admin.airdrop.index');
+    Route::get('airdrop/create',               'AirdropController@create')->name('admin.airdrop.create');
+    Route::post('airdrop/store',               'AirdropController@store')->name('admin.airdrop.store');
+    Route::get('airdrop/{id}/edit',            'AirdropController@edit')->name('admin.airdrop.edit');
+    Route::post('airdrop/{id}/update',         'AirdropController@update')->name('admin.airdrop.update');
+    Route::post('airdrop/{id}/reveal-fee',     'AirdropController@revealFee')->name('admin.airdrop.revealFee');
+    Route::get('airdrop/{id}/toggle-active',   'AirdropController@toggleActive')->name('admin.airdrop.toggleActive');
+    Route::get('airdrop/{id}/claims',          'AirdropController@claims')->name('admin.airdrop.claims');
+    Route::get('airdrop/{id}/unlocks',         'AirdropController@unlocks')->name('admin.airdrop.unlocks');
+
 });

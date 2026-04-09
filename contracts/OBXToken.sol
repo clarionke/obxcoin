@@ -11,23 +11,29 @@ pragma solidity ^0.8.20;
  * ✓ Programmed Scarcity: Burn stops at 41M OBX floor (59M total burn from 100M supply)
  *
  * ─── Tokenomics ───────────────────────────────────────────────────────────
- *  • Initial Supply:     100,000,000 OBX
- *  • Presale Allocation: 20,000,000 OBX (20%)
- *  • Burn Fee:           0.05% (5 / 10,000 BPS) on every transfer
- *  • Burn Floor:         41,000,000 OBX (41% of initial supply remains)
- *  • Max Burnable:       59,000,000 OBX (59% of initial supply)
+ *  • Initial Supply:      100,000,000 OBX
+ *  • Presale Allocation:   20,000,000 OBX (20%) → OBXPresale contract
+ *  • Airdrop Allocation:    5,000,000 OBX ( 5%) → OBXAirdrop contract
+ *  • Remaining to Deployer: 75,000,000 OBX (75%) for liquidity / team vesting
+ *  • Burn Fee:            0.05% (5 / 10,000 BPS) on every transfer
+ *  • Burn Floor:          41,000,000 OBX (41% of initial supply remains)
+ *  • Max Burnable:        59,000,000 OBX (59% of initial supply)
  *  • After floor reached: Burns are 0%, all transfers are fee-free forever
- *  • Fee-exempt list:    Owner, presale contract, DEX router, LP pair(s)
+ *  • Fee-exempt list:    Owner, presale contract, airdrop contract, DEX router, LP pair(s)
  *
  * ─── Deployment Checklist ─────────────────────────────────────────────────
  *  1. Deploy OBXToken(100_000_000)
  *  2. Deploy OBXPresale(obxToken, usdt, treasury)
- *  3. OBXToken.setFeeExempt(presaleAddress, true)    ← BEFORE presale transfer
- *  4. OBXToken.transfer(presaleAddress, 20_000_000)  ← 20% presale allocation
- *  5. OBXToken.setFeeExempt(routerAddress, true)     ← DEX router (PancakeSwap V2/Uniswap V2)
- *  6. (After LP created) OBXToken.setFeeExempt(lpPairAddress, true)
- *  7. OBXPresale.setRouter(routerAddress)            ← Enable auto-liquidity
- *  8. Verify balances via OBXToken.balanceOf()
+ *  3. Deploy OBXAirdrop(obxToken, usdt)
+ *  4. OBXToken.setFeeExempt(presaleAddress, true)     ← BEFORE presale transfer
+ *  5. OBXToken.transfer(presaleAddress, 20_000_000)   ← 20% presale allocation
+ *  6. OBXToken.setFeeExempt(airdropAddress, true)     ← BEFORE airdrop transfer
+ *  7. OBXToken.transfer(airdropAddress,  5_000_000)   ←  5% airdrop allocation
+ *  8. OBXToken.setFeeExempt(routerAddress, true)      ← DEX router (PancakeSwap V2/Uniswap V2)
+ *  9. (After LP created) OBXToken.setFeeExempt(lpPairAddress, true)
+ * 10. OBXPresale.setRouter(routerAddress)             ← Enable auto-liquidity
+ * 11. OBXAirdrop.createCampaign(start, end, daily)    ← Admin creates first airdrop campaign
+ * 12. Verify balances via OBXToken.balanceOf()
  *
  * ─── Security Notes ───────────────────────────────────────────────────────
  *  • Owner can be transferred (2-step transfer via transferOwnership/acceptOwnership)

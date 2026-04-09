@@ -13,6 +13,11 @@
  *   • Optimism Mainnet (chainId 10)
  *   • Local Hardhat (chainId 31337)
  *
+ * Allocation:
+ *   20% (20,000,000 OBX) → OBXPresale contract
+ *    5% ( 5,000,000 OBX) → OBXAirdrop contract
+ *   75% (75,000,000 OBX) → Deployer (liquidity / team vesting)
+ *
  * Usage:
  *   npx hardhat run scripts/deploy.js --network bsc_testnet
  *   npx hardhat run scripts/deploy.js --network bsc_mainnet
@@ -62,8 +67,9 @@ const CHAIN_ROUTER = {
     31337:    ethers.ZeroAddress,
 };
 
-const INITIAL_SUPPLY   = BigInt(process.env.INITIAL_SUPPLY    || '100000000');
-const PRESALE_ALLOC    = BigInt(process.env.PRESALE_ALLOCATION || '20000000');  // 20% of total supply
+const INITIAL_SUPPLY   = BigInt(process.env.INITIAL_SUPPLY      || '100000000');
+const PRESALE_ALLOC    = BigInt(process.env.PRESALE_ALLOCATION   || '20000000');  // 20% of total supply
+const AIRDROP_ALLOC    = BigInt(process.env.AIRDROP_ALLOCATION   || '5000000');   //  5% of total supply
 const DECIMALS         = BigInt(10 ** 18);
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -158,63 +164,97 @@ async function main() {
     // ═════════════════════════════════════════
     // 4. Transfer presale allocation to OBXPresale
     // ═════════════════════════════════════════
-    console.log(`\n4. Transferring ${PRESALE_ALLOC.toLocaleString()} OBX (20% allocation) to OBXPresale …`);
+    console.log(`\n4. Transferring ${PRESALE_ALLOC.toLocaleString()} OBX (20%) to OBXPresale …`);
     const presaleWei = PRESALE_ALLOC * DECIMALS;
     const tx4 = await obxToken.transfer(presaleAddress, presaleWei);
     await tx4.wait();
     console.log(`   ✔ Transfer done  (tx: ${tx4.hash})`);
 
     // ═════════════════════════════════════════
-    // 5. Configure router for auto-liquidity (optional)
+    // 5. Deploy OBXAirdrop
+    // ═════════════════════════════════════════
+    console.log('\n5. Deploying OBXAirdrop …');
+    const OBXAirdrop    = await ethers.getContractFactory('OBXAirdrop', deployer);
+    const airdrop       = await OBXAirdrop.deploy(obxTokenAddress, usdtAddress);
+    await airdrop.waitForDeployment();
+    const airdropAddress = await airdrop.getAddress();
+    console.log(`   ✔ OBXAirdrop deployed at: ${airdropAddress}`);
+
+    // ═════════════════════════════════════════
+    // 6. Set OBXAirdrop fee-exempt on OBXToken
+    // ═════════════════════════════════════════
+    console.log('\n6. Marking airdrop contract as fee-exempt on OBXToken …');
+    const tx6 = await obxToken.setFeeExempt(airdropAddress, true);
+    await tx6.wait();
+    console.log(`   ✔ setFeeExempt(airdrop) done  (tx: ${tx6.hash})`);
+
+    // ═════════════════════════════════════════
+    // 7. Transfer airdrop allocation to OBXAirdrop
+    // ═════════════════════════════════════════
+    console.log(`\n7. Transferring ${AIRDROP_ALLOC.toLocaleString()} OBX (5%) to OBXAirdrop …`);
+    const airdropWei = AIRDROP_ALLOC * DECIMALS;
+    const tx7 = await obxToken.transfer(airdropAddress, airdropWei);
+    await tx7.wait();
+    console.log(`   ✔ Transfer done  (tx: ${tx7.hash})`);
+
+    // ═════════════════════════════════════════
+    // 8. Configure router for auto-liquidity (optional)
     // ═════════════════════════════════════════
     if (routerAddress && routerAddress !== ethers.ZeroAddress) {
-        console.log('\n5. Setting DEX router on OBXPresale for auto-liquidity …');
-        const tx5a = await presale.setRouter(routerAddress);
-        await tx5a.wait();
-        console.log(`   ✔ setRouter done  (tx: ${tx5a.hash})`);
+        console.log('\n8. Setting DEX router on OBXPresale for auto-liquidity …');
+        const tx8a = await presale.setRouter(routerAddress);
+        await tx8a.wait();
+        console.log(`   ✔ setRouter done  (tx: ${tx8a.hash})`);
 
-        // Mark router fee-exempt on OBXToken
-        const tx5b = await obxToken.setFeeExempt(routerAddress, true);
-        await tx5b.wait();
-        console.log(`   ✔ Router marked fee-exempt on OBXToken  (tx: ${tx5b.hash})`);
+        const tx8b = await obxToken.setFeeExempt(routerAddress, true);
+        await tx8b.wait();
+        console.log(`   ✔ Router marked fee-exempt on OBXToken  (tx: ${tx8b.hash})`);
     } else {
-        console.log('\n5. Skipped auto-liquidity router setup (no router for this network).');
+        console.log('\n8. Skipped auto-liquidity router setup (no router for this network).');
     }
 
     // ═════════════════════════════════════════
-    // 6. Verify balances
+    // 9. Verify balances
     // ═════════════════════════════════════════
-    console.log('\n6. Verifying balances …');
+    console.log('\n9. Verifying balances …');
     const deployerBal = await obxToken.balanceOf(deployer.address);
     const presaleBal  = await obxToken.balanceOf(presaleAddress);
-    console.log(`   Deployer OBX balance: ${ethers.formatUnits(deployerBal, 18)} (80% remaining for future use)`);
-    console.log(`   Presale  OBX balance: ${ethers.formatUnits(presaleBal,  18)} (20% allocated to presale)`);
+    const airdropBal  = await obxToken.balanceOf(airdropAddress);
+    console.log(`   Deployer OBX balance: ${ethers.formatUnits(deployerBal, 18)} (75% for liquidity/team)`);
+    console.log(`   Presale  OBX balance: ${ethers.formatUnits(presaleBal,  18)} (20% for presale)`);
+    console.log(`   Airdrop  OBX balance: ${ethers.formatUnits(airdropBal,  18)} ( 5% for airdrop)`);
 
     // ═════════════════════════════════════════
-    // 7. Print .env / config summary
+    // 10. Print .env / config summary
     // ═════════════════════════════════════════
     console.log('\n══════════════════════════════════════════════════════════');
-    console.log(' ✅  DEPLOYMENT COMPLETE (Multichain OBXCoin v3)');
-    console.log('    20% supply allocated to presale, 80% to deployer');
+    console.log(' ✅  DEPLOYMENT COMPLETE (Multichain OBXCoin v3 + Airdrop)');
+    console.log('    20% → presale | 5% → airdrop | 75% → deployer');
     console.log('══════════════════════════════════════════════════════════');
-    console.log(` Allocation: ${PRESALE_ALLOC.toLocaleString()} OBX to presale | ${(INITIAL_SUPPLY - PRESALE_ALLOC).toLocaleString()} OBX to deployer`);
+    console.log(` Presale:  ${PRESALE_ALLOC.toLocaleString()} OBX (20%)`);
+    console.log(` Airdrop:  ${AIRDROP_ALLOC.toLocaleString()} OBX ( 5%)`);
+    console.log(` Deployer: ${(INITIAL_SUPPLY - PRESALE_ALLOC - AIRDROP_ALLOC).toLocaleString()} OBX (75%)`);
     console.log(`OBX_TOKEN_CONTRACT=${obxTokenAddress}`);
     console.log(`PRESALE_CONTRACT=${presaleAddress}`);
+    console.log(`AIRDROP_CONTRACT=${airdropAddress}`);
 
     if (chainId === 56) {
         console.log(`OBX_TOKEN_BSC=${obxTokenAddress}`);
         console.log(`\nVerify with:`);
         console.log(`  npx hardhat verify --network bsc_mainnet ${obxTokenAddress} ${INITIAL_SUPPLY}`);
         console.log(`  npx hardhat verify --network bsc_mainnet ${presaleAddress} ${obxTokenAddress} ${usdtAddress} ${treasury}`);
+        console.log(`  npx hardhat verify --network bsc_mainnet ${airdropAddress} ${obxTokenAddress} ${usdtAddress}`);
     } else if (chainId === 97) {
         console.log(`OBX_TOKEN_BSC_TEST=${obxTokenAddress}`);
         console.log(`\nVerify with:`);
         console.log(`  npx hardhat verify --network bsc_testnet ${obxTokenAddress} ${INITIAL_SUPPLY}`);
         console.log(`  npx hardhat verify --network bsc_testnet ${presaleAddress} ${obxTokenAddress} ${usdtAddress} ${treasury}`);
+        console.log(`  npx hardhat verify --network bsc_testnet ${airdropAddress} ${obxTokenAddress} ${usdtAddress}`);
     }
+    console.log('\n  Next: call OBXAirdrop.createCampaign(start, end, dailyAmount) to activate the airdrop');
     console.log('══════════════════════════════════════════════════════════\n');
 
-    return { obxTokenAddress, presaleAddress };
+    return { obxTokenAddress, presaleAddress, airdropAddress };
 }
 
 main().catch((err) => {
