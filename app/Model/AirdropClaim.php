@@ -13,6 +13,7 @@ class AirdropClaim extends Model
         'campaign_id',
         'claim_date',
         'amount_obx',
+        'is_bonus',
     ];
 
     protected $casts = [

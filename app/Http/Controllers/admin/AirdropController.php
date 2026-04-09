@@ -41,22 +41,26 @@ class AirdropController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'name'               => 'required|string|max:100',
-            'start_date'         => 'required|date|after:now',
-            'end_date'           => 'required|date|after:start_date',
-            'daily_claim_amount' => 'required|numeric|min:0.000000000000000001',
-            'contract_address'   => 'nullable|regex:/^0x[0-9a-fA-F]{40}$/',
-            'chain_id'           => 'nullable|integer|min:1',
+            'name'                => 'required|string|max:100',
+            'start_date'          => 'required|date|after:now',
+            'end_date'            => 'required|date|after:start_date',
+            'daily_claim_amount'  => 'required|numeric|min:0.000000000000000001',
+            'streak_days'         => 'required|integer|min:1|max:365',
+            'streak_bonus_amount' => 'required|numeric|min:0',
+            'contract_address'    => 'nullable|regex:/^0x[0-9a-fA-F]{40}$/',
+            'chain_id'            => 'nullable|integer|min:1',
         ]);
 
         AirdropCampaign::create([
-            'name'               => $request->name,
-            'start_date'         => $request->start_date,
-            'end_date'           => $request->end_date,
-            'daily_claim_amount' => bcmul($request->daily_claim_amount, '1', 18),
-            'contract_address'   => $request->contract_address,
-            'chain_id'           => $request->chain_id,
-            'is_active'          => $request->boolean('is_active', true),
+            'name'                => $request->name,
+            'start_date'          => $request->start_date,
+            'end_date'            => $request->end_date,
+            'daily_claim_amount'  => bcmul($request->daily_claim_amount, '1', 18),
+            'streak_days'         => $request->streak_days,
+            'streak_bonus_amount' => bcmul($request->streak_bonus_amount, '1', 18),
+            'contract_address'    => $request->contract_address,
+            'chain_id'            => $request->chain_id,
+            'is_active'           => $request->boolean('is_active', true),
         ]);
 
         return redirect()->route('admin.airdrop.index')
@@ -94,22 +98,26 @@ class AirdropController extends Controller
         }
 
         $request->validate([
-            'name'               => 'required|string|max:100',
-            'start_date'         => 'required|date|after:now',
-            'end_date'           => 'required|date|after:start_date',
-            'daily_claim_amount' => 'required|numeric|min:0.000000000000000001',
-            'contract_address'   => 'nullable|regex:/^0x[0-9a-fA-F]{40}$/',
-            'chain_id'           => 'nullable|integer|min:1',
+            'name'                => 'required|string|max:100',
+            'start_date'          => 'required|date|after:now',
+            'end_date'            => 'required|date|after:start_date',
+            'daily_claim_amount'  => 'required|numeric|min:0.000000000000000001',
+            'streak_days'         => 'required|integer|min:1|max:365',
+            'streak_bonus_amount' => 'required|numeric|min:0',
+            'contract_address'    => 'nullable|regex:/^0x[0-9a-fA-F]{40}$/',
+            'chain_id'            => 'nullable|integer|min:1',
         ]);
 
         $campaign->update([
-            'name'               => $request->name,
-            'start_date'         => $request->start_date,
-            'end_date'           => $request->end_date,
-            'daily_claim_amount' => bcmul($request->daily_claim_amount, '1', 18),
-            'contract_address'   => $request->contract_address,
-            'chain_id'           => $request->chain_id,
-            'is_active'          => $request->boolean('is_active', true),
+            'name'                => $request->name,
+            'start_date'          => $request->start_date,
+            'end_date'            => $request->end_date,
+            'daily_claim_amount'  => bcmul($request->daily_claim_amount, '1', 18),
+            'streak_days'         => $request->streak_days,
+            'streak_bonus_amount' => bcmul($request->streak_bonus_amount, '1', 18),
+            'contract_address'    => $request->contract_address,
+            'chain_id'            => $request->chain_id,
+            'is_active'           => $request->boolean('is_active', true),
         ]);
 
         return redirect()->route('admin.airdrop.index')

@@ -124,6 +124,68 @@
         </div>
     </div>
 
+    {{-- ── Streak Tracker ───────────────────────────────────────────────────── --}}
+    @if($campaign->isLive())
+    @php
+        $streakDays  = max(1, (int)($campaign->streak_days ?? 5));
+        $mod         = $currentStreak % $streakDays;
+        $filledDots  = $mod === 0 && $currentStreak > 0 ? $streakDays : $mod;
+    @endphp
+    <div style="background:var(--dark3);border:1px solid var(--border);border-radius:var(--r);padding:20px 22px;margin-bottom:18px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:14px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+                <span style="font-size:22px;">🔥</span>
+                <div>
+                    <div style="font-weight:700;color:var(--text);font-size:15px;">
+                        {{ __('Day Streak') }}: <span style="color:var(--accent);">{{ $currentStreak }}</span>
+                    </div>
+                    <div style="font-size:11.5px;color:var(--muted);">
+                        {{ __('Claim daily to build your streak') }}
+                    </div>
+                </div>
+            </div>
+            <div style="text-align:right;">
+                <div style="font-size:11.5px;color:var(--muted);">{{ __('Next bonus in') }}</div>
+                <div style="font-weight:700;color:#fbbf24;font-size:16px;">
+                    {{ $nextBonusAt }} {{ trans_choice('day|days', $nextBonusAt) }}
+                </div>
+                @if(bccomp((string)$streakBonusAmount, '0', 18) > 0)
+                <div style="font-size:11px;color:var(--muted);">+{{ number_format((float)$streakBonusAmount, 2) }} OBX {{ __('bonus') }}</div>
+                @endif
+            </div>
+        </div>
+
+        {{-- Day dots progress --}}
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            @for($d = 1; $d <= $streakDays; $d++)
+                @if($d <= $filledDots)
+                    <div style="width:32px;height:32px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;" title="{{ __('Day :n', ['n'=>$d]) }}">{{ $d }}</div>
+                @else
+                    <div style="width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--muted);" title="{{ __('Day :n', ['n'=>$d]) }}">{{ $d }}</div>
+                @endif
+            @endfor
+            @if($streakDays <= 30)
+            <div style="margin-left:4px;display:flex;align-items:center;gap:5px;">
+                <span style="font-size:18px;">🎁</span>
+                <span style="font-size:11.5px;color:#fbbf24;font-weight:600;">
+                    +{{ number_format((float)$streakBonusAmount, 2) }} OBX
+                </span>
+            </div>
+            @endif
+        </div>
+
+        {{-- Progress bar toward next bonus --}}
+        @php $strPct = $streakDays > 0 ? round($filledDots / $streakDays * 100) : 0; @endphp
+        <div class="progress-bar-wrap" style="margin-top:10px;">
+            <div class="progress-bar-fill" style="width:{{ $strPct }}%;background:linear-gradient(90deg,var(--accent),#a855f7);"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:10.5px;color:var(--muted);margin-top:3px;">
+            <span>{{ __('Day') }} {{ $filledDots }}</span>
+            <span>{{ __('Day') }} {{ $streakDays }} 🎁</span>
+        </div>
+    </div>
+    @endif
+
     {{-- ── Daily Claim Button ───────────────────────────────────────────────── --}}
     @if($campaign->isLive())
         @if($unlockRecord && $unlockRecord->status === 'confirmed')

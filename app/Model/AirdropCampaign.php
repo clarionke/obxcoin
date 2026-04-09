@@ -14,6 +14,8 @@ class AirdropCampaign extends Model
         'start_date',
         'end_date',
         'daily_claim_amount',
+        'streak_days',
+        'streak_bonus_amount',
         'unlock_fee_usdt',
         'fee_revealed',
         'contract_address',

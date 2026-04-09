@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Model\AirdropCampaign;
 use App\Model\AirdropClaim;
 use App\Model\AirdropUnlock;
+use App\Model\Wallet;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -73,6 +74,22 @@ class AirdropController extends Controller
         $data['unlockRecord']   = $unlockRecord;
         $data['pastCampaigns']  = $pastCampaigns;
 
+        $currentStreak     = 0;
+        $streakBonusAmount = '0';
+        $nextBonusAt       = 0;
+
+        if ($campaign) {
+            $currentStreak     = $this->getCurrentStreak($userId, $campaign->id, $today);
+            $streakBonusAmount = $campaign->streak_bonus_amount ?? '0';
+            $streakDays        = max(1, (int) ($campaign->streak_days ?? 5));
+            $mod               = $currentStreak % $streakDays;
+            $nextBonusAt       = ($mod === 0 && $currentStreak > 0) ? $streakDays : $streakDays - $mod;
+        }
+
+        $data['currentStreak']     = $currentStreak;
+        $data['streakBonusAmount'] = $streakBonusAmount;
+        $data['nextBonusAt']       = $nextBonusAt;
+
         return view('user.airdrop.index', $data);
     }
 
@@ -100,10 +117,11 @@ class AirdropController extends Controller
             return redirect()->route('user.airdrop')->with('dismiss', __('Campaign is not currently active.'));
         }
 
-        // Prevent double-claim on same day
+        // Prevent double-claim on same day (regular claims only)
         $alreadyClaimed = AirdropClaim::where('user_id', $userId)
             ->where('campaign_id', $campaign->id)
             ->whereDate('claim_date', $today)
+            ->where('is_bonus', false)
             ->exists();
 
         if ($alreadyClaimed) {
@@ -128,11 +146,38 @@ class AirdropController extends Controller
                 'amount_obx'  => $campaign->daily_claim_amount,
             ]);
 
-            return redirect()->route('user.airdrop')
-                ->with('success', __(
-                    'Successfully claimed :amount OBX! Tokens are locked until the campaign ends.',
-                    ['amount' => number_format((float) $campaign->daily_claim_amount, 2)]
-                ));
+            // Streak gamification — award bonus on every N-day milestone
+            $streak       = $this->getCurrentStreak($userId, $campaign->id, $today);
+            $streakDays   = max(1, (int) ($campaign->streak_days ?? 5));
+            $bonusAmount  = $campaign->streak_bonus_amount ?? '0';
+            $bonusAwarded = false;
+
+            if (bccomp((string) $bonusAmount, '0', 18) > 0
+                && $streak > 0
+                && $streak % $streakDays === 0) {
+                AirdropClaim::create([
+                    'user_id'     => $userId,
+                    'campaign_id' => $campaign->id,
+                    'claim_date'  => $today,
+                    'amount_obx'  => $bonusAmount,
+                    'is_bonus'    => true,
+                ]);
+                $bonusAwarded = true;
+            }
+
+            $message = __(
+                'Successfully claimed :amount OBX! Tokens are locked until the campaign ends.',
+                ['amount' => number_format((float) $campaign->daily_claim_amount, 2)]
+            );
+
+            if ($bonusAwarded) {
+                $message .= ' ' . __(
+                    ':days-day streak bonus! Extra :bonus OBX added!',
+                    ['days' => $streakDays, 'bonus' => number_format((float) $bonusAmount, 2)]
+                );
+            }
+
+            return redirect()->route('user.airdrop')->with('success', $message);
         } catch (\Illuminate\Database\UniqueConstraintViolationException $e) {
             // Race-condition guard
             return redirect()->route('user.airdrop')->with('dismiss', __('You have already claimed today.'));
@@ -252,6 +297,44 @@ class AirdropController extends Controller
             'status'       => 'confirmed',
         ]);
 
+        // Credit user's internal OBX wallet balance
+        $wallet = Wallet::where('user_id', $request->user_id)
+            ->where('coin_type', DEFAULT_COIN_TYPE)
+            ->first();
+
+        if ($wallet) {
+            $wallet->increment('balance', (float) $request->obx_amount);
+        }
+
         return response()->json(['success' => true]);
+    }
+
+    // ─── Streak helper ────────────────────────────────────────────────────────
+
+    /**
+     * Count consecutive days (ending today) the user has claimed in the campaign.
+     * Only counts non-bonus claims.
+     */
+    private function getCurrentStreak(int $userId, int $campaignId, Carbon $today): int
+    {
+        $streak = 0;
+        $day    = $today->copy();
+
+        while ($streak < 365) {
+            $exists = AirdropClaim::where('user_id', $userId)
+                ->where('campaign_id', $campaignId)
+                ->whereDate('claim_date', $day)
+                ->where('is_bonus', false)
+                ->exists();
+
+            if (!$exists) {
+                break;
+            }
+
+            $streak++;
+            $day->subDay();
+        }
+
+        return $streak;
     }
 }

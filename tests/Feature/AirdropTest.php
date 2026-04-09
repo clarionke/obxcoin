@@ -7,6 +7,7 @@ use Illuminate\Foundation\Testing\DatabaseTransactions;
 use App\Model\AirdropCampaign;
 use App\Model\AirdropClaim;
 use App\Model\AirdropUnlock;
+use App\Model\Wallet;
 use App\User;
 use Carbon\Carbon;
 
@@ -54,24 +55,28 @@ class AirdropTest extends TestCase
     private function liveCampaign(array $overrides = []): AirdropCampaign
     {
         return AirdropCampaign::create(array_merge([
-            'name'               => 'Test Airdrop',
-            'start_date'         => now()->subHour(),
-            'end_date'           => now()->addDays(30),
-            'daily_claim_amount' => '100000000000000000000', // 100 OBX (18 dec)
-            'is_active'          => true,
+            'name'                => 'Test Airdrop',
+            'start_date'          => now()->subHour(),
+            'end_date'            => now()->addDays(30),
+            'daily_claim_amount'  => '100000000000000000000', // 100 OBX (18 dec)
+            'streak_days'         => 5,
+            'streak_bonus_amount' => '500000000000000000000', // 500 OBX bonus
+            'is_active'           => true,
         ], $overrides));
     }
 
     private function endedCampaign(bool $feeRevealed = false, float $fee = 5.0): AirdropCampaign
     {
         return AirdropCampaign::create([
-            'name'             => 'Ended Campaign',
-            'start_date'       => now()->subDays(31),
-            'end_date'         => now()->subDay(),
-            'daily_claim_amount' => '100000000000000000000',
-            'is_active'        => true,
-            'fee_revealed'     => $feeRevealed,
-            'unlock_fee_usdt'  => $feeRevealed ? $fee : null,
+            'name'                => 'Ended Campaign',
+            'start_date'          => now()->subDays(31),
+            'end_date'            => now()->subDay(),
+            'daily_claim_amount'  => '100000000000000000000',
+            'streak_days'         => 5,
+            'streak_bonus_amount' => '500000000000000000000',
+            'is_active'           => true,
+            'fee_revealed'        => $feeRevealed,
+            'unlock_fee_usdt'     => $feeRevealed ? $fee : null,
         ]);
     }
 
@@ -126,15 +131,17 @@ class AirdropTest extends TestCase
         $admin = $this->makeAdmin();
 
         $response = $this->actingAs($admin)->post(route('admin.airdrop.store'), [
-            'name'               => 'Wave 1',
-            'start_date'         => now()->addHour()->format('Y-m-d H:i:s'),
-            'end_date'           => now()->addDays(30)->format('Y-m-d H:i:s'),
-            'daily_claim_amount' => '100',
-            'is_active'          => '1',
+            'name'                => 'Wave 1',
+            'start_date'          => now()->addHour()->format('Y-m-d H:i:s'),
+            'end_date'            => now()->addDays(30)->format('Y-m-d H:i:s'),
+            'daily_claim_amount'  => '100',
+            'streak_days'         => '5',
+            'streak_bonus_amount' => '500',
+            'is_active'           => '1',
         ]);
 
         $response->assertRedirect(route('admin.airdrop.index'));
-        $this->assertDatabaseHas('airdrop_campaigns', ['name' => 'Wave 1']);
+        $this->assertDatabaseHas('airdrop_campaigns', ['name' => 'Wave 1', 'streak_days' => 5]);
     }
 
     /** @test */
@@ -275,11 +282,13 @@ class AirdropTest extends TestCase
     {
         $user     = $this->makeUser();
         AirdropCampaign::create([
-            'name'               => 'Ended',
-            'start_date'         => now()->subDays(10),
-            'end_date'           => now()->subHour(),
-            'daily_claim_amount' => '100000000000000000000',
-            'is_active'          => true,
+            'name'                => 'Ended',
+            'start_date'          => now()->subDays(10),
+            'end_date'            => now()->subHour(),
+            'daily_claim_amount'  => '100000000000000000000',
+            'streak_days'         => 5,
+            'streak_bonus_amount' => '0',
+            'is_active'           => true,
         ]);
 
         $response = $this->actingAs($user)->post(route('user.airdrop.claim'));
@@ -468,5 +477,146 @@ class AirdropTest extends TestCase
         $response->assertStatus(200);
         // The daily claim button should NOT appear
         $response->assertDontSee(route('user.airdrop.claim'));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Streak gamification
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /** @test */
+    public function streak_bonus_is_awarded_on_nth_consecutive_day()
+    {
+        $user     = $this->makeUser();
+        $campaign = $this->liveCampaign(['streak_days' => 5, 'streak_bonus_amount' => '500000000000000000000']);
+
+        // Seed 4 consecutive days before today
+        foreach (range(4, 1) as $daysAgo) {
+            AirdropClaim::create([
+                'user_id'     => $user->id,
+                'campaign_id' => $campaign->id,
+                'claim_date'  => Carbon::today()->subDays($daysAgo),
+                'amount_obx'  => $campaign->daily_claim_amount,
+                'is_bonus'    => false,
+            ]);
+        }
+
+        // On day 5 (today) claim via route — should trigger bonus
+        $response = $this->actingAs($user)->post(route('user.airdrop.claim'));
+        $response->assertRedirect(route('user.airdrop'));
+        $response->assertSessionHas('success');
+
+        // There should be a bonus claim for today
+        $this->assertDatabaseHas('airdrop_claims', [
+            'user_id'     => $user->id,
+            'campaign_id' => $campaign->id,
+            'is_bonus'    => 1,
+        ]);
+    }
+
+    /** @test */
+    public function streak_bonus_is_not_awarded_before_milestone()
+    {
+        $user     = $this->makeUser();
+        $campaign = $this->liveCampaign(['streak_days' => 5, 'streak_bonus_amount' => '500000000000000000000']);
+
+        // Only 2 consecutive days before today (day 3 total, below milestone of 5)
+        foreach (range(2, 1) as $daysAgo) {
+            AirdropClaim::create([
+                'user_id'     => $user->id,
+                'campaign_id' => $campaign->id,
+                'claim_date'  => Carbon::today()->subDays($daysAgo),
+                'amount_obx'  => $campaign->daily_claim_amount,
+                'is_bonus'    => false,
+            ]);
+        }
+
+        $response = $this->actingAs($user)->post(route('user.airdrop.claim'));
+        $response->assertRedirect(route('user.airdrop'));
+
+        // No bonus claim should exist
+        $this->assertDatabaseMissing('airdrop_claims', [
+            'user_id'     => $user->id,
+            'campaign_id' => $campaign->id,
+            'is_bonus'    => 1,
+        ]);
+    }
+
+    /** @test */
+    public function streak_resets_when_a_day_is_missed()
+    {
+        $user     = $this->makeUser();
+        $campaign = $this->liveCampaign(['streak_days' => 3, 'streak_bonus_amount' => '300000000000000000000']);
+
+        // Claims on day -3 and day -1 (gap on day -2 breaks the streak counting backwards from today)
+        AirdropClaim::create([
+            'user_id'     => $user->id,
+            'campaign_id' => $campaign->id,
+            'claim_date'  => Carbon::today()->subDays(3),
+            'amount_obx'  => $campaign->daily_claim_amount,
+            'is_bonus'    => false,
+        ]);
+        AirdropClaim::create([
+            'user_id'     => $user->id,
+            'campaign_id' => $campaign->id,
+            'claim_date'  => Carbon::today()->subDays(1),
+            'amount_obx'  => $campaign->daily_claim_amount,
+            'is_bonus'    => false,
+        ]);
+
+        // Claim today — streak from today is only 1 (gap on yesterday-2 broke it)
+        $response = $this->actingAs($user)->post(route('user.airdrop.claim'));
+        $response->assertRedirect(route('user.airdrop'));
+
+        // No bonus should be awarded (streak milestone = 3, but current run = 1)
+        $this->assertDatabaseMissing('airdrop_claims', [
+            'user_id'     => $user->id,
+            'campaign_id' => $campaign->id,
+            'is_bonus'    => 1,
+        ]);
+    }
+
+    /** @test */
+    public function confirm_unlock_credits_user_wallet_balance()
+    {
+        $user     = $this->makeUser();
+        $campaign = $this->endedCampaign(true, 5.0);
+
+        // Create wallet for user
+        $wallet = Wallet::create([
+            'user_id'   => $user->id,
+            'coin_type' => DEFAULT_COIN_TYPE,
+            'balance'   => 0,
+        ]);
+
+        // Create pending unlock
+        AirdropUnlock::create([
+            'user_id'      => $user->id,
+            'campaign_id'  => $campaign->id,
+            'usdt_paid'    => 5.0,
+            'obx_released' => '100',
+            'status'       => 'pending',
+        ]);
+
+        // Simulate confirmUnlock callback (route requires auth as regular user)
+        $response = $this->actingAs($user)->post(route('user.airdrop.confirmUnlock'), [
+            'user_id'     => $user->id,
+            'campaign_id' => $campaign->id,
+            'tx_hash'     => '0x' . str_repeat('a', 64),
+            'obx_amount'  => '100',
+        ]);
+
+        $response->assertStatus(200);
+        $response->assertJson(['success' => true]);
+
+        // Wallet balance should now be 100
+        $wallet->refresh();
+        $this->assertEquals(100.0, (float) $wallet->balance);
+
+        // Unlock record should be confirmed
+        $this->assertDatabaseHas('airdrop_unlocks', [
+            'user_id'     => $user->id,
+            'campaign_id' => $campaign->id,
+            'status'      => 'confirmed',
+        ]);
     }
 }

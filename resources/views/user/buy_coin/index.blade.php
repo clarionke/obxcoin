@@ -24,7 +24,7 @@
 @endsection
 
 @section('content')
-<div class="row">
+<div class="row mx-0">
 
     {{-- ── LEFT: Buy Form ──────────────────────────────────────────────────────── --}}
     <div class="col-xl-6 mb-xl-0 mb-4">
