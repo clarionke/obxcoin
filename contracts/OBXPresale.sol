@@ -3,7 +3,7 @@ pragma solidity ^0.8.20;
 
 /**
  * @title  OBXPresale  v3
- * @notice Multi-chain BEP-20/ERC-20 presale contract for OBXCoin.
+ * @notice Multichain presale contract for OBXCoin (20% of initial supply).
  *
  * ─── On-chain visibility (BSCScan / any EVM explorer) ────────────────────
  *  • PhaseAdded / PhaseUpdated events — admin phase management

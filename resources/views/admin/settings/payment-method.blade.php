@@ -76,7 +76,6 @@
 @section('script')
     <script>
         function processForm(active_id) {
-            console.log(active_id)
             $.ajax({
                 type: "POST",
                 url: "{{ route('changePaymentMethodStatus') }}",
@@ -85,7 +84,6 @@
                     'active_id': active_id
                 },
                 success: function (data) {
-                    console.log(data);
                 }
             });
         }

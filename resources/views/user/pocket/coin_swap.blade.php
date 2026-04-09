@@ -120,7 +120,6 @@
                     dataType: 'JSON',
                     type: 'GET',
                     success: function (data){
-                        console.log(data);
                         $('.swap_coin_data').html(data);
                     },
                     error: function (){

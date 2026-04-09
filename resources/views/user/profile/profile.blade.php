@@ -828,7 +828,6 @@
         }
 
         $(document.body).on('click', '#password_btn', function () {
-            console.log($('#password').input.type);
         });
     </script>
 

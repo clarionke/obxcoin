@@ -198,7 +198,6 @@
     @endif
     <script>
         function getTable(type) {
-            console.log(type)
             var table =  $('#table').DataTable({
                 processing: true,
                 serverSide: true,
@@ -231,7 +230,6 @@
             if (id != 'undefined'){
                 $('#table').DataTable().destroy();
                 getTable(id)
-                console.log(id)
             }
 
         });

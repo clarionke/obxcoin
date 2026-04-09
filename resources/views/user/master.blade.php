@@ -824,26 +824,22 @@
 <script src="https://js.pusher.com/3.0/pusher.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/laravel-echo/1.8.1/echo.iife.min.js"></script>
 <script>
-    let my_env_socket_port = "{{ env('BROADCAST_PORT')}}";
-    Pusher.logToConsole = true;
+    let my_env_socket_port = "{{ config('broadcasting.connections.pusher.options.port', 6001) }}";
     window.Echo = new Echo({
         broadcaster: 'pusher',
         wsHost: window.location.hostname,
         wsPort: my_env_socket_port,
         wssPort: 443,
-        key: '{{ env('PUSHER_APP_KEY') }}',
+        key: '{{ config('broadcasting.connections.pusher.key') }}',
         cluster: 'mt1',
-        encrypted: false,
+        encrypted: true,
         disableStats: true
     });
 </script>
 <script>
 
-    Pusher.logToConsole = true;
-
     Echo.channel('usernotification_' + '{{Auth::id()}}')
         .listen('.receive_notification', (data) => {
-            console.log(data);
             if (data.success == true) {
                 let message = data.message
                 $('#web_socket_notification').removeClass('d-none');
@@ -936,7 +932,6 @@
                 'id': id,
             },
             success: function (data) {
-                console.log(data);
                 $("#n_title").text(data['data']['title']);
                 $("#n_date").text(data['data']['date']);
                 $("#n_notice").text(data['data']['notice']);

@@ -66,7 +66,7 @@ class CoinController extends Controller
             return view('user.buy_coin.index', $data);
         } catch (\Exception $e) {
             Log::info('buy coin page: ' . $e->getMessage());
-            return redirect()->back()->with('dismiss', $e->getMessage());
+            return redirect()->back()->with('dismiss', __('Something went wrong. Please try again.'));
         }
     }
 
@@ -298,7 +298,8 @@ class CoinController extends Controller
                 return redirect()->route('requestCoin', ['qr' => 'requests'])->withInput()->with('success', $response['message']);
             }
         } catch(\Exception $e) {
-            return redirect()->back()->with(['dismiss' => $e->getMessage()]);
+            Log::error('sendCoinRequest: ' . $e->getMessage());
+            return redirect()->back()->with(['dismiss' => __('Something went wrong. Please try again.')]);
         }
     }
 
@@ -330,7 +331,8 @@ class CoinController extends Controller
                 return redirect()->route('requestCoin', ['qr' => 'give'])->withInput()->with('success', $response['message']);
             }
         } catch(\Exception $e) {
-            return redirect()->back()->with(['dismiss' => $e->getMessage()]);
+            Log::error('giveCoin: ' . $e->getMessage());
+            return redirect()->back()->with(['dismiss' => __('Something went wrong. Please try again.')]);
         }
     }
 
@@ -429,7 +431,8 @@ class CoinController extends Controller
                 return redirect()->back()->withInput()->with('success', $response['message']);
             }
         } catch(\Exception $e) {
-            return redirect()->back()->with(['dismiss' => $e->getMessage()]);
+            Log::error('acceptCoinRequest: ' . $e->getMessage());
+            return redirect()->back()->with(['dismiss' => __('Something went wrong. Please try again.')]);
         }
     }
 
@@ -450,7 +453,8 @@ class CoinController extends Controller
                     return redirect()->back()->withInput()->with('success', $response['message']);
                 }
             } catch(\Exception $e) {
-                return redirect()->back()->with(['dismiss' => $e->getMessage()]);
+                Log::error('declineCoinRequest: ' . $e->getMessage());
+                return redirect()->back()->with(['dismiss' => __('Something went wrong. Please try again.')]);
             }
 
         }
@@ -567,8 +571,8 @@ class CoinController extends Controller
             DB::commit();
             return $data;
         } catch (\Exception $e) {
-            $data['message'] = $e->getMessage().' '.$e->getLine();
-            Log::info($data['message']);
+            $data['message'] = __('Something went wrong. Please try again.');
+            Log::error('checkBalance: ' . $e->getMessage() . ' line ' . $e->getLine());
             DB::rollback();
 
             return $data;

@@ -3,25 +3,37 @@ pragma solidity ^0.8.20;
 
 /**
  * @title  OBXToken  v3
- * @notice Deflationary BEP-20 / ERC-20 token for OBXCoin.
+ * @notice Deflationary BEP-20 / ERC-20 token for OBXCoin (multichain).
+ *
+ * ✓ Compatible with: BSC (BEP-20), Ethereum (ERC-20), Polygon, Arbitrum, Optimism
+ * ✓ Fully ERC-20 compatible with 18 decimals
+ * ✓ Deflationary: 0.05% burn per transfer (after BURN_FLOOR: 0% fee forever)
+ * ✓ Programmed Scarcity: Burn stops at 41M OBX floor (59M total burn from 100M supply)
  *
  * ─── Tokenomics ───────────────────────────────────────────────────────────
- *  • Total supply at deploy : 100,000,000 OBX
- *  • 0.05 % BURN on every non-exempt transfer → permanently decreasing supply.
- *    Implemented as Transfer(from, address(0), burnAmount) which appears on
- *    BSCScan/any explorer as an official token burn event.
- *  • Programmed Scarcity: burn stops permanently once totalSupply reaches
- *    41,000,000 OBX (the BURN_FLOOR). Exactly 59,000,000 OBX (59 %) will
- *    ever be burned. After that point every transfer is fee-free forever.
- *  • Fee-exempt list: owner, presale contract, DEX router, LP pair(s).
+ *  • Initial Supply:     100,000,000 OBX
+ *  • Presale Allocation: 20,000,000 OBX (20%)
+ *  • Burn Fee:           0.05% (5 / 10,000 BPS) on every transfer
+ *  • Burn Floor:         41,000,000 OBX (41% of initial supply remains)
+ *  • Max Burnable:       59,000,000 OBX (59% of initial supply)
+ *  • After floor reached: Burns are 0%, all transfers are fee-free forever
+ *  • Fee-exempt list:    Owner, presale contract, DEX router, LP pair(s)
  *
- * ─── Deployment checklist ─────────────────────────────────────────────────
- *  1.  Deploy OBXToken(_initialSupply)
- *  2.  Deploy OBXPresale(obxToken, usdt, treasury)
- *  3.  OBXToken.setFeeExempt(presaleContract, true)   ← BEFORE transferring OBX to presale
- *  4.  OBXToken.setFeeExempt(routerAddress,   true)   ← PancakeSwap / Uniswap V2 router
- *  5.  OBXToken.setFeeExempt(lpPairAddress,   true)   ← after creating the OBX/USDT pair
- *  6.  OBXToken.transfer(presaleContract, presaleAllocation)
+ * ─── Deployment Checklist ─────────────────────────────────────────────────
+ *  1. Deploy OBXToken(100_000_000)
+ *  2. Deploy OBXPresale(obxToken, usdt, treasury)
+ *  3. OBXToken.setFeeExempt(presaleAddress, true)    ← BEFORE presale transfer
+ *  4. OBXToken.transfer(presaleAddress, 20_000_000)  ← 20% presale allocation
+ *  5. OBXToken.setFeeExempt(routerAddress, true)     ← DEX router (PancakeSwap V2/Uniswap V2)
+ *  6. (After LP created) OBXToken.setFeeExempt(lpPairAddress, true)
+ *  7. OBXPresale.setRouter(routerAddress)            ← Enable auto-liquidity
+ *  8. Verify balances via OBXToken.balanceOf()
+ *
+ * ─── Security Notes ───────────────────────────────────────────────────────
+ *  • Owner can be transferred (2-step transfer via transferOwnership/acceptOwnership)
+ *  • Paused flag allows emergency freeze of all transfers
+ *  • Burn calculation uses safe arithmetic (no overflow/underflow)
+ *  • Burn is capped at BURN_FLOOR to prevent supply going negative
  */
 contract OBXToken {
 

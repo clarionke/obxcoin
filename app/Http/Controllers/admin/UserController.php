@@ -206,7 +206,13 @@ class UserController extends Controller
      */
     public function impersonate($id)
     {
-        $targetUser = User::find(decrypt($id));
+        try {
+            $targetUserId = decrypt($id);
+        } catch (\Exception $e) {
+            return redirect()->back()->with('dismiss', __('Invalid request.'));
+        }
+
+        $targetUser = User::find($targetUserId);
 
         if (empty($targetUser) || $targetUser->role != USER_ROLE_USER) {
             return redirect()->back()->with('dismiss', __('User not found or cannot be impersonated.'));

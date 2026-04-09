@@ -135,7 +135,6 @@
                     'active_id': active_id
                 },
                 success: function (data) {
-                    console.log(data);
                 }
             });
         }

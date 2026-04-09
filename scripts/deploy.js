@@ -1,24 +1,41 @@
 /**
  * scripts/deploy.js
  *
- * Deploys OBXToken + OBXPresale to any EVM network.
+ * Deploys OBXToken + OBXPresale to any EVM network (multichain).
+ *
+ * Supported Networks:
+ *   • BSC Mainnet (chainId 56)
+ *   • BSC Testnet (chainId 97)
+ *   • Ethereum Mainnet (chainId 1)
+ *   • Ethereum Sepolia Testnet (chainId 11155111)
+ *   • Polygon Mainnet (chainId 137)
+ *   • Arbitrum One (chainId 42161)
+ *   • Optimism Mainnet (chainId 10)
+ *   • Local Hardhat (chainId 31337)
  *
  * Usage:
  *   npx hardhat run scripts/deploy.js --network bsc_testnet
  *   npx hardhat run scripts/deploy.js --network bsc_mainnet
+ *   npx hardhat run scripts/deploy.js --network ethereum
  *
  * Environment variables (set in .env):
- *   OWNER_PRIVATE_KEY         — deployer wallet private key (NO 0x prefix needed)
- *   TREASURY_ADDRESS          — address to receive USDT from presale sales
- *   USDT_BSC_ADDRESS          — BEP-20 USDT contract address on BSC mainnet
- *   USDT_BSC_TEST_ADDRESS     — BEP-20 USDT contract address on BSC testnet
- *   PANCAKE_ROUTER_ADDRESS    — PancakeSwap V2 router (optional, for auto-liquidity)
- *   PRESALE_ALLOCATION        — OBX tokens to send to presale (default: 60_000_000)
- *   INITIAL_SUPPLY            — Total OBX supply at deploy (default: 100_000_000)
+ *   OWNER_PRIVATE_KEY              — deployer wallet private key (NO 0x prefix needed)\n *   TREASURY_ADDRESS               — address to receive USDT from presale sales
+ *   USDT_BSC_ADDRESS               — BEP-20 USDT contract address on BSC mainnet
+ *   USDT_BSC_TEST_ADDRESS          — BEP-20 USDT contract address on BSC testnet
+ *   USDT_ETH_ADDRESS               — ERC-20 USDT contract address on Ethereum
+ *   USDT_POLYGON_ADDRESS           — ERC-20 USDT contract address on Polygon
+ *   PANCAKE_ROUTER_ADDRESS         — PancakeSwap V2 router on BSC
+ *   UNISWAP_ROUTER                 — Uniswap V2 router on Ethereum/Polygon
+ *   QUICKSWAP_ROUTER               — QuickSwap V2 router on Polygon (alt to Uniswap)
+ *   INITIAL_SUPPLY                 — Total OBX supply at deploy (default: 100_000_000)\n *   PRESALE_ALLOCATION             — OBX tokens to send to presale\n *                                    default: 20_000_000 (20% of initial supply)
  *
  * After deployment, copy the printed addresses into your .env file:
  *   OBX_TOKEN_CONTRACT=<OBXToken address>
  *   PRESALE_CONTRACT=<OBXPresale address>
+ *
+ * ✓ Allocation: 20M OBX to presale (20% of 100M total supply)
+ * ✓ 80M OBX remains with deployer for future liquidity bootstrapping
+ * ✓ All output addresses are checksummed and explorer-ready
  */
 
 'use strict';
@@ -46,7 +63,7 @@ const CHAIN_ROUTER = {
 };
 
 const INITIAL_SUPPLY   = BigInt(process.env.INITIAL_SUPPLY    || '100000000');
-const PRESALE_ALLOC    = BigInt(process.env.PRESALE_ALLOCATION || '60000000');
+const PRESALE_ALLOC    = BigInt(process.env.PRESALE_ALLOCATION || '20000000');  // 20% of total supply
 const DECIMALS         = BigInt(10 ** 18);
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -141,7 +158,7 @@ async function main() {
     // ═════════════════════════════════════════
     // 4. Transfer presale allocation to OBXPresale
     // ═════════════════════════════════════════
-    console.log(`\n4. Transferring ${PRESALE_ALLOC.toLocaleString()} OBX to OBXPresale …`);
+    console.log(`\n4. Transferring ${PRESALE_ALLOC.toLocaleString()} OBX (20% allocation) to OBXPresale …`);
     const presaleWei = PRESALE_ALLOC * DECIMALS;
     const tx4 = await obxToken.transfer(presaleAddress, presaleWei);
     await tx4.wait();
@@ -170,15 +187,17 @@ async function main() {
     console.log('\n6. Verifying balances …');
     const deployerBal = await obxToken.balanceOf(deployer.address);
     const presaleBal  = await obxToken.balanceOf(presaleAddress);
-    console.log(`   Deployer OBX balance: ${ethers.formatUnits(deployerBal, 18)}`);
-    console.log(`   Presale  OBX balance: ${ethers.formatUnits(presaleBal,  18)}`);
+    console.log(`   Deployer OBX balance: ${ethers.formatUnits(deployerBal, 18)} (80% remaining for future use)`);
+    console.log(`   Presale  OBX balance: ${ethers.formatUnits(presaleBal,  18)} (20% allocated to presale)`);
 
     // ═════════════════════════════════════════
     // 7. Print .env / config summary
     // ═════════════════════════════════════════
     console.log('\n══════════════════════════════════════════════════════════');
-    console.log(' ✅  DEPLOYMENT COMPLETE — copy the following into your .env');
+    console.log(' ✅  DEPLOYMENT COMPLETE (Multichain OBXCoin v3)');
+    console.log('    20% supply allocated to presale, 80% to deployer');
     console.log('══════════════════════════════════════════════════════════');
+    console.log(` Allocation: ${PRESALE_ALLOC.toLocaleString()} OBX to presale | ${(INITIAL_SUPPLY - PRESALE_ALLOC).toLocaleString()} OBX to deployer`);
     console.log(`OBX_TOKEN_CONTRACT=${obxTokenAddress}`);
     console.log(`PRESALE_CONTRACT=${presaleAddress}`);
 

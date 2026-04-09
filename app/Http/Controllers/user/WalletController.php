@@ -291,7 +291,8 @@ class WalletController extends Controller
             }
 
         } catch (\Exception $e) {
-            return redirect()->back()->with('dismiss', $e->getMessage());
+            Log::error('generateNewAddress: ' . $e->getMessage());
+            return redirect()->back()->with('dismiss', __('Address generation failed.'));
         }
     }
 
@@ -370,13 +371,6 @@ class WalletController extends Controller
                 if ($wallet->balance >= $request->amount) {
                     try {
                         if ($wallet->type == PERSONAL_WALLET) {
-
-//                            $request =$request->all();
-//
-//                            $trans = new TransactionService();
-//                            $response = $trans->send($request['wallet_id'],$request['address'],$request['amount'],'','',$request['user_id'],$request['message']);
-//                            return $response;
-
                             dispatch(new Withdrawal($request->all()))->onQueue('withdrawal');
                             return redirect()->back()->with('success', __('Withdrawal placed successfully'));
 

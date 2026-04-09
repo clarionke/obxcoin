@@ -106,7 +106,6 @@
                     url: frm.attr('action'),
                     data: frm.serialize(),
                     success: function (data) {
-                        console.log(data.success);
                         if (data.success == true) {
                             $('#g2fcheck').modal('show');
 

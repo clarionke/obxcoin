@@ -170,8 +170,6 @@
                 dataType: 'JSON',
                 /* remind that 'data' is the response of the AjaxController */
                 success: function (data) {
-                    console.log(data)
-                    console.log(modal.find('.modal-body input[name="name"]'))
                     modal.find('.modal-body input[name="name"]').val(data.name)
                     modal.find('.modal-body input[name="email"]').val(data.email)
                     modal.find('.modal-body input[name="phone"]').val(data.phone)
