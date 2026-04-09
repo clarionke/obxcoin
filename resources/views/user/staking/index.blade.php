@@ -27,12 +27,39 @@
 .position-row .pr-pool  { font-weight: 600; }
 .position-row .pr-lock  { font-size: 12px; color: var(--muted); }
 #obx-price-bar          { background: rgba(99,102,241,.08); border-radius: 8px; padding: 10px 16px;
-                           display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;
+                           display: grid; grid-template-columns: repeat(4,1fr) auto;
+                           align-items: center; gap: 8px 16px; margin-bottom: 16px;
                            border: 1px solid rgba(99,102,241,.2); font-size: 13px; }
-#obx-price-bar .pbar-lbl{ color: var(--muted); font-size: 12px; }
-#obx-price-bar .pbar-val{ font-weight: 700; color: var(--text); }
+#obx-price-bar .pbar-lbl{ color: var(--muted); font-size: 11px; white-space: nowrap; }
+#obx-price-bar .pbar-val{ font-weight: 700; color: var(--text); font-size: 14px; }
+#obx-price-bar .pbar-hint{ font-size:11px; color:var(--muted); white-space:nowrap; text-align:right; }
 #wallet-balance-row     { background: rgba(99,102,241,.06); border-radius: 8px; padding: 8px 14px;
-                           margin-bottom: 10px; font-size: 13px; display: none; }
+                           margin-bottom: 10px; font-size: 13px; display: none;
+                           flex-wrap: wrap; gap: 6px; align-items: center; }
+/* Pool card meta wraps safely */
+.pool-card .pool-meta    { font-size: 12px; color: var(--muted); margin-top: 4px; flex-wrap: wrap; }
+.pool-card .pool-meta .sep { color: var(--muted); margin: 0 4px; }
+/* Position rows stack on mobile */
+.position-row .pr-actions { flex-shrink: 0; }
+/* Stake preview list */
+.stake-preview-list      { list-style:none; padding: 12px 16px; background: rgba(255,255,255,.04); border-radius: 8px; }
+.stake-preview-list li   { padding: 3px 0; font-size: 13px; }
+/* Responsive */
+@media (max-width: 991px) {
+    #obx-price-bar { grid-template-columns: repeat(2,1fr); }
+    #obx-price-bar .pbar-hint { display: none; }
+}
+@media (max-width: 575px) {
+    #obx-price-bar { grid-template-columns: repeat(2,1fr); padding: 10px 12px; gap: 10px 10px; }
+    .pool-card { padding: 14px 12px; }
+    .pool-card .pool-name { font-size: 15px; }
+    .pool-card .pool-apy  { font-size: 19px; }
+    .pool-card .d-flex    { flex-direction: column; gap: 8px; }
+    .pool-card .text-right{ text-align: left !important; }
+    .position-row .d-flex { flex-wrap: wrap; gap: 8px; }
+    .position-row .pr-actions { width: 100%; }
+    #wallet-balance-row   { display: flex; }
+}
 </style>
 @endsection
 
@@ -40,7 +67,7 @@
 <div class="row mx-0">
 
     {{-- ── LEFT: Stake Form ──────────────────────────────────────────────────── --}}
-    <div class="col-xl-7 mb-4">
+    <div class="col-lg-7 mb-4">
         <div class="card cp-user-custom-card">
             <div class="card-body">
                 <div class="cp-user-card-header-area">
@@ -65,7 +92,7 @@
                         <div class="pbar-lbl">{{__('24h Volume')}}</div>
                         <div class="pbar-val" id="pbar_vol">{{ settings('obx_volume_24h') ? '$'.number_format((float)settings('obx_volume_24h'),0) : '—' }}</div>
                     </div>
-                    <div class="ml-auto" style="font-size:11px;color:var(--muted);">
+                    <div class="pbar-hint">
                         <i class="fa fa-refresh mr-1" id="price_refresh_icon"></i>
                         {{__('Auto-updates every 30s')}}
                     </div>
@@ -93,9 +120,9 @@
                                 <div class="pool-name">{{ $pool->name }}</div>
                                 <div class="pool-meta">
                                     <i class="fa fa-clock-o mr-1"></i>{{ $pool->duration_days }} {{__('days lock')}}
-                                    &nbsp;•&nbsp;
+                                    <span class="sep">•</span>
                                     <i class="fa fa-fire mr-1" style="color:var(--danger);"></i>{{__('Burn on stake')}}: {{ $pool->burn_stake_pct }}
-                                    &nbsp;•&nbsp; {{__('Burn on unstake')}}: {{ $pool->burn_unstake_pct }}
+                                    <span class="sep">•</span> {{__('Burn on unstake')}}: {{ $pool->burn_unstake_pct }}
                                 </div>
                                 <div class="pool-meta">{{__('Min stake')}}: {{ number_format($pool->min_amount, 2) }} OBX</div>
                                 @if($pool->description)
@@ -132,7 +159,7 @@
                 </div>
 
                 {{-- Preview --}}
-                <ul class="price-preview mb-3" id="stake-preview" style="display:none;list-style:none;padding:12px 16px;background:rgba(255,255,255,.04);border-radius:8px;">
+                <ul class="stake-preview-list mb-3" id="stake-preview" style="display:none;">
                     <li>{{__('Pool')}}:         <strong id="pr_pool_name">—</strong></li>
                     <li>{{__('Lock period')}}:  <strong id="pr_duration">—</strong></li>
                     <li>{{__('APY')}}:          <strong id="pr_apy">—</strong></li>
@@ -146,12 +173,12 @@
 
                 {{-- Connect & Stake flow --}}
                 <div class="mt-3">
-                    <button type="button" class="btn theme-btn mb-2" id="wc_connect_btn" onclick="wcConnect()">
+                    <button type="button" class="btn theme-btn mb-2 w-100" id="wc_connect_btn" onclick="wcConnect()">
                         <i class="fa fa-link mr-1"></i> {{__('Connect Wallet')}}
                     </button>
                     <div id="wc_connected" style="display:none;">
-                        <p class="text-success mb-2" id="wc_address_display"></p>
-                        <button type="button" class="btn theme-btn" id="wc_stake_btn" onclick="wcStake()" disabled>
+                        <p class="text-success mb-2" id="wc_address_display" style="font-size:12px;word-break:break-all;"></p>
+                        <button type="button" class="btn theme-btn w-100" id="wc_stake_btn" onclick="wcStake()" disabled>
                             <i class="fa fa-lock mr-1"></i> {{__('Approve & Stake')}}
                         </button>
                     </div>
@@ -164,7 +191,7 @@
     </div>
 
     {{-- ── RIGHT: Active Positions ────────────────────────────────────────────── --}}
-    <div class="col-xl-5">
+    <div class="col-lg-5">
         <div class="card cp-user-custom-card">
             <div class="card-body">
                 <div class="cp-user-card-header-area">
@@ -176,8 +203,8 @@
                 @else
                     @foreach($positions as $pos)
                     <div class="position-row">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
+                        <div class="d-flex justify-content-between align-items-start flex-wrap" style="gap:8px;">
+                            <div style="min-width:0;flex:1;">
                                 <div class="pr-pool">{{ $pos->pool ? $pos->pool->name : 'N/A' }}</div>
                                 <div class="pr-lock">
                                     {{__('Staked')}}: {{ number_format($pos->net_amount, 4) }} OBX
@@ -188,7 +215,7 @@
                                         <span class="text-success">{{__('Ready to unstake!')}}</span>
                                     @endif
                                 </div>
-                                <div class="pr-lock mt-1">
+                                <div class="pr-lock mt-1" style="word-break:break-all;">
                                     @if($pos->tx_hash_stake)
                                         {{__('Stake tx:')}}
                                         <a href="{{ explorer_tx_url($pos->tx_hash_stake) }}" target="_blank" rel="noopener noreferrer" style="color:var(--accent);">
@@ -197,7 +224,7 @@
                                     @endif
                                 </div>
                             </div>
-                            <div>
+                            <div class="pr-actions flex-shrink-0">
                                 @if(!$pos->isLocked())
                                     <button class="btn btn-sm btn-outline-success"
                                             onclick="wcUnstake({{ $pos->id }}, '{{ $pos->tx_hash_stake }}', {{ $pos->net_amount }}, {{ $pos->pool ? $pos->pool->burn_on_unstake_bps : 200 }}, {{ $pos->contract_stake_idx ?? 0 }})">
