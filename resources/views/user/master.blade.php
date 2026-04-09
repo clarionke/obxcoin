@@ -188,32 +188,34 @@
     /* ---- Inline stats (always visible, next to bell) ---- */
     .topbar-stats-inline{
         display:flex;align-items:center;gap:4px;
-        flex-shrink:1;min-width:0;overflow:hidden;
-        margin-right:4px;
+        flex-shrink:1;min-width:0;overflow:visible;
+        margin-right:4px;flex-wrap:nowrap;
     }
-    /* Full pill style on desktop */
+    /* Full pill style — all screen sizes */
     .topbar-stats-inline .tb-stat{
         padding:4px 10px;
+        flex-shrink:0;
     }
-    /* Compact on tablet */
+    /* On smaller screens keep labels, reduce font/padding */
     @media(max-width:991px){
         .topbar-stats-inline .tb-stat{
-            background:none;border:none;
-            border-right:1px solid var(--border);
-            border-radius:0;padding:0 8px;
+            padding:3px 7px;
         }
-        .topbar-stats-inline .tb-stat:last-child{border-right:none;}
-        .topbar-stats-inline .tb-stat-label{
-            display:none;
-        }
+        .topbar-stats-inline .tb-stat-label{font-size:8px;}
         .topbar-stats-inline .tb-stat-sub{display:none;}
         .topbar-stats-inline .tb-stat-val{font-size:11px;font-weight:600;}
     }
-    /* Hide membership on small phones to save space */
-    @media(max-width:480px){
-        .topbar-stats-inline .tb-stat-membership{display:none;}
-        .topbar-stats-inline .tb-stat-val{font-size:10.5px;}
+    @media(max-width:575px){
+        .topbar-stats-inline .tb-stat{padding:2px 5px;}
+        .topbar-stats-inline .tb-stat-label{font-size:7.5px;}
+        .topbar-stats-inline .tb-stat-val{font-size:10px;}
     }
+    /* Live price pill */
+    .tb-stat-price{order:-1;} /* show first in the row */
+    .tb-price-val{font-size:12px;font-weight:700;color:#a5b4fc;line-height:1.2;}
+    .tb-price-change{font-size:10px;font-weight:600;line-height:1;}
+    .tb-price-change.up{color:#34d399;}
+    .tb-price-change.down{color:#f87171;}
     .menu-bars{
         cursor:pointer;display:inline-flex;align-items:center;justify-content:center;
         width:34px;height:34px;border-radius:var(--r-sm);transition:background .15s;
@@ -573,6 +575,12 @@
         <div class="topbar-right">
             {{-- Stats inline — always visible on all screens --}}
             <div class="topbar-stats-inline">
+                {{-- Live OBX price --}}
+                <div class="tb-stat tb-stat-price" id="tb-obx-price-pill">
+                    <span class="tb-stat-label">1 OBX =</span>
+                    <span class="tb-price-val" id="tb-obx-price">— USD</span>
+                    <span class="tb-price-change" id="tb-obx-change"></span>
+                </div>
                 <div class="tb-stat">
                     <span class="tb-stat-label">{{__('Balance')}}</span>
                     <span class="tb-stat-val"><span class="accent">{{number_format($balance['available_coin'],2)}}</span> {{allsetting('coin_name')}}</span>
@@ -678,6 +686,7 @@
                         </li>
                     </ul>
                 </li>
+                {{-- Send / Receive menu commented out
                 <li class="@if(isset($menu) && $menu == 'coin_request') cp-user-active-page mm-active @endif">
                     <a class="arrow-icon" href="#" aria-expanded="true">
                         <span class="nav-icon"><i class="fa fa-exchange"></i></span>
@@ -698,6 +707,7 @@
                         </li>
                     </ul>
                 </li>
+                --}}
                 <li class="@if(isset($menu) && $menu == 'pocket') cp-user-active-page mm-active @endif">
                     <a class="arrow-icon" href="#" aria-expanded="true">
                         <span class="nav-icon"><i class="fa fa-credit-card"></i></span>
@@ -1102,6 +1112,30 @@
 })(jQuery);
 </script>
 
+<script>
+(function(){
+    function fetchTopbarPrice(){
+        fetch('/obxcoin/public/api/obx-price')
+            .then(function(r){ return r.json(); })
+            .then(function(d){
+                if(!d || !d.price) return;
+                var price   = parseFloat(d.price);
+                var change  = parseFloat(d.change_24h || 0);
+                var priceEl  = document.getElementById('tb-obx-price');
+                var changeEl = document.getElementById('tb-obx-change');
+                if(priceEl)  priceEl.textContent  = '$' + price.toFixed(4) + ' USD';
+                if(changeEl){
+                    var sign = change >= 0 ? '+' : '';
+                    changeEl.textContent  = sign + change.toFixed(2) + '%';
+                    changeEl.className    = 'tb-price-change ' + (change >= 0 ? 'up' : 'down');
+                }
+            })
+            .catch(function(){});
+    }
+    fetchTopbarPrice();
+    setInterval(fetchTopbarPrice, 30000);
+})();
+</script>
 @yield('script')
 </body>
 </html>

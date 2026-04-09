@@ -5,7 +5,7 @@
 </div>
 
 <div class="profile-info-form">
-    <form action="{{route('adminSaveSettings')}}" method="post" enctype="multipart/form-data">
+    <form action="{{route('adminCommonSettings')}}" method="post" enctype="multipart/form-data">
         @csrf
 
         {{-- ─── API credentials ───────────────────────────────────────────── --}}

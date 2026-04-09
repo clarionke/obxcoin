@@ -7,6 +7,7 @@ use App\Model\BuyCoinHistory;
 use App\Model\DepositeTransaction;
 use App\Model\Faq;
 use App\Model\Notification;
+use App\Model\Wallet;
 use App\Model\WithdrawHistory;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -111,6 +112,10 @@ class DashboardController extends Controller
             $allBuyCoin[] =  isset($data['coin'][$month]) ? $data['coin'][$month] : 0;
         }
         $data['monthly_buy_coin'] = $allBuyCoin;
+
+        $data['obx_wallet'] = Wallet::where(['user_id' => Auth::id(), 'coin_type' => DEFAULT_COIN_TYPE])
+            ->orderByDesc('is_primary')
+            ->first();
 
         return view('user.dashboard', $data);
     }

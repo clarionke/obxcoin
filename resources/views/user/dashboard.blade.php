@@ -200,11 +200,13 @@
 </style>
 @endsection
 @php
-function fmtBigNum(float $n): string {
-    if ($n >= 1_000_000_000) return '$' . number_format($n / 1_000_000_000, 2) . 'B';
-    if ($n >= 1_000_000)     return '$' . number_format($n / 1_000_000, 2)     . 'M';
-    if ($n >= 1_000)         return '$' . number_format($n / 1_000, 1)         . 'K';
-    return '$' . number_format($n, 2);
+if (!function_exists('fmtBigNum')) {
+    function fmtBigNum(float $n): string {
+        if ($n >= 1_000_000_000) return '$' . number_format($n / 1_000_000_000, 2) . 'B';
+        if ($n >= 1_000_000)     return '$' . number_format($n / 1_000_000, 2)     . 'M';
+        if ($n >= 1_000)         return '$' . number_format($n / 1_000, 1)         . 'K';
+        return '$' . number_format($n, 2);
+    }
 }
 @endphp
 @section('content')
@@ -219,8 +221,8 @@ function fmtBigNum(float $n): string {
         <a href="{{route('buyCoin')}}" class="wc-btn-primary">
             <i class="fa fa-shopping-cart"></i> {{__('Buy OBXCoin')}}
         </a>
-        <a href="{{route('requestCoin')}}" class="wc-btn-outline">
-            <i class="fa fa-exchange"></i> {{__('Send')}}
+        <a href="{{ isset($obx_wallet) ? route('walletDetails', $obx_wallet->id).'?q=withdraw' : route('myPocket') }}" class="wc-btn-outline">
+            <i class="fa fa-exchange"></i> {{__('Send OBXCoin')}}
         </a>
         <a href="{{route('myPocket')}}" class="wc-btn-outline">
             <i class="fa fa-credit-card"></i> {{__('Wallet')}}
