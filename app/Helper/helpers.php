@@ -86,6 +86,40 @@ function previousMonthDateName(){
 
 
 /**
+ * Return a block-explorer URL for a transaction hash, or null if not a
+ * 0x-prefixed on-chain hash (e.g. CoinPayments IDs are left as-is).
+ */
+function explorer_tx_url(string $hash, ?int $chainId = null): ?string
+{
+    if (empty($hash) || !str_starts_with($hash, '0x')) {
+        return null;
+    }
+    $chain = $chainId ?? (int)(settings('walletconnect_chain_id') ?? 56);
+    return match ($chain) {
+        56      => 'https://bscscan.com/tx/' . $hash,
+        97      => 'https://testnet.bscscan.com/tx/' . $hash,
+        1       => 'https://etherscan.io/tx/' . $hash,
+        137     => 'https://polygonscan.com/tx/' . $hash,
+        default => 'https://bscscan.com/tx/' . $hash,
+    };
+}
+
+/**
+ * Return just the base block-explorer URL (no hash) for use as a JS variable.
+ */
+function explorer_tx_base(?int $chainId = null): string
+{
+    $chain = $chainId ?? (int)(settings('walletconnect_chain_id') ?? 56);
+    return match ($chain) {
+        56      => 'https://bscscan.com/tx/',
+        97      => 'https://testnet.bscscan.com/tx/',
+        1       => 'https://etherscan.io/tx/',
+        137     => 'https://polygonscan.com/tx/',
+        default => 'https://bscscan.com/tx/',
+    };
+}
+
+/**
  * @param null $array
  * @return array|bool
  */

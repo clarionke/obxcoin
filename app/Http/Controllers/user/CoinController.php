@@ -231,6 +231,10 @@ class CoinController extends Controller
                 ->addColumn('status', function ($item) {
                     return deposit_status($item->status);
                 })
+                ->addColumn('tx_hash', function ($item) {
+                    return $item->tx_hash ?? '';
+                })
+                ->rawColumns(['status', 'type'])
                 ->make(true);
         }
 

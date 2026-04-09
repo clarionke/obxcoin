@@ -64,7 +64,11 @@
                                         <td>{{ number_format((float)$u->obx_released, 4) }} OBX</td>
                                         <td>
                                             @if($u->tx_hash)
-                                                <code title="{{ $u->tx_hash }}">{{ substr($u->tx_hash, 0, 18) }}…</code>
+                                                @php $txUrl = explorer_tx_url($u->tx_hash); @endphp
+                                                <a href="{{ $txUrl ?? '#' }}" target="_blank" rel="noopener noreferrer" title="{{ $u->tx_hash }}">
+                                                    <code>{{ substr($u->tx_hash, 0, 18) }}…</code>
+                                                    <i class="fa fa-external-link" style="font-size:9px;opacity:.7;"></i>
+                                                </a>
                                             @else
                                                 <span class="text-muted">—</span>
                                             @endif

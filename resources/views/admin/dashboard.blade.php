@@ -436,7 +436,13 @@
                 {"data": "receiver"},
                 {"data": "amount"},
                 {"data": "fees"},
-                {"data": "transaction_hash"},
+                {"data": "transaction_hash", "render": function(data) {
+                    if (!data) return '&mdash;';
+                    if (typeof data === 'string' && data.startsWith('0x')) {
+                        return '<a href="{{ explorer_tx_base() }}'+data+'" target="_blank" rel="noopener noreferrer" title="'+data+'">'+data.substring(0,16)+'&#8230;</a>';
+                    }
+                    return data;
+                }},
                 {"data": "updated_at"},
                 {"data": "actions"}
             ]

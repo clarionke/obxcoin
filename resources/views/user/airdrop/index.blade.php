@@ -220,7 +220,11 @@
                 <p style="color:var(--muted);font-size:13px;margin-bottom:0;">
                     {{ __(':obx OBX has been transferred to your wallet.', ['obx' => number_format((float)$unlockRecord->obx_released, 4)]) }}
                     @if($unlockRecord->tx_hash)
-                        &nbsp;<code style="font-size:11px;">TX: {{ substr($unlockRecord->tx_hash, 0, 20) }}…</code>
+                        @php $txUrl = explorer_tx_url($unlockRecord->tx_hash); @endphp
+                        &nbsp;<a href="{{ $txUrl ?? '#' }}" target="_blank" rel="noopener noreferrer" style="font-size:11px;color:#a5b4fc;">
+                            <code style="font-size:11px;">TX: {{ substr($unlockRecord->tx_hash, 0, 20) }}…</code>
+                            <i class="fa fa-external-link" style="font-size:9px;"></i>
+                        </a>
                     @endif
                 </p>
             </div>

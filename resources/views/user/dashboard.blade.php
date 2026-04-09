@@ -390,7 +390,13 @@
                         columns: [
                             {"data": "address", "orderable": false},
                             {"data": "amount", "orderable": false},
-                            {"data": "hashKey", "orderable": false},
+                            {"data": "hashKey", "orderable": false, "render": function(data) {
+                                if (!data) return '&mdash;';
+                                if (typeof data === 'string' && data.startsWith('0x')) {
+                                    return '<a href="{{ explorer_tx_base() }}'+data+'" target="_blank" rel="noopener noreferrer" title="'+data+'">'+data.substring(0,16)+'&#8230;</a>';
+                                }
+                                return data;
+                            }},
                             {"data": "status", "orderable": false},
                             {"data": "created_at", "orderable": false}
                         ],
@@ -419,7 +425,13 @@
                         columns: [
                             {"data": "address", "orderable": false},
                             {"data": "amount", "orderable": false},
-                            {"data": "hashKey", "orderable": false},
+                            {"data": "hashKey", "orderable": false, "render": function(data) {
+                                if (!data) return '&mdash;';
+                                if (typeof data === 'string' && data.startsWith('0x')) {
+                                    return '<a href="{{ explorer_tx_base() }}'+data+'" target="_blank" rel="noopener noreferrer" title="'+data+'">'+data.substring(0,16)+'&#8230;</a>';
+                                }
+                                return data;
+                            }},
                             {"data": "status", "orderable": false},
                             {"data": "created_at", "orderable": false}
                         ],

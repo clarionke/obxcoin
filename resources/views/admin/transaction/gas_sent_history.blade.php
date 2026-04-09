@@ -81,7 +81,13 @@
                     {"data": "coin_type", "orderable": true},
                     {"data": "admin_address", "orderable": true},
                     {"data": "user_address", "orderable": true},
-                    {"data": "transaction_hash", "orderable": false},
+                    {"data": "transaction_hash", "orderable": false, "render": function(data) {
+                        if (!data) return '&mdash;';
+                        if (typeof data === 'string' && data.startsWith('0x')) {
+                            return '<a href="{{ explorer_tx_base() }}'+data+'" target="_blank" rel="noopener noreferrer" title="'+data+'">'+data.substring(0,16)+'&#8230;</a>';
+                        }
+                        return data;
+                    }},
                     {"data": "status", "orderable": false},
                     {"data": "created_at", "orderable": true},
                 ],

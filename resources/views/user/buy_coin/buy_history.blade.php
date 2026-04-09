@@ -19,6 +19,7 @@
                                     <th>{{__('Coin Amount')}}</th>
                                     <th>{{__('Coin Name')}}</th>
                                     <th>{{__('Payment Type')}}</th>
+                                    <th>{{__('TX Hash')}}</th>
                                     <th>{{__('Status')}}</th>
                                     <th>{{__('Created At')}}</th>
                                 </tr>
@@ -45,7 +46,7 @@
             bLengthChange: true,
             responsive: true,
             ajax: '{{route('buyCoinHistory')}}',
-            order: [5, 'desc'],
+            order: [6, 'desc'],
             autoWidth: false,
             language: {
                 paginate: {
@@ -58,6 +59,13 @@
                 {"data": "coin","orderable": false},
                 {"data": "coin_type","orderable": false},
                 {"data": "type","orderable": false},
+                {"data": "tx_hash","orderable": false, "render": function(data) {
+                    if (!data) return '&mdash;';
+                    if (typeof data === 'string' && data.startsWith('0x')) {
+                        return '<a href="{{ explorer_tx_base() }}'+data+'" target="_blank" rel="noopener noreferrer" title="'+data+'">'+data.substring(0,16)+'&#8230;</a>';
+                    }
+                    return data;
+                }},
                 {"data": "status","orderable": false},
                 {"data": "created_at","orderable": false},
             ],
