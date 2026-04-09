@@ -253,7 +253,7 @@ const STAKING_ADDRESS   = @json($staking_contract);
 const OBX_SYMBOL        = @json($obx_token_symbol);
 const OBX_DECIMALS      = {{ (int) $obx_token_decimals }};
 const OBX_PRICE_API     = '{{ url("/api/obx-price") }}';
-const BUY_COIN_URL      = '{{ route("buy_coin") }}';
+const BUY_COIN_URL      = '{{ route("buyCoin") }}';
 const EXPLORER_TX_BASE  = WC_CHAIN_ID === 56  ? 'https://bscscan.com/tx/'
                         : WC_CHAIN_ID === 97  ? 'https://testnet.bscscan.com/tx/'
                         : WC_CHAIN_ID === 1   ? 'https://etherscan.io/tx/'
