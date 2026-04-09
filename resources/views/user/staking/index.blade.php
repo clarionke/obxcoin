@@ -253,6 +253,7 @@ const STAKING_ADDRESS   = @json($staking_contract);
 const OBX_SYMBOL        = @json($obx_token_symbol);
 const OBX_DECIMALS      = {{ (int) $obx_token_decimals }};
 const OBX_PRICE_API     = '{{ url("/api/obx-price") }}';
+const BUY_COIN_URL      = '{{ route("buy_coin") }}';
 const EXPLORER_TX_BASE  = WC_CHAIN_ID === 56  ? 'https://bscscan.com/tx/'
                         : WC_CHAIN_ID === 97  ? 'https://testnet.bscscan.com/tx/'
                         : WC_CHAIN_ID === 1   ? 'https://etherscan.io/tx/'
@@ -438,7 +439,7 @@ async function wcStake() {
             setStatus(
                 '<span class="text-danger">Insufficient OBX balance. ' +
                 'Your wallet holds <strong>' + have.toLocaleString('en-US', {maximumFractionDigits:4}) + ' OBX</strong>. ' +
-                'Purchase OBX first via the <a href="{{ route(\'buy_coin\') ?? \'#\' }}">Buy Coin</a> page.</span>'
+                'Purchase OBX first via the <a href="' + BUY_COIN_URL + '">Buy Coin</a> page.</span>'
             );
             return;
         }
