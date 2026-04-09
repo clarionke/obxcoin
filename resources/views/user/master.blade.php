@@ -483,6 +483,67 @@
         }
         .status-card{margin-bottom:10px;}
     }
+    /* ---- IMPERSONATION BAR ---- */
+    #impersonation-bar {
+        position: fixed;
+        top: var(--topbar-h);
+        left: var(--sidebar-w); right: 0;
+        z-index: 1029;
+        background: #5a52e0;
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;                     /* wraps on very narrow screens */
+        gap: 6px;
+        padding: 8px 20px;
+        font-size: 13px;
+        font-weight: 500;
+        line-height: 1.4;
+        box-shadow: 0 2px 8px rgba(0,0,0,.35);
+        transition: left .28s cubic-bezier(.4,0,.2,1);
+    }
+    #impersonation-bar .imp-bar-text {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex: 1;
+        min-width: 0;
+        flex-wrap: wrap;
+        word-break: break-word;
+    }
+    #impersonation-bar .imp-bar-btn {
+        flex-shrink: 0;
+        background: #fff;
+        color: #5a52e0;
+        font-weight: 600;
+        font-size: 12px;
+        border: none;
+        border-radius: 6px;
+        padding: 5px 12px;
+        text-decoration: none;
+        white-space: nowrap;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        transition: opacity .15s;
+    }
+    #impersonation-bar .imp-bar-btn:hover { opacity: .85; color: #5a52e0; }
+    /* Sidebar hidden — bar stretches full width */
+    body.sidebar-hidden #impersonation-bar { left: 0; }
+    /* On tablet/mobile the sidebar overlays, bar is always full width */
+    @media(max-width:991px) { #impersonation-bar { left: 0; } }
+    @media(max-width:575px) {
+        #impersonation-bar { font-size: 12px; padding: 7px 14px; }
+    }
+    /* Push main content below both topbar + imp bar.
+       JS sets --imp-bar-h dynamically via ResizeObserver so it works
+       at any height the bar wraps to. */
+    :root { --imp-bar-h: 0px; }
+    body.has-imp-bar .cp-user-main-wrapper,
+    body.has-imp-bar .cp-user-main-wrapper.cp-user-content-expend {
+        margin-top: calc(var(--topbar-h) + var(--imp-bar-h)) !important;
+    }
     </style>
     @yield('style')
     <title>{{allsetting('app_title')}} — @yield('title')</title>
@@ -490,7 +551,7 @@
     <link rel="shortcut icon" href="{{landingPageImage('favicon','images/fav.png')}}/">
 </head>
 
-<body class="cp-user-body-bg">
+<body class="cp-user-body-bg{{ session()->has('impersonating_admin_id') ? ' has-imp-bar' : '' }}">
 <!-- Mobile sidebar overlay -->
 <div id="sidebarOverlay" class="sidebar-overlay"></div>
 @php $clubInfo = get_plan_info(Auth::id()) @endphp
@@ -802,13 +863,17 @@
         </div>
 
         @if(session()->has('impersonating_admin_id'))
-        <div style="position:sticky;top:0;z-index:9999;background:#6c63ff;color:#fff;padding:10px 20px;display:flex;align-items:center;justify-content:space-between;font-size:14px;font-weight:500;">
-            <span>
-                <i class="fa fa-exclamation-triangle mr-2"></i>
-                {{__('Admin mode: you are viewing this account as')}} <strong>{{ Auth::user()->first_name }} {{ Auth::user()->last_name }}</strong> ({{ Auth::user()->email }})
+        <div id="impersonation-bar">
+            <span class="imp-bar-text">
+                <i class="fa fa-user-secret"></i>
+                <span>
+                    <strong>{{__('Admin Mode')}}</strong> &mdash;
+                    {{__('Viewing as')}} <strong>{{ Auth::user()->first_name }} {{ Auth::user()->last_name }}</strong>
+                    <span style="opacity:.85;">({{ Auth::user()->email }})</span>
+                </span>
             </span>
-            <a href="{{ route('admin.stop.impersonating') }}" class="btn btn-sm btn-light" style="color:#6c63ff;font-weight:600;">
-                <i class="fa fa-sign-out mr-1"></i>{{__('Stop Impersonating')}}
+            <a href="{{ route('admin.stop.impersonating') }}" class="imp-bar-btn">
+                <i class="fa fa-sign-out"></i> {{__('Stop Impersonating')}}
             </a>
         </div>
         @endif
@@ -978,21 +1043,52 @@
 <!-- Sidebar overlay JS -->
 <script>
 (function($){
+    // ── Impersonation bar height sync ────────────────────────────────────────
+    var impBar = document.getElementById('impersonation-bar');
+    if (impBar) {
+        function syncImpBarHeight() {
+            document.documentElement.style.setProperty('--imp-bar-h', impBar.offsetHeight + 'px');
+        }
+        syncImpBarHeight();
+        if (window.ResizeObserver) {
+            new ResizeObserver(syncImpBarHeight).observe(impBar);
+        } else {
+            window.addEventListener('resize', syncImpBarHeight);
+        }
+    }
+
+    // ── Sidebar toggle ────────────────────────────────────────────────────────
+    function setSidebarState(hidden) {
+        if (hidden) {
+            $('body').addClass('sidebar-hidden');
+        } else {
+            $('body').removeClass('sidebar-hidden');
+        }
+    }
+
+    // Read initial state (theme may have collapsed it on load)
+    setSidebarState($('.cp-user-sidebar').hasClass('cp-user-sidebar-hide'));
+
     // Sidebar overlay for mobile
     $('.menu-bars').on('click', function(){
+        var sidebarHidden = $('.cp-user-sidebar').hasClass('cp-user-sidebar-hide');
         if($(window).width() <= 991){
-            var sidebarHidden = $('.cp-user-sidebar').hasClass('cp-user-sidebar-hide');
             if(sidebarHidden){
                 $('#sidebarOverlay').addClass('active');
             } else {
                 $('#sidebarOverlay').removeClass('active');
             }
         }
+        // Small timeout to let theme JS toggle the class first, then sync
+        setTimeout(function(){
+            setSidebarState($('.cp-user-sidebar').hasClass('cp-user-sidebar-hide'));
+        }, 50);
     });
     $('#sidebarOverlay').on('click', function(){
         $('.cp-user-sidebar').addClass('cp-user-sidebar-hide');
         $('.cp-user-top-bar, .cp-user-main-wrapper').addClass('cp-user-content-expend');
         $(this).removeClass('active');
+        setSidebarState(true);
     });
     // Auto-close sidebar when a leaf nav link is tapped on mobile
     $('#metismenu a:not(.arrow-icon)').on('click', function(){
@@ -1000,6 +1096,7 @@
             $('.cp-user-sidebar').addClass('cp-user-sidebar-hide');
             $('.cp-user-top-bar, .cp-user-main-wrapper').addClass('cp-user-content-expend');
             $('#sidebarOverlay').removeClass('active');
+            setSidebarState(true);
         }
     });
 })(jQuery);
