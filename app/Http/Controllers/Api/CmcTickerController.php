@@ -90,12 +90,13 @@ class CmcTickerController extends Controller
     public function obxPrice(): JsonResponse
     {
         return response()->json([
-            'price'           => (float) (settings('coin_price') ?: 0),
-            'change_24h'      => (float) (settings('obx_price_change_24h') ?: 0),
-            'market_cap'      => (float) (settings('obx_market_cap') ?: 0),
-            'volume_24h'      => (float) (settings('obx_volume_24h') ?: 0),
-            'last_updated'    => settings('obx_price_last_updated') ?: null,
-            'symbol'          => settings('coin_symbol') ?: 'OBX',
+            'price'                => (float) (settings('coin_price') ?: 0),
+            'change_24h'           => (float) (settings('obx_price_change_24h') ?: 0),
+            'market_cap'           => (float) (settings('obx_market_cap') ?: 0),
+            'volume_24h'           => (float) (settings('obx_volume_24h') ?: 0),
+            'circulating_supply'   => (float) (settings('obx_circulating_supply') ?: 0),
+            'last_updated'         => settings('obx_price_last_updated') ?: null,
+            'symbol'               => settings('coin_symbol') ?: 'OBX',
         ])->header('Cache-Control', 'max-age=30, public')
           ->header('Access-Control-Allow-Origin', '*');
     }

@@ -120,14 +120,93 @@
 }
 .tx-body { padding: 16px 20px; }
 
-/* tradingview */
-.tv-ticker-wrap {
-    border-radius: 12px; overflow: hidden;
-    border: 1px solid rgba(255,255,255,.08);
+/* OBX Market widget */
+.obx-market-widget {
+    background: linear-gradient(135deg,#1a1f35 0%,#1c2333 100%);
+    border: 1px solid rgba(99,102,241,.25);
+    border-radius: 14px;
+    padding: 16px 20px 14px;
     margin-bottom: 22px;
+    position: relative;
+    overflow: hidden;
 }
+.obx-market-widget::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg,#6366f1,#a855f7,#06b6d4);
+}
+.obx-market-widget .mw-header {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 8px; margin-bottom: 14px;
+}
+.obx-market-widget .mw-title {
+    display: flex; align-items: center; gap: 10px;
+}
+.obx-market-widget .mw-title .mw-logo {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: linear-gradient(135deg,#6366f1,#a855f7);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 13px; color: #fff; flex-shrink: 0;
+}
+.obx-market-widget .mw-title h6 {
+    font-size: 14px; font-weight: 700; color: #e6edf3; margin: 0 0 1px;
+}
+.obx-market-widget .mw-title small {
+    font-size: 11px; color: #7d8590;
+}
+.mw-live-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: rgba(34,197,94,.12); border: 1px solid rgba(34,197,94,.25);
+    border-radius: 20px; padding: 3px 10px;
+    font-size: 11px; font-weight: 600; color: #4ade80;
+}
+.mw-live-badge .pulse {
+    width: 7px; height: 7px; border-radius: 50%; background: #4ade80;
+    animation: pulse-dot 1.5s ease-in-out infinite;
+}
+@keyframes pulse-dot {
+    0%,100% { opacity:1; transform:scale(1); }
+    50%      { opacity:.4; transform:scale(.75); }
+}
+.obx-market-widget .mw-stats {
+    display: grid;
+    grid-template-columns: repeat(5,1fr);
+    gap: 10px;
+}
+.mw-stat {
+    background: rgba(255,255,255,.04);
+    border: 1px solid rgba(255,255,255,.06);
+    border-radius: 10px;
+    padding: 12px 14px;
+    min-width: 0;
+}
+.mw-stat .mws-label {
+    font-size: 10.5px; font-weight: 600; color: #7d8590;
+    text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px;
+}
+.mw-stat .mws-value {
+    font-size: 17px; font-weight: 700; color: #e6edf3;
+    line-height: 1.2; word-break: break-word;
+}
+.mw-stat .mws-sub {
+    font-size: 11px; color: #7d8590; margin-top: 3px;
+}
+.mw-stat.stat-price .mws-value { color: #a5b4fc; font-size: 20px; }
+.chg-up { color: #4ade80 !important; }
+.chg-dn { color: #f87171 !important; }
+.chg-neutral { color: #7d8590 !important; }
+@media(max-width:991px) { .obx-market-widget .mw-stats { grid-template-columns: repeat(3,1fr); } }
+@media(max-width:575px) { .obx-market-widget .mw-stats { grid-template-columns: repeat(2,1fr); } }
 </style>
 @endsection
+@php
+function fmtBigNum(float $n): string {
+    if ($n >= 1_000_000_000) return '$' . number_format($n / 1_000_000_000, 2) . 'B';
+    if ($n >= 1_000_000)     return '$' . number_format($n / 1_000_000, 2)     . 'M';
+    if ($n >= 1_000)         return '$' . number_format($n / 1_000, 1)         . 'K';
+    return '$' . number_format($n, 2);
+}
+@endphp
 @section('content')
 
 {{-- Welcome card --}}
@@ -149,25 +228,46 @@
     </div>
 </div>
 
-{{-- TradingView ticker --}}
-<div class="tv-ticker-wrap">
-    <div class="tradingview-widget-container">
-        <div class="tradingview-widget-container__widget"></div>
-        <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js" async>
-        {
-            "symbols": [
-                {"proName": "FOREXCOM:SPXUSD","title": "S&P 500"},
-                {"proName": "FOREXCOM:NSXUSD","title": "Nasdaq 100"},
-                {"proName": "FX_IDC:EURUSD","title": "EUR/USD"},
-                {"proName": "BITSTAMP:BTCUSD","title": "BTC/USD"},
-                {"proName": "BITSTAMP:ETHUSD","title": "ETH/USD"}
-            ],
-            "colorTheme": "dark",
-            "isTransparent": true,
-            "displayMode": "adaptive",
-            "locale": "en"
-        }
-        </script>
+{{-- OBX Market Stats Widget --}}
+<div class="obx-market-widget" id="obx-market-widget">
+    <div class="mw-header">
+        <div class="mw-title">
+            <div class="mw-logo">OBX</div>
+            <div>
+                <h6>{{ settings('coin_name') ?? 'OBXCoin' }} <span style="font-size:12px;color:#7d8590;font-weight:400;">/ USD</span></h6>
+                <small>{{__('Live market data · updates every 30s')}}</small>
+            </div>
+        </div>
+        <div class="mw-live-badge">
+            <span class="pulse"></span> LIVE
+        </div>
+    </div>
+    <div class="mw-stats">
+        <div class="mw-stat stat-price">
+            <div class="mws-label">{{__('Price')}}</div>
+            <div class="mws-value" id="mw_price">${{ number_format((float)settings('coin_price'), 6) }}</div>
+            <div class="mws-sub">USD</div>
+        </div>
+        <div class="mw-stat">
+            <div class="mws-label">{{__('24h Change')}}</div>
+            <div class="mws-value" id="mw_change">—</div>
+            <div class="mws-sub" id="mw_change_sub">vs yesterday</div>
+        </div>
+        <div class="mw-stat">
+            <div class="mws-label">{{__('Market Cap')}}</div>
+            <div class="mws-value" id="mw_mcap">{{ settings('obx_market_cap') ? fmtBigNum((float)settings('obx_market_cap')) : '—' }}</div>
+            <div class="mws-sub">USD</div>
+        </div>
+        <div class="mw-stat">
+            <div class="mws-label">{{__('24h Volume')}}</div>
+            <div class="mws-value" id="mw_vol">{{ settings('obx_volume_24h') ? fmtBigNum((float)settings('obx_volume_24h')) : '—' }}</div>
+            <div class="mws-sub">USD</div>
+        </div>
+        <div class="mw-stat">
+            <div class="mws-label">{{__('Circulating Supply')}}</div>
+            <div class="mws-value" id="mw_supply">{{ settings('obx_circulating_supply') ? fmtBigNum((float)settings('obx_circulating_supply')) : '—' }}</div>
+            <div class="mws-sub">OBX</div>
+        </div>
     </div>
 </div>
 
@@ -543,5 +643,68 @@
                         }
                     }
                 });
+            </script>
+
+            {{-- OBX live market data refresh --}}
+            <script>
+            (function(){
+                var OBX_PRICE_API = '{{ url("/api/obx-price") }}';
+
+                function fmtNum(n) {
+                    n = parseFloat(n) || 0;
+                    if (n >= 1e9) return '$' + (n/1e9).toFixed(2) + 'B';
+                    if (n >= 1e6) return '$' + (n/1e6).toFixed(2) + 'M';
+                    if (n >= 1e3) return '$' + (n/1e3).toFixed(1) + 'K';
+                    return '$' + n.toFixed(2);
+                }
+
+                function fmtSupply(n) {
+                    n = parseFloat(n) || 0;
+                    if (n >= 1e9) return (n/1e9).toFixed(2) + 'B';
+                    if (n >= 1e6) return (n/1e6).toFixed(2) + 'M';
+                    if (n >= 1e3) return (n/1e3).toFixed(1) + 'K';
+                    return n.toFixed(0);
+                }
+
+                function refreshMarket() {
+                    fetch(OBX_PRICE_API)
+                        .then(function(r){ return r.json(); })
+                        .then(function(d) {
+                            if (!d || !d.price) return;
+
+                            var price = parseFloat(d.price);
+                            var chg   = parseFloat(d.change_24h || 0);
+
+                            // Price
+                            var priceEl = document.getElementById('mw_price');
+                            if (priceEl) priceEl.textContent = '$' + price.toFixed(6);
+
+                            // 24h change
+                            var chgEl = document.getElementById('mw_change');
+                            if (chgEl) {
+                                var sign  = chg >= 0 ? '+' : '';
+                                var cls   = chg > 0 ? 'chg-up' : chg < 0 ? 'chg-dn' : 'chg-neutral';
+                                chgEl.className = 'mws-value ' + cls;
+                                chgEl.textContent = sign + chg.toFixed(2) + '%';
+                            }
+
+                            // Market cap
+                            var mcapEl = document.getElementById('mw_mcap');
+                            if (mcapEl && d.market_cap) mcapEl.textContent = fmtNum(d.market_cap);
+
+                            // Volume
+                            var volEl = document.getElementById('mw_vol');
+                            if (volEl && d.volume_24h) volEl.textContent = fmtNum(d.volume_24h);
+
+                            // Supply
+                            var supEl = document.getElementById('mw_supply');
+                            if (supEl && d.circulating_supply) supEl.textContent = fmtSupply(d.circulating_supply);
+                        })
+                        .catch(function(){});
+                }
+
+                refreshMarket();
+                setInterval(refreshMarket, 30000);
+            })();
             </script>
 @endsection
