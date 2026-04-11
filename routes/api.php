@@ -37,6 +37,30 @@ Route::get('/presale/phase-info/{index}/preview/{usdt}', 'Api\PresaleWebhookCont
 // NOWPayments IPN webhook — unauthenticated, signature-verified internally
 Route::post('/nowpayments/ipn', 'Api\NowPaymentsWebhookController@handleIpn')->name('nowpayments.ipn');
 
+// ── Payment Gateway (merchant API) ────────────────────────────────────────────
+// Public: coin list + status polling + deposit check (no auth required)
+Route::prefix('payment')->group(function () {
+    Route::get('coins',                          'Api\PaymentGatewayController@listCoins')->name('payment.coins');
+    Route::get('orders/{uuid}/status',           'Api\PaymentGatewayController@pollStatus')->name('payment.order.status');
+    Route::post('orders/{uuid}/check',           'Api\PaymentGatewayController@checkDeposit')->name('payment.order.check');
+});
+
+// Authenticated (HMAC-signed): create order + read order
+Route::prefix('payment')->middleware('merchant.api')->group(function () {
+    Route::post('orders',             'Api\PaymentGatewayController@createOrder')->name('payment.order.create');
+    Route::get('orders/{uuid}',       'Api\PaymentGatewayController@getOrder')->name('payment.order.get');
+});
+
+// Merchant self-service (Passport Bearer token): manage keys + view own orders
+Route::prefix('merchant')->namespace('Api')->middleware(['auth:api', 'two_step'])->group(function () {
+    Route::get('keys',                  'MerchantKeyController@index')->name('merchant.keys.index');
+    Route::post('keys',                 'MerchantKeyController@store')->name('merchant.keys.store');
+    Route::patch('keys/{id}',           'MerchantKeyController@update')->name('merchant.keys.update');
+    Route::delete('keys/{id}',          'MerchantKeyController@destroy')->name('merchant.keys.destroy');
+    Route::get('orders',                'MerchantKeyController@orders')->name('merchant.orders.index');
+    Route::get('orders/{uuid}',         'MerchantKeyController@showOrder')->name('merchant.orders.show');
+});
+
 Route::group(['namespace' => 'Api'], function () {
     Route::post('sign-up','AuthController@signUp');
     Route::post('login','AuthController@login');

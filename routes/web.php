@@ -39,6 +39,9 @@ Route::group(['middleware'=> 'installation'],function () {
     require base_path('routes/link/admin.php');
     require base_path('routes/link/user.php');
 
+    // ── Hosted payment checkout page ──────────────────────────────────────────
+    Route::get('pay/{uuid}', 'PaymentCheckoutController@show')->name('payment.checkout');
+
     Route::group(['middleware' => ['auth']], function () {
         Route::get('logout', 'AuthController@logOut')->name('logOut');
     });

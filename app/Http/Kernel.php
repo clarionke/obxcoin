@@ -80,7 +80,8 @@ class Kernel extends HttpKernel
         'installation' => CheckInstall::class,
         'co-wallet' => CoWalletFeatureMiddleware::class,
         'api.user' => ApiUser::class,
-        'swap-check' => CheckSwapStatus::class
+        'swap-check' => CheckSwapStatus::class,
+        'merchant.api' => \App\Http\Middleware\VerifyMerchantApiKey::class,
     ];
 
     /**

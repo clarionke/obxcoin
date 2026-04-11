@@ -134,6 +134,12 @@ Route::group(['prefix'=>'admin','namespace'=>'admin','middleware'=> ['auth','adm
     Route::post('staking/pool-save',         'StakingController@savePool')->name('admin.staking.savePool');
     Route::get('staking/transactions',       'StakingController@transactions')->name('admin.staking.transactions');
 
+    // ─── Payment Gateway (merchant key management) ─────────────────────────────
+    Route::get('merchants',                    'MerchantController@index')->name('admin.merchant.index');
+    Route::get('merchants/{id}/orders',        'MerchantController@orders')->name('admin.merchant.orders');
+    Route::post('merchants/{id}/toggle',       'MerchantController@toggleStatus')->name('admin.merchant.toggle');
+    Route::get('merchants/{id}/delete',        'MerchantController@destroy')->name('admin.merchant.destroy');
+
     // ─── Airdrop ──────────────────────────────────────────────────────────────
     Route::get('airdrop',                      'AirdropController@index')->name('admin.airdrop.index');
     Route::get('airdrop/create',               'AirdropController@create')->name('admin.airdrop.create');
