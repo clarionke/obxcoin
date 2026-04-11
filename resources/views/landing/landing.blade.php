@@ -161,21 +161,32 @@
         @media(max-width:600px){ .tib-item { border-right:none; border-bottom:1px solid var(--border); width:100%; } .tib-item:last-child{border-bottom:none;} }
 
         /* ─── Tokenomics ─────────────────────────────────────────── */
-        #tokenomics { background:var(--bg); }
-        .toko-grid { display:grid; grid-template-columns:1fr 1fr; gap:60px; align-items:center; }
-        @media(max-width:800px){ .toko-grid { grid-template-columns:1fr; gap:36px; } }
-        .toko-donut-wrap { position:relative; width:260px; height:260px; margin:0 auto; }
-        .toko-donut { width:260px; height:260px; border-radius:50%; }
-        .toko-donut-center { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center; }
-        .toko-donut-center .tdc-val { font-size:1.6rem; font-weight:900; }
-        .toko-donut-center .tdc-label { font-size:.72rem; color:var(--muted); }
-        .toko-legend { display:flex; flex-direction:column; gap:14px; }
-        .toko-legend-item { display:flex; align-items:center; gap:14px; }
-        .toko-dot { width:12px; height:12px; border-radius:50%; flex-shrink:0; }
-        .toko-name { font-size:.88rem; font-weight:600; flex:1; }
-        .toko-bar-wrap { flex:2; height:6px; background:var(--border); border-radius:100px; overflow:hidden; }
-        .toko-bar { height:100%; border-radius:100px; }
-        .toko-pct { font-size:.85rem; font-weight:700; min-width:36px; text-align:right; }
+        #tokenomics { background:linear-gradient(180deg,var(--bg2) 0%,var(--bg) 100%); }
+        .toko-inner { display:grid; grid-template-columns:1fr 1.15fr; gap:72px; align-items:center; }
+        @media(max-width:900px){ .toko-inner { grid-template-columns:1fr; gap:48px; } }
+
+        /* SVG donut */
+        .toko-chart-wrap { position:relative; width:280px; height:280px; margin:0 auto; }
+        .toko-chart-wrap svg { width:280px; height:280px; transform:rotate(-90deg); }
+        .toko-seg { fill:none; stroke-width:38; transition:stroke-dasharray .9s cubic-bezier(.4,0,.2,1), opacity .2s; cursor:pointer; stroke-linecap:butt; }
+        .toko-seg:hover { opacity:.75; }
+        .toko-chart-center { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center; pointer-events:none; }
+        .tdc-val  { font-size:1.7rem; font-weight:900; }
+        .tdc-sup  { font-size:.7rem; color:var(--muted); display:block; margin-top:2px; }
+
+        /* cards grid */
+        .toko-cards { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+        @media(max-width:500px){ .toko-cards { grid-template-columns:1fr; } }
+        .toko-card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:18px 20px; transition:border-color .2s,transform .2s; position:relative; overflow:hidden; }
+        .toko-card::before { content:''; position:absolute; inset:0; opacity:0; transition:opacity .2s; }
+        .toko-card:hover { transform:translateY(-3px); }
+        .toko-card-top { display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+        .toko-card-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+        .toko-card-label { font-size:.88rem; font-weight:700; flex:1; }
+        .toko-card-pct { font-size:1.25rem; font-weight:900; line-height:1; }
+        .toko-card-bar-bg { height:4px; background:var(--border); border-radius:100px; overflow:hidden; }
+        .toko-card-bar { height:100%; border-radius:100px; width:0; transition:width 1.2s cubic-bezier(.4,0,.2,1); }
+        .toko-card-tokens { font-size:.72rem; color:var(--muted); margin-top:8px; font-weight:500; }
 
         /* ─── ICO Phase Banner ─────────────────────────────────────── */
         #ico-phase { background: linear-gradient(135deg,rgba(108,99,255,.12) 0%,rgba(56,189,248,.08) 100%); border-top:1px solid rgba(108,99,255,.2); border-bottom:1px solid rgba(108,99,255,.2); padding:60px 0; }
@@ -852,42 +863,65 @@
         ['label' => $content['tokenomics_liquidity_label']   ?? 'Liquidity',       'pct' => (float)($content['tokenomics_liquidity_pct']    ?? 10), 'color' => '#e879f9'],
         ['label' => $content['tokenomics_marketing_label']   ?? 'Marketing',       'pct' => (float)($content['tokenomics_marketing_pct']    ??  5), 'color' => '#f59e0b'],
     ];
-    $tokoSlices = array_filter($tokoSlices, fn($s) => $s['pct'] > 0);
-    // Build conic-gradient
-    $conic = ''; $deg = 0;
-    foreach ($tokoSlices as $sl) {
-        $start = $deg; $end = $deg + ($sl['pct'] / 100 * 360);
-        $conic .= $sl['color'].' '.$start.'deg '.$end.'deg, ';
-        $deg = $end;
-    }
-    $conic = rtrim($conic, ', ');
+    $tokoSlices = array_values(array_filter($tokoSlices, fn($s) => $s['pct'] > 0));
+    $totalSupply = (float)($content['obx_total_supply'] ?? 100000000);
+    // SVG donut: r=110, circumference = 2*pi*r ≈ 691.15
+    $r = 110; $c = 2 * M_PI * $r; $svgOffset = 0;
 @endphp
-<section class="section" id="tokenomics" style="background:var(--bg);">
+<section class="section" id="tokenomics">
     <div class="container">
-        <div class="text-center reveal" style="margin-bottom:48px">
+        <div class="text-center reveal" style="margin-bottom:56px">
             <p class="section-label">{{ __('Transparency') }}</p>
             <h2 class="section-title">{{ $content['tokenomics_section_title'] ?? __('Token Distribution') }}</h2>
-            <p class="section-sub">{{ $content['tokenomics_section_subtitle'] ?? '' }}</p>
+            @if(!empty($content['tokenomics_section_subtitle']))
+            <p class="section-sub">{{ $content['tokenomics_section_subtitle'] }}</p>
+            @endif
         </div>
-        <div class="toko-grid reveal">
-            {{-- Donut chart via conic-gradient --}}
-            <div class="toko-donut-wrap">
-                <div class="toko-donut" style="background:conic-gradient({{ $conic }});box-shadow:0 0 0 2px var(--bg),inset 0 0 0 72px var(--bg);"></div>
-                <div class="toko-donut-center">
-                    <div class="tdc-val gradient-text">{{ number_format((float)($content['obx_total_supply'] ?? 100000000) / 1e6, 0) }}M</div>
-                    <div class="tdc-label">{{ __('Total Supply') }}</div>
+        <div class="toko-inner reveal">
+
+            {{-- SVG Donut --}}
+            <div class="toko-chart-wrap" id="tokoChart">
+                <svg viewBox="0 0 280 280">
+                    <circle cx="140" cy="140" r="{{ $r }}" fill="none" stroke="var(--border)" stroke-width="38"/>
+                    @foreach($tokoSlices as $sl)
+                    @php
+                        $dash = ($sl['pct'] / 100) * $c;
+                        $gap  = $c - $dash;
+                        $tokoOffset = $c - $svgOffset;
+                        $svgOffset += $dash;
+                    @endphp
+                    <circle
+                        cx="140" cy="140" r="{{ $r }}"
+                        class="toko-seg"
+                        stroke="{{ $sl['color'] }}"
+                        stroke-dasharray="0 {{ round($c, 3) }}"
+                        stroke-dashoffset="{{ round($tokoOffset, 3) }}"
+                        data-dash="{{ round($dash, 3) }}"
+                        data-gap="{{ round($gap, 3) }}"
+                        data-circ="{{ round($c, 3) }}"
+                    />
+                    @endforeach
+                </svg>
+                <div class="toko-chart-center">
+                    <div class="tdc-val gradient-text">{{ number_format($totalSupply / 1e6, 0) }}M</div>
+                    <span class="tdc-sup">{{ __('Total Supply') }}</span>
                 </div>
             </div>
-            {{-- Legend --}}
-            <div class="toko-legend">
+
+            {{-- Cards --}}
+            <div class="toko-cards" id="tokoCards">
                 @foreach($tokoSlices as $sl)
-                <div class="toko-legend-item">
-                    <div class="toko-dot" style="background:{{ $sl['color'] }}"></div>
-                    <span class="toko-name">{{ $sl['label'] }}</span>
-                    <div class="toko-bar-wrap">
-                        <div class="toko-bar" style="width:{{ $sl['pct'] }}%;background:{{ $sl['color'] }}"></div>
+                @php $tokens = number_format($totalSupply * $sl['pct'] / 100); @endphp
+                <div class="toko-card" style="border-color:{{ $sl['color'] }}33" data-bar-pct="{{ $sl['pct'] }}" data-bar-color="{{ $sl['color'] }}">
+                    <div class="toko-card-top">
+                        <div class="toko-card-dot" style="background:{{ $sl['color'] }};box-shadow:0 0 8px {{ $sl['color'] }}66"></div>
+                        <span class="toko-card-label">{{ $sl['label'] }}</span>
+                        <span class="toko-card-pct" style="color:{{ $sl['color'] }}">{{ $sl['pct'] }}%</span>
                     </div>
-                    <span class="toko-pct">{{ $sl['pct'] }}%</span>
+                    <div class="toko-card-bar-bg">
+                        <div class="toko-card-bar" style="background:linear-gradient(90deg,{{ $sl['color'] }}99,{{ $sl['color'] }})"></div>
+                    </div>
+                    <div class="toko-card-tokens">{{ $tokens }} {{ settings('coin_name') ?: 'OBX' }}</div>
                 </div>
                 @endforeach
             </div>
@@ -895,6 +929,37 @@
     </div>
 </section>
 @endif
+<script>
+(function(){
+    var chart = document.getElementById('tokoChart');
+    var cards = document.getElementById('tokoCards');
+    if (!chart || !cards) return;
+    var segs = chart.querySelectorAll('.toko-seg');
+    var bars = cards.querySelectorAll('[data-bar-pct]');
+    var animated = false;
+    function animate() {
+        if (animated) return;
+        animated = true;
+        segs.forEach(function(seg, i) {
+            var dash = parseFloat(seg.dataset.dash);
+            var gap  = parseFloat(seg.dataset.gap);
+            setTimeout(function() {
+                seg.style.transition = 'stroke-dasharray .9s cubic-bezier(.4,0,.2,1)';
+                seg.style.strokeDasharray = dash + ' ' + gap;
+            }, i * 100);
+        });
+        bars.forEach(function(card, i) {
+            var pct = card.dataset.barPct;
+            var bar = card.querySelector('.toko-card-bar');
+            if (bar) setTimeout(function(){ bar.style.width = pct + '%'; }, 300 + i * 60);
+        });
+    }
+    var obs = new IntersectionObserver(function(entries) {
+        entries.forEach(function(e){ if (e.isIntersecting) { animate(); obs.unobserve(e.target); } });
+    }, { threshold: 0.2 });
+    obs.observe(chart);
+})();
+</script>
 
 {{-- ─── Roadmap ──────────────────────────────────────── --}}
 <section class="section" id="roadmap" style="background:var(--bg2)">
