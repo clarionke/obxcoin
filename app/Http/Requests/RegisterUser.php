@@ -36,6 +36,8 @@ class RegisterUser extends FormRequest
                 'regex:/[0-9]/',      // must contain at least one digit
             ],
             'password_confirmation' => 'required|min:8|same:password',
+            'country'    => ['required', 'string', 'max:100'],
+            'phone'      => ['required', 'numeric', 'digits_between:6,15'],
         ];
 
         if (isset(allsetting()['google_recapcha']) && (allsetting()['google_recapcha'] == STATUS_ACTIVE)) {
@@ -57,7 +59,11 @@ class RegisterUser extends FormRequest
             'password.strong_pass' => __('Password must be consist of one uppercase, one lowercase and one number.'),
             'password_confirmation.min' => __('Confirm Password length must be atleast 8 characters.'),
             'password_confirmation.same' => __('Password and confirm password doesn\'t match'),
-            'email.required' => __('Email field can not be empty'),
+            'email.required'   => __('Email field can not be empty'),
+            'country.required' => __('Please select your country'),
+            'phone.required'   => __('Phone number can not be empty'),
+            'phone.numeric'    => __('Please enter a valid phone number'),
+            'phone.digits_between' => __('Phone number must be between 6 and 15 digits'),
             'email.unique' => __('Email Address already exists'),
             'email.email' => __('Invalid email address')
         ];

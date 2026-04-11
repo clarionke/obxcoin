@@ -90,6 +90,8 @@ class AuthController extends Controller
                 'email' => $request['email'],
                 'role' => USER_ROLE_USER,
                 'password' => Hash::make($request['password']),
+                'country' => $request['country'],
+                'phone'   => $request['phone'],
             ]);
             UserVerificationCode::create(['user_id' => $user->id, 'code' => $mail_key, 'expired_at' => date('Y-m-d', strtotime('+15 days'))]);
 
