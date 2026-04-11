@@ -133,5 +133,36 @@ class AdminSettingTableSeeder extends Seeder
         AdminSetting::firstOrCreate(['slug' => 'obx_volume_24h'],          ['value' => '0']);
         AdminSetting::firstOrCreate(['slug' => 'obx_price_last_updated'],  ['value' => '']);
 
+        // Landing page — hero
+        AdminSetting::firstOrCreate(['slug' => 'landing_hero_badge'],       ['value' => 'Live & Secure Platform']);
+
+        // Landing page — token info bar
+        AdminSetting::firstOrCreate(['slug' => 'coin_blockchain_name'],     ['value' => 'Ethereum']);
+        AdminSetting::firstOrCreate(['slug' => 'coin_launch_date'],         ['value' => '']);
+        AdminSetting::firstOrCreate(['slug' => 'landing_show_token_info'],  ['value' => '1']);
+
+        // Landing page — tokenomics section
+        AdminSetting::firstOrCreate(['slug' => 'landing_show_tokenomics'],         ['value' => '1']);
+        AdminSetting::firstOrCreate(['slug' => 'tokenomics_section_title'],        ['value' => 'Token Distribution']);
+        AdminSetting::firstOrCreate(['slug' => 'tokenomics_section_subtitle'],     ['value' => 'OBXCoin has a transparent, fixed supply designed for long-term sustainability.']);
+        AdminSetting::firstOrCreate(['slug' => 'tokenomics_public_sale_pct'],      ['value' => '40']);
+        AdminSetting::firstOrCreate(['slug' => 'tokenomics_public_sale_label'],    ['value' => 'Public Sale']);
+        AdminSetting::firstOrCreate(['slug' => 'tokenomics_team_pct'],             ['value' => '15']);
+        AdminSetting::firstOrCreate(['slug' => 'tokenomics_team_label'],           ['value' => 'Team & Advisors']);
+        AdminSetting::firstOrCreate(['slug' => 'tokenomics_ecosystem_pct'],        ['value' => '20']);
+        AdminSetting::firstOrCreate(['slug' => 'tokenomics_ecosystem_label'],      ['value' => 'Ecosystem Fund']);
+        AdminSetting::firstOrCreate(['slug' => 'tokenomics_reserve_pct'],          ['value' => '10']);
+        AdminSetting::firstOrCreate(['slug' => 'tokenomics_reserve_label'],        ['value' => 'Reserve']);
+        AdminSetting::firstOrCreate(['slug' => 'tokenomics_liquidity_pct'],        ['value' => '10']);
+        AdminSetting::firstOrCreate(['slug' => 'tokenomics_liquidity_label'],      ['value' => 'Liquidity']);
+        AdminSetting::firstOrCreate(['slug' => 'tokenomics_marketing_pct'],        ['value' => '5']);
+        AdminSetting::firstOrCreate(['slug' => 'tokenomics_marketing_label'],      ['value' => 'Marketing']);
+
+        // Landing page — social & links
+        AdminSetting::firstOrCreate(['slug' => 'landing_telegram_link'],    ['value' => '']);
+        AdminSetting::firstOrCreate(['slug' => 'landing_discord_link'],     ['value' => '']);
+        AdminSetting::firstOrCreate(['slug' => 'landing_github_link'],      ['value' => '']);
+        AdminSetting::firstOrCreate(['slug' => 'whitepaper_url'],           ['value' => '']);
+
     }
 }
