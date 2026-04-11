@@ -149,6 +149,34 @@
         .mock-coins { display:flex; gap:8px; margin-top:18px; flex-wrap:wrap; }
         .mock-coin { background:var(--card2); border-radius:8px; padding:6px 12px; font-size:.78rem; font-weight:600; border:1px solid var(--border); }
 
+        /* ─── Token Info Bar ──────────────────────────────────────── */
+        #token-info { background:var(--bg2); border-top:1px solid var(--border); border-bottom:1px solid var(--border); padding:22px 0; }
+        .tib-inner { display:flex; flex-wrap:wrap; gap:0; justify-content:center; }
+        .tib-item { display:flex; flex-direction:column; align-items:center; padding:10px 32px; border-right:1px solid var(--border); min-width:160px; }
+        .tib-item:last-child { border-right:none; }
+        .tib-label { font-size:.68rem; text-transform:uppercase; letter-spacing:.12em; color:var(--muted); font-weight:600; margin-bottom:4px; }
+        .tib-value { font-size:.92rem; font-weight:700; color:var(--text); word-break:break-all; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .tib-value a { color:var(--accent2); text-decoration:none; }
+        .tib-value a:hover { text-decoration:underline; }
+        @media(max-width:600px){ .tib-item { border-right:none; border-bottom:1px solid var(--border); width:100%; } .tib-item:last-child{border-bottom:none;} }
+
+        /* ─── Tokenomics ─────────────────────────────────────────── */
+        #tokenomics { background:var(--bg); }
+        .toko-grid { display:grid; grid-template-columns:1fr 1fr; gap:60px; align-items:center; }
+        @media(max-width:800px){ .toko-grid { grid-template-columns:1fr; gap:36px; } }
+        .toko-donut-wrap { position:relative; width:260px; height:260px; margin:0 auto; }
+        .toko-donut { width:260px; height:260px; border-radius:50%; }
+        .toko-donut-center { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center; }
+        .toko-donut-center .tdc-val { font-size:1.6rem; font-weight:900; }
+        .toko-donut-center .tdc-label { font-size:.72rem; color:var(--muted); }
+        .toko-legend { display:flex; flex-direction:column; gap:14px; }
+        .toko-legend-item { display:flex; align-items:center; gap:14px; }
+        .toko-dot { width:12px; height:12px; border-radius:50%; flex-shrink:0; }
+        .toko-name { font-size:.88rem; font-weight:600; flex:1; }
+        .toko-bar-wrap { flex:2; height:6px; background:var(--border); border-radius:100px; overflow:hidden; }
+        .toko-bar { height:100%; border-radius:100px; }
+        .toko-pct { font-size:.85rem; font-weight:700; min-width:36px; text-align:right; }
+
         /* ─── ICO Phase Banner ─────────────────────────────────────── */
         #ico-phase { background: linear-gradient(135deg,rgba(108,99,255,.12) 0%,rgba(56,189,248,.08) 100%); border-top:1px solid rgba(108,99,255,.2); border-bottom:1px solid rgba(108,99,255,.2); padding:60px 0; }
         .ico-inner { display:grid; grid-template-columns:1fr 1fr; gap:60px; align-items:center; }
@@ -447,7 +475,7 @@
             <div class="hero-content">
                 <div class="hero-badge">
                     <span class="dot"></span>
-                    {{ __('Live & Secure Platform') }}
+                    {{ $content['landing_hero_badge'] ?? __('Live & Secure Platform') }}
                 </div>
                 <h1 class="hero-title">
                     @if(isset($content['landing_title']))
@@ -470,6 +498,12 @@
                     <a href="{{ $content['landing_2nd_button_link'] ?? '#about' }}" class="btn btn-outline btn-lg">
                         {{ $content['landing_2nd_button_text'] ?? __('Learn More') }}
                     </a>
+                    @if(!empty($content['whitepaper_url']))
+                    <a href="{{ $content['whitepaper_url'] }}" target="_blank" rel="noopener" class="btn btn-ghost btn-lg" style="display:inline-flex;align-items:center;gap:8px;">
+                        <svg style="width:16px;height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                        {{ __('Whitepaper') }}
+                    </a>
+                    @endif
                 </div>
             </div>
 
@@ -523,6 +557,70 @@
         </div>
     </div>
 </section>
+
+{{-- ─── Token Info Bar ──────────────────────────────────── --}}
+@if(($content['landing_show_token_info'] ?? '1') == '1')
+@php
+    $tibContract  = $content['contract_address'] ?? '';
+    $tibChain     = $content['coin_blockchain_name'] ?? '';
+    $tibSupply    = $content['obx_total_supply'] ?? '';
+    $tibLaunch    = $content['coin_launch_date'] ?? '';
+    $tibChainLink = $content['chain_link'] ?? '';
+    $tibCoinName  = settings('coin_name') ?: 'OBXCoin';
+@endphp
+<div id="token-info">
+    <div class="container">
+        <div class="tib-inner">
+            <div class="tib-item">
+                <span class="tib-label">{{ __('Token') }}</span>
+                <span class="tib-value">{{ $tibCoinName }}</span>
+            </div>
+            @if($tibChain)
+            <div class="tib-item">
+                <span class="tib-label">{{ __('Blockchain') }}</span>
+                <span class="tib-value">{{ $tibChain }}</span>
+            </div>
+            @endif
+            @if($tibSupply)
+            <div class="tib-item">
+                <span class="tib-label">{{ __('Total Supply') }}</span>
+                <span class="tib-value">{{ number_format((float)$tibSupply) }}</span>
+            </div>
+            @endif
+            @if($obx_price > 0)
+            <div class="tib-item">
+                <span class="tib-label">{{ __('Price') }}</span>
+                <span class="tib-value gradient-text">${{ number_format($obx_price, 4) }}</span>
+            </div>
+            @endif
+            @if(!empty($content['obx_market_cap']) && (float)$content['obx_market_cap'] > 0)
+            <div class="tib-item">
+                <span class="tib-label">{{ __('Market Cap') }}</span>
+                <span class="tib-value">${{ number_format((float)$content['obx_market_cap']) }}</span>
+            </div>
+            @endif
+            @if($tibLaunch)
+            <div class="tib-item">
+                <span class="tib-label">{{ __('Launch') }}</span>
+                <span class="tib-value">{{ $tibLaunch }}</span>
+            </div>
+            @endif
+            @if($tibContract)
+            <div class="tib-item">
+                <span class="tib-label">{{ __('Contract') }}</span>
+                <span class="tib-value" title="{{ $tibContract }}">
+                    @if($tibChainLink)
+                    <a href="{{ $tibChainLink }}" target="_blank" rel="noopener">{{ substr($tibContract,0,8).'...' }}</a>
+                    @else
+                    {{ substr($tibContract,0,8).'...' }}
+                    @endif
+                </span>
+            </div>
+            @endif
+        </div>
+    </div>
+</div>
+@endif
 
 {{-- ─── Coin Ticker ─────────────────────────────────── --}}
 @if($coins->count())
@@ -742,6 +840,61 @@
         </div>
     </div>
 </section>
+
+{{-- ─── Tokenomics ───────────────────────────────────── --}}
+@if(($content['landing_show_tokenomics'] ?? '1') == '1')
+@php
+    $tokoSlices = [
+        ['label' => $content['tokenomics_public_sale_label'] ?? 'Public Sale',     'pct' => (float)($content['tokenomics_public_sale_pct']  ?? 40), 'color' => '#6c63ff'],
+        ['label' => $content['tokenomics_team_label']        ?? 'Team & Advisors', 'pct' => (float)($content['tokenomics_team_pct']         ?? 15), 'color' => '#38bdf8'],
+        ['label' => $content['tokenomics_ecosystem_label']   ?? 'Ecosystem Fund',  'pct' => (float)($content['tokenomics_ecosystem_pct']    ?? 20), 'color' => '#4ade80'],
+        ['label' => $content['tokenomics_reserve_label']     ?? 'Reserve',         'pct' => (float)($content['tokenomics_reserve_pct']      ?? 10), 'color' => '#fb923c'],
+        ['label' => $content['tokenomics_liquidity_label']   ?? 'Liquidity',       'pct' => (float)($content['tokenomics_liquidity_pct']    ?? 10), 'color' => '#e879f9'],
+        ['label' => $content['tokenomics_marketing_label']   ?? 'Marketing',       'pct' => (float)($content['tokenomics_marketing_pct']    ??  5), 'color' => '#f59e0b'],
+    ];
+    $tokoSlices = array_filter($tokoSlices, fn($s) => $s['pct'] > 0);
+    // Build conic-gradient
+    $conic = ''; $deg = 0;
+    foreach ($tokoSlices as $sl) {
+        $start = $deg; $end = $deg + ($sl['pct'] / 100 * 360);
+        $conic .= $sl['color'].' '.$start.'deg '.$end.'deg, ';
+        $deg = $end;
+    }
+    $conic = rtrim($conic, ', ');
+@endphp
+<section class="section" id="tokenomics" style="background:var(--bg);">
+    <div class="container">
+        <div class="text-center reveal" style="margin-bottom:48px">
+            <p class="section-label">{{ __('Transparency') }}</p>
+            <h2 class="section-title">{{ $content['tokenomics_section_title'] ?? __('Token Distribution') }}</h2>
+            <p class="section-sub">{{ $content['tokenomics_section_subtitle'] ?? '' }}</p>
+        </div>
+        <div class="toko-grid reveal">
+            {{-- Donut chart via conic-gradient --}}
+            <div class="toko-donut-wrap">
+                <div class="toko-donut" style="background:conic-gradient({{ $conic }});box-shadow:0 0 0 2px var(--bg),inset 0 0 0 72px var(--bg);"></div>
+                <div class="toko-donut-center">
+                    <div class="tdc-val gradient-text">{{ number_format((float)($content['obx_total_supply'] ?? 100000000) / 1e6, 0) }}M</div>
+                    <div class="tdc-label">{{ __('Total Supply') }}</div>
+                </div>
+            </div>
+            {{-- Legend --}}
+            <div class="toko-legend">
+                @foreach($tokoSlices as $sl)
+                <div class="toko-legend-item">
+                    <div class="toko-dot" style="background:{{ $sl['color'] }}"></div>
+                    <span class="toko-name">{{ $sl['label'] }}</span>
+                    <div class="toko-bar-wrap">
+                        <div class="toko-bar" style="width:{{ $sl['pct'] }}%;background:{{ $sl['color'] }}"></div>
+                    </div>
+                    <span class="toko-pct">{{ $sl['pct'] }}%</span>
+                </div>
+                @endforeach
+            </div>
+        </div>
+    </div>
+</section>
+@endif
 
 {{-- ─── Roadmap ──────────────────────────────────────── --}}
 <section class="section" id="roadmap" style="background:var(--bg2)">
@@ -996,6 +1149,15 @@
                     @endif
                     @if(isset($content['landing_instagram_link']) && $content['landing_instagram_link'])
                     <a href="{{ $content['landing_instagram_link'] }}" target="_blank" rel="noopener" class="social-btn" title="Instagram">&#9632;</a>
+                    @endif
+                    @if(!empty($content['landing_telegram_link']))
+                    <a href="{{ $content['landing_telegram_link'] }}" target="_blank" rel="noopener" class="social-btn" title="Telegram">&#x2708;</a>
+                    @endif
+                    @if(!empty($content['landing_discord_link']))
+                    <a href="{{ $content['landing_discord_link'] }}" target="_blank" rel="noopener" class="social-btn" title="Discord">&#x25C6;</a>
+                    @endif
+                    @if(!empty($content['landing_github_link']))
+                    <a href="{{ $content['landing_github_link'] }}" target="_blank" rel="noopener" class="social-btn" title="GitHub" style="font-size:.75rem;font-weight:700;">GH</a>
                     @endif
                 </div>
             </div>
