@@ -60,8 +60,10 @@
 /* ── Unified Language Tabs ── */
 .lang-tabs-wrap{margin:12px 0 0;}
 .lang-tabs{
-    display:flex;gap:2px;flex-wrap:wrap;
+    display:flex;gap:2px;flex-wrap:nowrap;
     border-bottom:1px solid var(--border);
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
 }
 .lang-tab{
     padding:6px 13px;font-size:11.5px;font-weight:600;
@@ -70,6 +72,7 @@
     border-radius:6px 6px 0 0;transition:all .15s;
     user-select:none;background:transparent;
     display:flex;align-items:center;gap:6px;
+    flex:0 0 auto;
 }
 .lang-tab:hover{color:var(--text-2);background:rgba(255,255,255,.03);}
 .lang-tab.active{
@@ -163,7 +166,22 @@ pre.code{
 .docs-nav-item i{width:13px;text-align:center;font-size:11px;}
 .docs-nav-sep{height:1px;background:var(--border);margin:7px 0;}
 .docs-main{flex:1;min-width:0;}
-@media(max-width:768px){.docs-layout{flex-direction:column;}.docs-sidebar{width:100%;position:static;}}
+@media(max-width:992px){.docs-wrap{max-width:100%;}}
+@media(max-width:768px){
+    .docs-layout{flex-direction:column;gap:14px;}
+    .docs-sidebar{width:100%;position:static;top:auto;padding:10px 0;}
+    .docs-hdr{margin-bottom:16px;}
+    .ep-head,.ep-body{padding:11px 13px;}
+    .ftable{display:block;overflow-x:auto;white-space:nowrap;}
+    pre.code{font-size:11.5px;padding:12px 12px;}
+}
+@media(max-width:480px){
+    .docs-hdr-left h4{font-size:16px;}
+    .docs-hdr-left p{font-size:11.5px;}
+    .lang-tab{font-size:11px;padding:6px 10px;}
+    .qs-step{gap:10px;padding:12px 0;}
+    .qs-num{width:24px;height:24px;font-size:11px;}
+}
 </style>
 @endsection
 
@@ -174,7 +192,7 @@ pre.code{
     <div class="docs-hdr">
         <div class="docs-hdr-left">
             <h4><i class="fa fa-plug" style="color:#a5b4fc;margin-right:8px;"></i>OBXCoin Payment API</h4>
-            <p>Integrate OBXCoin payments into any platform. Base URL: <code style="color:#a5b4fc;font-size:12px;">{{ url('/') }}</code></p>
+            <p>Integrate OBXCoin payments into any platform. Token standard: <strong>BEP20</strong>. Multi-chain settlements are supported. Base URL: <code style="color:#a5b4fc;font-size:12px;">{{ url('/') }}</code></p>
         </div>
         <a href="{{ route('merchant.keys') }}" style="background:var(--dark3);border:1px solid var(--border);color:var(--text-2);border-radius:var(--r-sm);font-size:12.5px;padding:7px 14px;text-decoration:none;display:inline-flex;align-items:center;gap:6px;">
             <i class="fa fa-key"></i> My API Keys
@@ -186,7 +204,10 @@ pre.code{
     {{-- ── Sidebar Navigation ── --}}
     <nav class="docs-sidebar" id="docs-sidebar">
         <div class="docs-sidebar-hdr">On this page</div>
-        <a class="docs-nav-item active" href="#section-quickstart" onclick="navTo(this,'section-quickstart')">
+        <a class="docs-nav-item active" href="#section-overview" onclick="navTo(this,'section-overview')">
+            <i class="fa fa-book"></i> How to Integrate
+        </a>
+        <a class="docs-nav-item" href="#section-quickstart" onclick="navTo(this,'section-quickstart')">
             <i class="fa fa-rocket"></i> Quick Start
         </a>
         <div class="docs-nav-sep"></div>
@@ -222,6 +243,104 @@ pre.code{
     {{-- ── Main Content ── --}}
     <div class="docs-main">
 
+    {{-- ── 0. Integration Overview ── --}}
+    <div class="doc-section" id="section-overview">
+        <div class="doc-section-title"><i class="fa fa-book"></i> How to Integrate</div>
+        <p style="font-size:13px;color:var(--text-2);margin-bottom:16px;line-height:1.8;">
+            OBXCoin Payment API lets you accept cryptocurrency payments on your website or app. Here's how it works in plain English:
+        </p>
+
+        <div style="background:rgba(99,102,241,.06);border:1px solid rgba(99,102,241,.2);border-radius:var(--r-sm);padding:14px;margin-bottom:16px;">
+            <p style="font-size:12.5px;color:var(--text-2);margin:0;line-height:1.7;">
+                <strong style="color:var(--text);">The Basic Flow:</strong><br>
+                1. Your customer wants to buy something<br>
+                2. You create a payment invoice (with our API)<br>
+                3. Customer scans QR code or sends OBX coins<br>
+                4. We confirm the payment on the blockchain<br>
+                5. You get notified (webhook) and ship/deliver the product
+            </p>
+        </div>
+
+        <h5 style="font-size:13px;font-weight:700;color:var(--text);margin:16px 0 10px;">Key Concepts in Plain Language</h5>
+        <table class="ftable" style="font-size:12px;">
+            <tbody>
+                <tr>
+                    <td style="font-weight:700;width:140px;color:#a5b4fc;">API Key & Secret</td>
+                    <td>Think of these like a username and password combo that only your backend knows. The secret is private and never shared with customers. You use them to "sign" requests so we know it's really you.</td>
+                </tr>
+                <tr>
+                    <td style="font-weight:700;color:#a5b4fc;">Payment Invoice</td>
+                    <td>A temporary request asking the customer to send coins. Each has a unique wallet address and a countdown timer. Once time expires or payment arrives, the invoice closes.</td>
+                </tr>
+                <tr>
+                    <td style="font-weight:700;color:#a5b4fc;">Signing Requests</td>
+                    <td>When your backend talks to our API, you include 3 special headers: your key, a timestamp, and a signature. This proves you're authorized without sending passwords everywhere.</td>
+                </tr>
+                <tr>
+                    <td style="font-weight:700;color:#a5b4fc;">Checkout Page</td>
+                    <td>We host a page where customers see the QR code and payment address. You redirect them there. No need to build your own crypto wallet UI.</td>
+                </tr>
+                <tr>
+                    <td style="font-weight:700;color:#a5b4fc;">Webhooks</td>
+                    <td>When payment succeeds, we automatically POST to your server with the result. You listen for this and fulfill the order (send email, unlock download, etc.).</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h5 style="font-size:13px;font-weight:700;color:var(--text);margin:16px 0 10px;">Integration Patterns</h5>
+        <p style="font-size:12.5px;color:var(--text-2);margin:0 0 12px;line-height:1.7;">
+            <strong style="color:var(--text);">Pattern 1: Server-Side Integration (Most Common)</strong><br>
+            Your backend creates an invoice with our API, passes back a checkout URL, and you redirect the customer. After payment, we POST a webhook to your server.
+        </p>
+        <p style="font-size:12.5px;color:var(--text-2);margin:0 0 12px;line-height:1.7;">
+            <strong style="color:var(--text);">Pattern 2: Polling (Alternative)</strong><br>
+            Your frontend repeatedly asks "Is payment done yet?" via a public endpoint (no auth needed). This works but is slower than webhooks.
+        </p>
+        <p style="font-size:12.5px;color:var(--text-2);margin:0;line-height:1.7;">
+            <strong style="color:var(--text);">Pattern 3: Mobile/Embedded</strong><br>
+            Your app opens the checkout URL in a WebView. After payment, the user is redirected to your success page or app deep link.
+        </p>
+
+        <h5 style="font-size:13px;font-weight:700;color:var(--text);margin:16px 0 10px;">Implementation Checklist</h5>
+        <ul style="list-style:none;margin:0;padding:0;">
+            <li style="padding:6px 0;font-size:12.5px;color:var(--text-2);border-bottom:1px solid var(--border);">
+                <span style="color:#3fb950;font-weight:700;">□</span> Generate an API Key in your merchant dashboard
+            </li>
+            <li style="padding:6px 0;font-size:12.5px;color:var(--text-2);border-bottom:1px solid var(--border);">
+                <span style="color:#3fb950;font-weight:700;">□</span> Store the plain secret securely (use env variables, never commit to git)
+            </li>
+            <li style="padding:6px 0;font-size:12.5px;color:var(--text-2);border-bottom:1px solid var(--border);">
+                <span style="color:#3fb950;font-weight:700;">□</span> Build a backend route that calls <code>POST /api/payment/orders</code> with signed headers
+            </li>
+            <li style="padding:6px 0;font-size:12.5px;color:var(--text-2);border-bottom:1px solid var(--border);">
+                <span style="color:#3fb950;font-weight:700;">□</span> Redirect customer to the returned <code>checkout_url</code>
+            </li>
+            <li style="padding:6px 0;font-size:12.5px;color:var(--text-2);border-bottom:1px solid var(--border);">
+                <span style="color:#3fb950;font-weight:700;">□</span> Set up a webhook endpoint on your server to listen for payment confirmations
+            </li>
+            <li style="padding:6px 0;font-size:12.5px;color:var(--text-2);border-bottom:1px solid var(--border);">
+                <span style="color:#3fb950;font-weight:700;">□</span> Verify webhook signature (X-OBX-Signature header) to ensure it's really from us
+            </li>
+            <li style="padding:6px 0;font-size:12.5px;color:var(--text-2);border-bottom:1px solid var(--border);">
+                <span style="color:#3fb950;font-weight:700;">□</span> When status is <code>completed</code>, fulfill the order (email receipt, send download link, etc.)
+            </li>
+            <li style="padding:6px 0;font-size:12.5px;color:var(--text-2);">
+                <span style="color:#3fb950;font-weight:700;">□</span> Test end-to-end in sandbox before going live
+            </li>
+        </ul>
+
+        <div class="note note-i" style="margin-top:16px;">
+            <i class="fa fa-info-circle"></i>
+            <p>
+                <strong>Multi-Chain & BEP20:</strong> OBXCoin is a BEP20 token. Depending on your merchant configuration, payments may settle on different blockchain networks. The integration code stays the same — we handle network selection behind the scenes.
+            </p>
+        </div>
+
+        <p style="font-size:12.5px;color:var(--text-2);margin:16px 0 0;line-height:1.7;">
+            <strong style="color:var(--text);">Ready to code?</strong> Jump to <a href="#section-quickstart" onclick="navTo(document.querySelector('[href=\'#section-quickstart\']'),'section-quickstart')" style="color:#a5b4fc;">Quick Start</a> for step-by-step instructions.
+        </p>
+    </div>
+
     {{-- ── 0. Quick Start ── --}}
     <div class="doc-section" id="section-quickstart">
         <div class="doc-section-title"><i class="fa fa-rocket"></i> Quick Start</div>
@@ -241,7 +360,7 @@ pre.code{
                 <div class="qs-num">2</div>
                 <div class="qs-body">
                     <h6>Fetch Available Coins</h6>
-                    <p>Call <code>GET /api/payment/coins</code> (no auth) to get the list. For OBXCoin payments use <code>"coin_type": "OBXCoin"</code>.</p>
+                    <p>Call <code>GET /api/payment/coins</code> (no auth) to get the list. For OBXCoin payments use <code>"coin_type": "OBXCoin"</code>. OBX is a <strong>BEP20</strong> token and can be processed in multi-chain mode based on your merchant setup.</p>
                     <div class="lang-tabs-wrap" id="qs-coins-tabs">
                         <div class="lang-tabs">
                             <div class="lang-tab active" onclick="switchTab('qs-coins','json')"><span class="lang-dot dot-json"></span>JSON Response</div>
@@ -345,6 +464,13 @@ pre.code{
             Every signed request needs three HTTP headers. The signature is <strong>HMAC-SHA256</strong> computed from your API key, timestamp, and a hash of the request body.
         </p>
 
+        <div class="note note-i" style="margin-bottom:14px;">
+            <i class="fa fa-link"></i>
+            <p>
+                <strong>Network note:</strong> OBXCoin is a <strong>BEP20</strong> asset. If your account has multi-chain enabled, settlement network selection is handled by your merchant configuration while the same signing process remains unchanged.
+            </p>
+        </div>
+
         <table class="ftable">
             <thead><tr><th>Header</th><th>Description</th></tr></thead>
             <tbody>
@@ -367,13 +493,45 @@ pre.code{
 
         <div class="lang-tabs-wrap" id="sign-tabs">
             <div class="lang-tabs">
-                <div class="lang-tab active" onclick="switchTab('sign','php')"><span class="lang-dot dot-php"></span>PHP</div>
-                <div class="lang-tab" onclick="switchTab('sign','js')"><span class="lang-dot dot-js"></span>JavaScript</div>
-                <div class="lang-tab" onclick="switchTab('sign','python')"><span class="lang-dot dot-python"></span>Python</div>
-                <div class="lang-tab" onclick="switchTab('sign','java')"><span class="lang-dot dot-java"></span>Java</div>
-                <div class="lang-tab" onclick="switchTab('sign','flutter')"><span class="lang-dot dot-flutter"></span>Flutter</div>
+                                <div class="lang-tab active" onclick="switchTab('sign','json')"><span class="lang-dot dot-json"></span>JSON Sign</div>
+                                <div class="lang-tab" onclick="switchTab('sign','php')"><span class="lang-dot dot-php"></span>PHP</div>
+                                <div class="lang-tab" onclick="switchTab('sign','js')"><span class="lang-dot dot-js"></span>JavaScript</div>
+                                <div class="lang-tab" onclick="switchTab('sign','python')"><span class="lang-dot dot-python"></span>Python</div>
+                                <div class="lang-tab" onclick="switchTab('sign','java')"><span class="lang-dot dot-java"></span>Java</div>
+                                <div class="lang-tab" onclick="switchTab('sign','flutter')"><span class="lang-dot dot-flutter"></span>Flutter</div>
             </div>
-            <div class="lang-pane active" data-group="sign" data-lang="php">
+                        <div class="lang-pane active" data-group="sign" data-lang="json">
+                                <div class="lang-pane-hdr"><button class="cp-btn" onclick="copyPane(this)"><i class="fa fa-copy"></i> Copy</button></div>
+                                <pre class="code"><span class="c">// Canonical JSON signing example</span>
+{
+    <span class="n">"request"</span>: {
+        <span class="n">"method"</span>: <span class="s">"POST"</span>,
+        <span class="n">"path"</span>: <span class="s">"/api/payment/orders"</span>,
+        <span class="n">"body"</span>: {
+            <span class="n">"merchant_order_id"</span>: <span class="s">"ORDER-1001"</span>,
+            <span class="n">"coin_type"</span>: <span class="s">"OBXCoin"</span>,
+            <span class="n">"amount"</span>: <span class="s">"50.00"</span>
+        }
+    },
+    <span class="n">"signing"</span>: {
+        <span class="n">"api_key"</span>: <span class="s">"obx_xxxxxxxxx"</span>,
+        <span class="n">"timestamp"</span>: <span class="s">"1712839200"</span>,
+        <span class="n">"body_hash"</span>: <span class="s">"sha256(raw_json_body)"</span>,
+        <span class="n">"sign_input"</span>: <span class="s">"obx_xxxxxxxxx.1712839200.&lt;body_hash&gt;"</span>,
+        <span class="n">"key_bytes"</span>: <span class="s">"sha256(plain_secret) as bytes"</span>,
+        <span class="n">"signature"</span>: <span class="s">"hmac_sha256_hex(sign_input, key_bytes)"</span>
+    },
+    <span class="n">"headers"</span>: {
+        <span class="n">"X-Api-Key"</span>: <span class="s">"obx_xxxxxxxxx"</span>,
+        <span class="n">"X-Api-Timestamp"</span>: <span class="s">"1712839200"</span>,
+        <span class="n">"X-Api-Signature"</span>: <span class="s">"&lt;computed_hmac_hex&gt;"</span>,
+        <span class="n">"Content-Type"</span>: <span class="s">"application/json"</span>
+    }
+}
+
+<span class="c">// GET requests: body = "" and body_hash = sha256("")</span></pre>
+                        </div>
+                        <div class="lang-pane" data-group="sign" data-lang="php">
                 <div class="lang-pane-hdr"><button class="cp-btn" onclick="copyPane(this)"><i class="fa fa-copy"></i> Copy</button></div>
                 <pre class="code"><span class="k">function</span> <span class="v">obx_headers</span>(string <span class="v">$key</span>, string <span class="v">$secret</span>, string <span class="v">$body</span> = <span class="s">''</span>): array {
     <span class="v">$ts</span>  = <span class="k">time</span>();
@@ -469,7 +627,7 @@ Map&lt;String, String&gt; <span class="v">obxHeaders</span>(String apiKey, Strin
                 <span class="auth-pill auth-public" style="margin-left:auto;"><i class="fa fa-globe"></i> Public</span>
             </div>
             <div class="ep-body">
-                <p>Returns coins available for payment. <strong>OBXCoin</strong> is always the primary coin.</p>
+                <p>Returns coins available for payment. <strong>OBXCoin (BEP20)</strong> is the primary coin, and multi-chain routing can be enabled for your merchant profile.</p>
                 <div class="lang-tabs-wrap" id="coins-tabs">
                     <div class="lang-tabs">
                         <div class="lang-tab active" onclick="switchTab('coins','json')"><span class="lang-dot dot-json"></span>JSON</div>
@@ -530,7 +688,7 @@ coins = requests.get(<span class="s">'{{ url("/api/payment/coins") }}'</span>).j
                     <thead><tr><th>Field</th><th>Type</th><th></th><th>Description</th></tr></thead>
                     <tbody>
                         <tr><td>merchant_order_id</td><td>string</td><td><span class="req">required</span></td><td>Your internal order reference (max 100 chars)</td></tr>
-                        <tr><td>coin_type</td><td>string</td><td><span class="req">required</span></td><td>Use <strong>"OBXCoin"</strong> for the primary coin</td></tr>
+                        <tr><td>coin_type</td><td>string</td><td><span class="req">required</span></td><td>Use <strong>"OBXCoin"</strong> (BEP20). Multi-chain mode is supported by merchant configuration.</td></tr>
                         <tr><td>amount</td><td>decimal</td><td><span class="req">required</span></td><td>Amount to collect</td></tr>
                         <tr><td>callback_url</td><td>url</td><td><span class="opt">optional</span></td><td>Redirect after payment completes</td></tr>
                         <tr><td>metadata</td><td>object</td><td><span class="opt">optional</span></td><td>Custom key-value data (max 2 KB)</td></tr>
@@ -940,7 +1098,7 @@ function navTo(el, targetId) {
 
 // Highlight sidebar item on scroll
 (function() {
-    var sections = ['section-quickstart','section-auth','ep-coins','ep-create','ep-get','ep-status','ep-check','section-webhooks','section-reference'];
+    var sections = ['section-overview','section-quickstart','section-auth','ep-coins','ep-create','ep-get','ep-status','ep-check','section-webhooks','section-reference'];
     window.addEventListener('scroll', function() {
         var scrollY = window.scrollY + 120;
         var active = sections[0];
