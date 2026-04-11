@@ -1,0 +1,229 @@
+PHPUnit 10.5.63 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.3.14
+Configuration: C:\xampp\htdocs\obxcoin\phpunit.xml
+
+...............................................................  63 / 188 ( 33%)
+............................................................... 126 / 188 ( 67%)
+..............................................................  188 / 188 (100%)
+
+Time: 00:40.447, Memory: 52.00 MB
+
+Admin Impersonation (Tests\Feature\AdminImpersonation)
+ ✔ Admin can start impersonating a regular user
+ ✔ Impersonation stores admin id in session
+ ✔ Admin cannot impersonate another admin
+ ✔ Regular user cannot access impersonate route
+ ✔ Stop impersonating restores admin session
+ ✔ Stop impersonating clears session key
+ ✔ Stop impersonating without session redirects safely
+ ✔ Impersonating a nonexistent user redirects with error
+ ✔ Impersonation success flash message is set
+ ✔ Stop impersonating success flash message is set
+
+Airdrop (Tests\Feature\Airdrop)
+ ✔ Unauthenticated user cannot view airdrop dashboard
+ ✔ Unauthenticated user cannot claim
+ ✔ Unauthenticated user cannot access admin airdrop
+ ✔ Regular user cannot access admin airdrop
+ ✔ Admin can view airdrop campaign list
+ ✔ Admin can create a campaign
+ ✔ Admin cannot edit a campaign that has started
+ ✔ Admin can toggle campaign active status
+ ✔ Admin cannot reveal fee before campaign ends
+ ✔ Admin can reveal fee after campaign ends
+ ✔ Admin cannot reveal fee twice
+ ✔ User can claim airdrop during live campaign
+ ✔ User cannot claim twice on the same day
+ ✔ User cannot claim before campaign starts
+ ✔ User cannot claim after campaign ends
+ ✔ Locked balance accumulates across multiple claims
+ ✔ Different users have isolated claim balances
+ ✔ User cannot unlock before campaign ends
+ ✔ User cannot unlock before fee is revealed
+ ✔ User with no claims cannot unlock
+ ✔ User can request unlock after campaign ends and fee revealed
+ ✔ Duplicate unlock request returns info not error
+ ✔ Airdrop dashboard shows claim button for live campaign
+ ✔ Airdrop dashboard shows already claimed state
+ ✔ Streak bonus is awarded on nth consecutive day
+ ✔ Streak bonus is not awarded before milestone
+ ✔ Streak resets when a day is missed
+ ✔ Confirm unlock credits user wallet balance
+
+Auth Boundary (Tests\Feature\AuthBoundary)
+ ✔ Unauthenticated user cannot access dashboard
+ ✔ Unauthenticated user cannot access my pocket
+ ✔ Unauthenticated user cannot access buy coin page
+ ✔ Unauthenticated user cannot post buy coin
+ ✔ Api wallet list requires authentication
+ ✔ Api wallet generate requires authentication
+ ✔ Api wallet refresh requires authentication
+ ✔ Unauthenticated user cannot access admin users page
+ ✔ Regular user cannot access admin user list
+ ✔ Regular user cannot access admin dashboard
+ ✔ Regular user cannot access admin coin settings
+ ✔ Regular user cannot impersonate other users
+ ✔ Admin cannot impersonate another admin
+ ✔ Impersonating invalid encrypted id does not crash
+ ✔ Withdrawal callback requires authentication
+ ✔ Deposit callback requires authentication
+ ✔ Authenticated user can access dashboard
+ ✔ Authenticated user can access buy coin page
+ ✔ Authenticated admin can access admin dashboard
+ ✔ Logged out user cannot reach protected route
+ ✔ Buy coin post without csrf token is rejected
+ ✔ Withdraw balance post without csrf token is rejected for unauthenticated user
+
+Blockchain Service (Tests\Unit\BlockchainService)
+ ✔ Usd rate converts correctly to contract rate
+ ✔ Hex to decimal converts correctly
+ ✔ Zero usd rate returns zero contract rate
+ ✔ Decode tokens purchased log extracts correct fields
+
+Example (Tests\Feature\Example)
+ ✔ Basic test
+
+Example (Tests\Unit\Example)
+ ✔ Basic test
+
+OBXTokenomics (Tests\Unit\OBXTokenomics)
+ ✔ Initial supply is exactly 100 million obx
+ ✔ Burn floor is exactly 41 million obx
+ ✔ Total tokens to be burned is 59 million obx
+ ✔ Burn floor plus total burned equals initial supply
+ ✔ Burned amount is 59 percent of initial supply
+ ✔ Remaining supply is 41 percent of initial supply
+ ✔ Burn fee bps equals 0 05 percent
+ ✔ Burn amount per transfer is correct
+ ✔ Recipient receives amount minus burn
+ ✔ Burn is capped when supply is near floor
+ ✔ Burn produces zero when supply already at floor
+ ✔ Burn produces zero when supply is below floor
+ ✔ Simulated burn never drops supply below floor
+ ✔ Maximum tokens ever burned cannot exceed 59 million
+
+Obx Wallet (Tests\Feature\ObxWallet)
+ ✔ User gets a primary wallet automatically
+ ✔ Primary wallet label defaults to primary wallet
+ ✔ User can list wallets via api
+ ✔ Api never exposes private key in wallet list
+ ✔ User can generate additional wallet via api
+ ✔ Generated wallet label defaults to wallet when not provided
+ ✔ User can update wallet label
+ ✔ Label must not exceed 100 characters
+ ✔ Label must not be empty
+ ✔ User cannot update another users wallet label
+ ✔ Wallet balance refresh returns balance
+ ✔ Wallet balance refresh endpoint returns json
+ ✔ User cannot refresh another users wallet balance
+ ✔ Wallet addresses are unique per address field
+ ✔ Explorer url matches configured chain
+
+Presale Webhook (Tests\Feature\PresaleWebhook)
+ ✔ Webhook rejects invalid signature
+ ✔ Webhook accepts valid signature and processes event
+ ✔ Webhook is idempotent for duplicate tx hash
+ ✔ Webhook handles unknown buyer wallet gracefully
+ ✔ Save bsc wallet validates address format
+ ✔ Save bsc wallet accepts valid address
+
+Security Headers (Tests\Feature\SecurityHeaders)
+ ✔ Login page has x content type options header
+ ✔ Login page has x frame options sameorigin
+ ✔ Login page has xss protection header
+ ✔ Login page has referrer policy header
+ ✔ Login page has permissions policy header
+ ✔ Authenticated dashboard has security headers
+ ✔ Api unauthenticated request has security headers
+ ✔ Webhook endpoint has security headers
+ ✔ Responses do not expose x powered by php version
+ ✔ Responses do not expose server software header
+ ✔ Http request does not set hsts header
+
+Staking (Tests\Feature\Staking)
+ ✔ Unauthenticated user cannot view staking index
+ ✔ Unauthenticated user cannot post confirm stake
+ ✔ Authenticated user can view staking index
+ ✔ User cannot stake with invalid pool id
+ ✔ User cannot stake with missing wallet address
+ ✔ User cannot stake with malformed tx hash
+ ✔ User can confirm a valid stake and two transactions are recorded
+ ✔ User cannot stake with duplicate tx hash
+ ✔ Confirm stake with zero burn bps creates only stake in transaction
+ ✔ User cannot unstake unknown position
+ ✔ User cannot unstake another users position
+ ✔ User can confirm unstake and position is marked unstaked
+ ✔ Admin can view staking index
+ ✔ Admin can view staking pools
+ ✔ Admin can save a new pool
+ ✔ Admin can update an existing pool
+
+Staking Math (Tests\Unit\StakingMath)
+ ✔ Burn on stake 100 bps of 100 obx equals 1 obx
+ ✔ Net staked after 100 bps burn is 99 obx
+ ✔ Burn on stake with 0 bps results in zero burn
+ ✔ Burn on stake at max 1000 bps equals 10 percent
+ ✔ Net staked at max burn is 90 percent of gross
+ ✔ Apy reward 1000 obx 500bps 30days is correct
+ ✔ Pro rata apy half duration gives half reward
+ ✔ Elapsed capped at duration prevents over reward
+ ✔ Zero apy gives zero reward
+ ✔ Burn on unstake 200 bps of 990 obx equals 19 point 8
+ ✔ Burn on unstake with 0 bps is zero
+ ✔ Total return is net minus burn unstake plus reward
+ ✔ Total return is always less than gross when burns exceed reward
+ ✔ Full round trip stake 100 1pct burn in 30d 5pct apy 2pct burn out
+
+Web3Presale Math (Tests\Unit\Web3PresaleMath)
+ ✔ Usdt 100 at rate 10000 obx per usdt gives 1 million obx
+ ✔ Usdt 1 at rate 1 obx per usdt gives 1 obx
+ ✔ Usdt 0 gives 0 obx
+ ✔ Rate 0 obx per usdt gives 0 obx for any usdt amount
+ ✔ Bonus bps 500 on 1000 obx gives 50 obx
+ ✔ Bonus bps 0 gives zero bonus
+ ✔ Total obx equals base plus bonus
+ ✔ Phase fee bps 100 on 1000 obx gives 10 obx fee
+ ✔ Burn fee is 0 05 percent of transfer amount
+ ✔ Apply burn fee reduces supply correctly
+ ✔ Burn stops when supply is exactly at burn floor
+ ✔ Burn stops when supply is below burn floor
+ ✔ Partial burn at burn floor boundary does not overshoot
+ ✔ Total burned over lifetime cannot exceed 59 million obx
+ ✔ Purchase that exceeds phase cap would be rejected
+ ✔ Purchase exactly at phase cap is allowed
+ ✔ Zero obx purchase should not be credited
+ ✔ Max possible obx allocation fits in bcmath string
+ ✔ Summing obx allocations does not overflow bcmath
+ ✔ Referral bonus 2 percent on 100 OBX gives 2 OBX
+ ✔ Referral bonus stacks additively with phase bonus
+ ✔ Rate 0 01 usdt per obx gives 100 obx per usdt exact
+ ✔ Float rounding does not occur in bcmath division
+
+Web3Security (Tests\Feature\Web3Security)
+ ✔ Wallet list never contains encrypted private key field
+ ✔ Wallet generation response never contains private key
+ ✔ Balance refresh response never contains private key
+ ✔ User b cannot read user a wallets via api
+ ✔ User b cannot refresh user a wallet balance
+ ✔ User b cannot relabel user a wallet
+ ✔ Webhook rejects request with no signature header
+ ✔ Webhook rejects a wrong hmac signature
+ ✔ Webhook rejects when secret is not configured
+ ✔ Webhook rejects tampered payload where only signature is reused
+ ✔ Webhook does not double process same tx hash
+ ✔ Wallet label containing script tag is stored as plain text not executed
+ ✔ Wallet label cannot exceed 100 characters
+ ✔ Wallet label cannot be empty string
+ ✔ Wallet label cannot be null
+ ✔ Refresh balance on nonexistent wallet returns 404
+ ✔ Update label on nonexistent wallet returns 404
+ ✔ Explorer url uses bscscan for chain 56
+ ✔ Explorer url uses bscscan testnet for chain 97
+ ✔ Cannot insert duplicate wallet address
+ ✔ Unauthenticated user cannot list wallets
+ ✔ Unauthenticated user cannot generate wallet
+ ✔ Wallet count reflects only requesting users wallets
+
+OK, but there were issues!
+Tests: 188, Assertions: 20378, PHPUnit Deprecations: 1.
