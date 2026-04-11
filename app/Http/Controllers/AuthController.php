@@ -96,7 +96,7 @@ class AuthController extends Controller
             $coin = Coin::where('type', DEFAULT_COIN_TYPE)->first();
             Wallet::create([
                 'user_id' => $user->id,
-                'name' => 'Default wallet',
+                'name' => 'OBX Wallet',
                 'is_primary' => STATUS_SUCCESS,
                 'coin_id' => $coin->id,
                 'coin_type' => $coin->type,

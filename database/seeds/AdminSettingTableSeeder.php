@@ -15,8 +15,8 @@ class AdminSettingTableSeeder extends Seeder
     public function run()
     {
         AdminSetting::firstOrCreate(['slug'=>'coin_price'],['value'=>'2.50']);
-        AdminSetting::firstOrCreate(['slug'=>'coin_name'],['value'=>'Cpoket']);
-        AdminSetting::firstOrCreate(['slug'=>'app_title'],['value'=>'C Poket']);
+        AdminSetting::firstOrCreate(['slug'=>'coin_name'],['value'=>'OBXCoin']);
+        AdminSetting::firstOrCreate(['slug'=>'app_title'],['value'=>'OBXCoin']);
         AdminSetting::firstOrCreate(['slug'=>'maximum_withdrawal_daily'],['value'=>'3']);
         AdminSetting::firstOrCreate(['slug'=>'mail_from'],['value'=>'noreply@cpoket.com']);
         AdminSetting::firstOrCreate(['slug'=>'admin_coin_address'],['value'=>'address']);
@@ -34,7 +34,7 @@ class AdminSettingTableSeeder extends Seeder
         AdminSetting::firstOrCreate(['slug' => 'point_rate'], ['value' => '1']);
         //General Settings
         AdminSetting::firstOrCreate(['slug' => 'lang'], ['value' => 'en']);
-        AdminSetting::firstOrCreate(['slug' => 'company_name'], ['value' => 'Test Company']);
+        AdminSetting::firstOrCreate(['slug' => 'company_name'], ['value' => 'OBXCoin']);
         AdminSetting::firstOrCreate(['slug' => 'primary_email'], ['value' => 'test@email.com']);
 
         AdminSetting::firstOrCreate(['slug' => 'sms_getway_name'], ['value' => 'twillo']);
