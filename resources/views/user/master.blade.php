@@ -638,8 +638,8 @@
                     <button class="dropdown-item" type="button"><a href="{{route('userProfile')}}"><i class="fa fa-user-circle-o"></i> {{__('Profile')}}</a></button>
                     <button class="dropdown-item" type="button"><a href="{{route('userSetting')}}"><i class="fa fa-cog"></i> {{__('Settings')}}</a></button>
                     <button class="dropdown-item" type="button"><a href="{{route('myPocket')}}"><i class="fa fa-money"></i> {{__('My Wallet')}}</a></button>
-                    <button class="dropdown-item" type="button"><a href="{{route('merchant.apiDocs')}}"><i class="fa fa-plug"></i> {{__('API Documentation')}}</a></button>
                     <button class="dropdown-item" type="button"><a href="{{route('merchant.keys')}}"><i class="fa fa-key"></i> {{__('API Keys')}}</a></button>
+                    <button class="dropdown-item" type="button"><a href="{{route('merchant.apiDocs')}}"><i class="fa fa-plug"></i> {{__('API Documentation')}}</a></button>
                     <button class="dropdown-item" type="button"><a href="{{route('logOut')}}"><i class="fa fa-sign-out"></i> {{__('Logout')}}</a></button>
                 </div>
             </div>
@@ -722,14 +722,14 @@
                         @endif
                     </ul>
                 </li>
-                @if(getSwapStatus())
+                {{-- @if(getSwapStatus())
                 <li class="@if(isset($menu) && $menu == 'coin_swap') cp-user-active-page @endif">
                     <a href="{{route('coinSwap')}}">
                         <span class="nav-icon"><i class="fa fa-refresh"></i></span>
                         <span class="cp-user-name">{{__('Swap Coin')}}</span>
                     </a>
                 </li>
-                @endif
+                @endif --}}
                 <li class="@if(isset($menu) && $menu == 'airdrop') cp-user-active-page @endif">
                     <a href="{{route('user.airdrop')}}">
                         <span class="nav-icon"><i class="fa fa-gift"></i></span>
@@ -753,7 +753,7 @@
                         </li>
                     </ul>
                 </li>
-                <li class="@if(isset($menu) && $menu == 'member') cp-user-active-page mm-active @endif">
+                {{-- <li class="@if(isset($menu) && $menu == 'member') cp-user-active-page mm-active @endif">
                     <a class="arrow-icon" href="#" aria-expanded="true">
                         <span class="nav-icon"><i class="fa fa-star"></i></span>
                         <span class="cp-user-name">{{__('Membership')}}</span>
@@ -766,7 +766,7 @@
                             <a href="{{route('myMembership')}}">{{__('My Membership')}}</a>
                         </li>
                     </ul>
-                </li>
+                </li> --}}
                 <li class="@if(isset($menu) && $menu == 'profile') cp-user-active-page @endif">
                     <a href="{{route('userProfile')}}">
                         <span class="nav-icon"><i class="fa fa-user"></i></span>
