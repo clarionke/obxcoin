@@ -36,8 +36,8 @@ class CoinController extends Controller
                     $response = ['success' => false, 'data' => [], 'message' => __('You can not send request to your own email')];
                     return response()->json($response);
                 }
-                $myWallet = get_primary_wallet(Auth::id(), 'Default');
-                $userWallet = get_primary_wallet($user->id, 'Default');
+                $myWallet = get_primary_wallet(Auth::id(), DEFAULT_COIN_TYPE);
+                $userWallet = get_primary_wallet($user->id, DEFAULT_COIN_TYPE);
                 $data = [
                     'amount' => $request->amount,
                     'sender_user_id' => $user->id,
@@ -71,8 +71,8 @@ class CoinController extends Controller
 
     public function requestCoinApp(){
         try {
-            $default_wallet = Wallet::where(['user_id' => Auth::id(), 'coin_type' => 'Default'])->where('balance','>',0)->get();
-            $response = ['success' => true, 'data' => $default_wallet, 'message' => __('Default wallet information!')];
+            $default_wallet = Wallet::where(['user_id' => Auth::id(), 'coin_type' => DEFAULT_COIN_TYPE])->where('balance','>',0)->get();
+            $response = ['success' => true, 'data' => $default_wallet, 'message' => __('OBX Wallet information!')];
         } catch (\Exception $e) {
             $response = ['success' => false, 'message' => __('Something went wrong')];
         }

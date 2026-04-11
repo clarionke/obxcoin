@@ -32,8 +32,8 @@ class CoinRepository
                     $response = ['success' => false, 'message' => __('You can not send request to your own email')];
                     return $response;
                 }
-                $myWallet = get_primary_wallet(Auth::id(), 'Default');
-                $userWallet = get_primary_wallet($user->id, 'Default');
+                $myWallet = get_primary_wallet(Auth::id(), DEFAULT_COIN_TYPE);
+                $userWallet = get_primary_wallet($user->id, DEFAULT_COIN_TYPE);
                 $data = [
                     'amount' => $request->amount,
                     'sender_user_id' => $user->id,

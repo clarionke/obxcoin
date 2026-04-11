@@ -45,7 +45,7 @@ class AffiliateRepository
             $data['parent_id'] = $parentId;
             $created = ReferralUser::create($data)->id;
             $signUpBonus = isset(allsetting()['referral_signup_reward']) ? allsetting()['referral_signup_reward'] : 0;
-            $wallet = Wallet::where(['user_id' => $userId, 'is_primary' => STATUS_ACTIVE, 'coin_type'=>'Default'])->first();
+            $wallet = Wallet::where(['user_id' => $userId, 'is_primary' => STATUS_ACTIVE, 'coin_type' => DEFAULT_COIN_TYPE])->first();
             if (isset($wallet)) {
                 $wallet->increment('balance', $signUpBonus);
                 ReferralSignBonusHistory::create(['parent_id'=>$parentId, 'user_id'=>$userId, 'wallet_id'=>$wallet->id, 'amount'=>$signUpBonus]);

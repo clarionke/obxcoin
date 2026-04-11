@@ -267,7 +267,7 @@ class CoinController extends Controller
     public function requestCoin(Request $request)
     {
         $data['title'] = __('Request or Give Coin ');
-        $data['wallets'] = Wallet::where(['user_id' => Auth::id(), 'coin_type' => 'Default'])->where('balance','>',0)->get();
+        $data['wallets'] = Wallet::where(['user_id' => Auth::id(), 'coin_type' => DEFAULT_COIN_TYPE])->where('balance','>',0)->get();
         $data['coin'] = Coin::where(['type' => DEFAULT_COIN_TYPE])->first();
         $data['qr'] = (!empty($request->qr)) ? $request->qr : 'requests';
 

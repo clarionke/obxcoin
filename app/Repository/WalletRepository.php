@@ -210,7 +210,7 @@ class WalletRepository
 
             $coinpayment = new CoinPaymentsAPI();
             $api_rate = $coinpayment->GetRates();
-            if ($from_coin_type == 'Default') {
+            if ($from_coin_type == DEFAULT_COIN_TYPE) {
                 $from_coin_type = "USD";
                 $fromBtc = $api_rate['result'][$from_coin_type]['rate_btc'];
                 $from = bcmul($fromBtc, settings('coin_price'), 8);
@@ -218,7 +218,7 @@ class WalletRepository
                 $from = $api_rate['result'][$from_coin_type]['rate_btc'];
             }
 
-            if ($to_coin_type == 'Default') {
+            if ($to_coin_type == DEFAULT_COIN_TYPE) {
                 $to_coin_type = "USD";
                 $toBtc = $api_rate['result'][$to_coin_type]['rate_btc'];
                 $to = bcmul($toBtc, settings('coin_price'), 8);

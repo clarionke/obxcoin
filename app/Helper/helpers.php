@@ -960,7 +960,7 @@ function getToastrMessage($message = null)
 }
 
 function getUserBalance($user_id){
-    $wallets = Wallet::where(['user_id' => $user_id, 'coin_type' => 'Default']);
+    $wallets = Wallet::where(['user_id' => $user_id, 'coin_type' => DEFAULT_COIN_TYPE]);
 
     $data['available_coin'] = $wallets->sum('balance');
     $data['available_used'] = $data['available_coin'] * settings('coin_price');
