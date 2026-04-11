@@ -910,7 +910,7 @@
                     @endforeach
                 </svg>
                 <div class="toko-chart-center">
-                    <div class="tdc-val gradient-text">{{ number_format($totalSupply / 1e6, 0) }}M</div>
+                    <div id="tdcVal" class="tdc-val gradient-text">{{ number_format($totalSupply / 1e6, 0) }}M</div>
                     <span class="tdc-sup">{{ __('Total Supply') }}</span>
                 </div>
             </div>
@@ -1385,6 +1385,7 @@
     var navPriceChg  = document.getElementById('navPriceChange');
     var mmPriceVal   = document.getElementById('mmPriceVal');
     var mmPriceChg   = document.getElementById('mmPriceChange');
+    var tdcVal       = document.getElementById('tdcVal');
     function fetchPrice() {
         fetch('/api/obx-price')
             .then(function (r) { return r.ok ? r.json() : null; })
@@ -1405,6 +1406,14 @@
                 // mobile drawer pill
                 if (mmPriceVal) mmPriceVal.textContent = pStr;
                 if (mmPriceChg) { mmPriceChg.textContent = chStr; mmPriceChg.className = 'mm-change ' + (ch >= 0 ? 'up' : 'down'); }
+                // tokenomics donut total supply (live from blockchain — decreases on burn)
+                if (tdcVal && d.total_supply > 0) {
+                    var ts = parseFloat(d.total_supply);
+                    var label = ts >= 1e9 ? (ts / 1e9).toFixed(2) + 'B'
+                              : ts >= 1e6 ? Math.round(ts / 1e6) + 'M'
+                              : ts.toLocaleString();
+                    tdcVal.textContent = label;
+                }
             })
             .catch(function () {});
     }

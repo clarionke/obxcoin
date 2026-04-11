@@ -95,6 +95,7 @@ class CmcTickerController extends Controller
             'market_cap'           => (float) (settings('obx_market_cap') ?: 0),
             'volume_24h'           => (float) (settings('obx_volume_24h') ?: 0),
             'circulating_supply'   => (float) (settings('obx_circulating_supply') ?: 0),
+            'total_supply'         => (float) (settings('obx_total_supply') ?: 0),
             'last_updated'         => settings('obx_price_last_updated') ?: null,
             'symbol'               => settings('coin_symbol') ?: 'OBX',
         ])->header('Cache-Control', 'max-age=30, public')
