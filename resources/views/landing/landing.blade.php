@@ -170,6 +170,10 @@
         .toko-chart-wrap svg { width:280px; height:280px; transform:rotate(-90deg); }
         .toko-seg { fill:none; stroke-width:38; transition:stroke-dasharray .9s cubic-bezier(.4,0,.2,1), opacity .2s; cursor:pointer; stroke-linecap:butt; }
         .toko-seg:hover { opacity:.75; }
+        .toko-tip { position:fixed; background:var(--card); border:1px solid var(--border); border-radius:10px; padding:10px 16px; pointer-events:none; opacity:0; transition:opacity .15s; white-space:nowrap; z-index:9999; box-shadow:0 8px 24px rgba(0,0,0,.45); }
+        .toko-tip.show { opacity:1; }
+        .toko-tip .tt-name { font-size:.85rem; font-weight:700; margin-bottom:3px; }
+        .toko-tip .tt-pct  { font-size:1.15rem; font-weight:900; }
         .toko-chart-center { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center; pointer-events:none; }
         .tdc-val  { font-size:1.7rem; font-weight:900; }
         .tdc-sup  { font-size:.7rem; color:var(--muted); display:block; margin-top:2px; }
@@ -899,6 +903,9 @@
                         data-dash="{{ round($dash, 3) }}"
                         data-gap="{{ round($gap, 3) }}"
                         data-circ="{{ round($c, 3) }}"
+                        data-label="{{ $sl['label'] }}"
+                        data-pct="{{ $sl['pct'] }}"
+                        data-color="{{ $sl['color'] }}"
                     />
                     @endforeach
                 </svg>
@@ -958,6 +965,38 @@
         entries.forEach(function(e){ if (e.isIntersecting) { animate(); obs.unobserve(e.target); } });
     }, { threshold: 0.2 });
     obs.observe(chart);
+
+    /* ── Tooltip ── */
+    var tip = document.createElement('div');
+    tip.className = 'toko-tip';
+    tip.innerHTML = '<div class="tt-name"></div><div class="tt-pct"></div>';
+    document.body.appendChild(tip);
+    var tipName = tip.querySelector('.tt-name');
+    var tipPct  = tip.querySelector('.tt-pct');
+
+    function positionTip(e) {
+        var x = e.clientX + 14, y = e.clientY - 10;
+        if (x + tip.offsetWidth + 16 > window.innerWidth) x = e.clientX - tip.offsetWidth - 14;
+        if (y + tip.offsetHeight + 8 > window.innerHeight) y = e.clientY - tip.offsetHeight - 8;
+        tip.style.left = x + 'px';
+        tip.style.top  = y + 'px';
+    }
+
+    segs.forEach(function(seg) {
+        seg.addEventListener('mouseenter', function(e) {
+            tipName.textContent = seg.dataset.label;
+            tipName.style.color = seg.dataset.color;
+            tipPct.textContent  = seg.dataset.pct + '%';
+            tipPct.style.color  = seg.dataset.color;
+            tip.style.borderColor = seg.dataset.color + '55';
+            positionTip(e);
+            tip.classList.add('show');
+        });
+        seg.addEventListener('mousemove', positionTip);
+        seg.addEventListener('mouseleave', function() {
+            tip.classList.remove('show');
+        });
+    });
 })();
 </script>
 
