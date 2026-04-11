@@ -586,10 +586,6 @@
                     <span class="tb-stat-val"><span class="accent">{{number_format($balance['available_coin'],2)}}</span> {{allsetting('coin_name')}}</span>
                     <span class="tb-stat-sub">≈ {{number_format($balance['available_used'],2)}} USD</span>
                 </div>
-                <div class="tb-stat">
-                    <span class="tb-stat-label">{{__('Blocked OBXCoins')}}</span>
-                    <span class="tb-stat-val">{{number_format(get_blocked_coin(Auth::id()),2)}}</span>
-                </div>
                 <div class="tb-stat tb-stat-membership">
                     <span class="tb-stat-label">{{__('Staking Plan')}}</span>
                     @if(!empty($clubInfo['club_id']))
@@ -642,6 +638,7 @@
                     <button class="dropdown-item" type="button"><a href="{{route('userProfile')}}"><i class="fa fa-user-circle-o"></i> {{__('Profile')}}</a></button>
                     <button class="dropdown-item" type="button"><a href="{{route('userSetting')}}"><i class="fa fa-cog"></i> {{__('Settings')}}</a></button>
                     <button class="dropdown-item" type="button"><a href="{{route('myPocket')}}"><i class="fa fa-money"></i> {{__('My Wallet')}}</a></button>
+                    <button class="dropdown-item" type="button"><a href="{{route('merchant.apiDocs')}}"><i class="fa fa-plug"></i> {{__('API Documentation')}}</a></button>
                     <button class="dropdown-item" type="button"><a href="{{route('logOut')}}"><i class="fa fa-sign-out"></i> {{__('Logout')}}</a></button>
                 </div>
             </div>
