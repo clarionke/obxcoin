@@ -149,15 +149,6 @@
         .mock-coins { display:flex; gap:8px; margin-top:18px; flex-wrap:wrap; }
         .mock-coin { background:var(--card2); border-radius:8px; padding:6px 12px; font-size:.78rem; font-weight:600; border:1px solid var(--border); }
 
-        /* ─── Stats Strip ──────────────────────────────────────────── */
-        #stats-strip { background:var(--bg2); border-top:1px solid var(--border); border-bottom:1px solid var(--border); padding:56px 0; }
-        .stats-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:24px; }
-        .stat-card { text-align:center; padding:30px 20px; background:var(--card); border:1px solid var(--border); border-radius:var(--radius); transition:border-color .25s,transform .25s; }
-        .stat-card:hover { border-color:rgba(108,99,255,.4); transform:translateY(-4px); }
-        .stat-card .stat-icon { font-size:2rem; margin-bottom:14px; }
-        .stat-card .stat-num { font-size:2.4rem; font-weight:900; line-height:1; margin-bottom:8px; }
-        .stat-card .stat-label { color:var(--muted); font-size:.85rem; font-weight:500; }
-
         /* ─── ICO Phase Banner ─────────────────────────────────────── */
         #ico-phase { background: linear-gradient(135deg,rgba(108,99,255,.12) 0%,rgba(56,189,248,.08) 100%); border-top:1px solid rgba(108,99,255,.2); border-bottom:1px solid rgba(108,99,255,.2); padding:60px 0; }
         .ico-inner { display:grid; grid-template-columns:1fr 1fr; gap:60px; align-items:center; }
@@ -528,34 +519,6 @@
                         @endforeach
                     </div>
                 </div>
-            </div>
-        </div>
-    </div>
-</section>
-
-{{-- ─── Platform Stats Strip ────────────────────────── --}}
-<section id="stats-strip">
-    <div class="container">
-        <div class="stats-grid">
-            <div class="stat-card reveal">
-                <div class="stat-icon">👥</div>
-                <div class="stat-num gradient-text" data-target="{{ $stats['total_users'] ?? 0 }}">0</div>
-                <div class="stat-label">{{ __('Registered Users') }}</div>
-            </div>
-            <div class="stat-card reveal">
-                <div class="stat-icon">🪙</div>
-                <div class="stat-num gradient-text" data-target="{{ $stats['total_coins'] ?? 0 }}">0</div>
-                <div class="stat-label">{{ __('Active Coins') }}</div>
-            </div>
-            <div class="stat-card reveal">
-                <div class="stat-icon">⚡</div>
-                <div class="stat-num gradient-text" data-target="{{ $stats['total_transactions'] ?? 0 }}">0</div>
-                <div class="stat-label">{{ __('Total Transactions') }}</div>
-            </div>
-            <div class="stat-card reveal">
-                <div class="stat-icon">🔒</div>
-                <div class="stat-num gradient-text" data-target="{{ intval($stats['total_staked'] ?? 0) }}">0</div>
-                <div class="stat-label">{{ __('OBX Staked') }}</div>
             </div>
         </div>
     </div>
@@ -1137,32 +1100,6 @@
     } else {
         reveals.forEach(function (el) { el.classList.add('visible'); });
     }
-
-    /* ── Animated stat counters ────────────────── */
-    function animateCounter(el) {
-        var target = parseInt(el.getAttribute('data-target'), 10) || 0;
-        if (target === 0) { el.textContent = '0'; return; }
-        var duration = 1800;
-        var start    = performance.now();
-        function step(now) {
-            var pct = Math.min((now - start) / duration, 1);
-            // ease out quart
-            var ease = 1 - Math.pow(1 - pct, 4);
-            el.textContent = Math.floor(ease * target).toLocaleString();
-            if (pct < 1) requestAnimationFrame(step);
-        }
-        requestAnimationFrame(step);
-    }
-    var statsObs = new IntersectionObserver(function (entries) {
-        entries.forEach(function (e) {
-            if (e.isIntersecting) {
-                e.target.querySelectorAll('[data-target]').forEach(animateCounter);
-                statsObs.unobserve(e.target);
-            }
-        });
-    }, { threshold: 0.3 });
-    var statsStrip = document.getElementById('stats-strip');
-    if (statsStrip) statsObs.observe(statsStrip);
 
     /* ── FAQ accordion ─────────────────────────── */
     document.querySelectorAll('.faq-q').forEach(function (btn) {
