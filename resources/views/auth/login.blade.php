@@ -1,85 +1,100 @@
-@extends('auth.master',['menu'=>'dashboard'])
-@section('title', isset($title) ? $title : '')
+@extends('auth.master')
+@section('title', isset($title) ? $title : __('Sign In') . ' —')
 
 @section('content')
-    <div class="user-content-wrapper">
-        <div>
-            <div class="user-form">
-                <div class="right">
-                    <div class="form-top">
-                        <a class="auth-logo" href="javascript:">
-                            <img src="{{show_image(1,'login_logo')}}" class="img-fluid" alt="">
-                        </a>
-                        {{--                    <h2>{{__('Login')}}</h2>--}}
-                        <p>{{__('Log into your account')}}</p>
-                        <div class="user-icon">
-                            <img src="{{asset('assets/img/user.svg')}}" alt="user icon">
-                        </div>
-                    </div>
-                    {{Form::open(['route' => 'loginProcess', 'files' => true])}}
-                    <div class="form-group">
-                        <label>{{__('Email address')}}</label>
-                        <input type="email" value="{{old('email')}}" id="exampleInputEmail1" name="email"
-                               class="form-control" placeholder="{{__('Your email here')}}">
-                        @error('email')
-                        <p class="invalid-feedback">{{ $message }} </p>
-                        @enderror
-                    </div>
-                    <div class="form-group">
-                        <label>{{__('Password')}}</label>
-                        <input type="password" name="password" id="exampleInputPassword1"
-                               class="form-control form-control-password look-pass-a"
-                               placeholder="{{__('Your password here')}}">
-                        @error('password')
-                        <p class="invalid-feedback">{{ $message }} </p>
-                        @enderror
-                        <span class="eye"><i class="fa fa-eye-slash toggle-password"
-                                             onclick="showHidePassword('old_password')"></i></span>
-                    </div>
-                    <div class="form-group">
-                        <label>{{__('')}}</label>
-                        {!! app('captcha')->display() !!}
-                        @error('g-recaptcha-response')
-                        <p class="invalid-feedback">{{ $message }} </p>
-                        @enderror
-                    </div>
-                    <div class="d-flex justify-content-between rememberme align-items-center mb-4">
-                        <div>
-                            <div class="form-group form-check mb-0">
-                                <input class="styled-checkbox form-check-input" id="styled-checkbox-1" type="checkbox"
-                                       value="value1">
-{{--                                <label for="styled-checkbox-1">{{__('Remember Me')}}</label>--}}
-                            </div>
-                        </div>
-                        <div class="text-right"><a href="{{route('forgotPassword')}}">{{__('Forgot Password?')}}</a>
-                        </div>
-                    </div>
-                    <button type="submit" class="btn btn-primary nimmu-user-sibmit-button">{{__('Login')}}</button>
-                    {{Form::close()}}
-                    <div class="form-bottom text-center">
-                        <p>{{__("Don't have an account?")}} <a href="{{route('signUp')}}">{{__('Sign Up')}}</a></p>
-                    </div>
-                </div>
+<div class="auth-page">
+    <div class="auth-card">
+
+        {{-- Logo --}}
+        <div class="auth-logo-wrap">
+            <a href="{{ url('/') }}">
+                <img src="{{ show_image(1,'login_logo') }}" alt="{{ settings('app_title') }}">
+            </a>
+        </div>
+
+        <h1 class="auth-heading">{{ __('Welcome back') }}</h1>
+        <p class="auth-sub">{{ __('Sign in to your') }} <span class="gradient-text">{{ settings('app_title') }}</span> {{ __('account') }}</p>
+
+        {{Form::open(['route' => 'loginProcess', 'files' => true])}}
+
+        <div class="auth-field">
+            <label class="auth-label" for="login_email">{{ __('Email address') }}</label>
+            <input
+                type="email"
+                id="login_email"
+                name="email"
+                value="{{ old('email') }}"
+                class="auth-input"
+                placeholder="{{ __('you@example.com') }}"
+                autocomplete="email"
+            >
+            @error('email')
+                <span class="auth-error">{{ $message }}</span>
+            @enderror
+        </div>
+
+        <div class="auth-field">
+            <label class="auth-label" for="login_password">{{ __('Password') }}</label>
+            <div class="auth-input-wrap">
+                <input
+                    type="password"
+                    id="login_password"
+                    name="password"
+                    class="auth-input has-eye"
+                    placeholder="{{ __('••••••••') }}"
+                    autocomplete="current-password"
+                >
+                <button type="button" class="auth-eye" id="toggleLoginPwd" aria-label="{{ __('Show password') }}">
+                    <i class="fa fa-eye-slash"></i>
+                </button>
             </div>
+            @error('password')
+                <span class="auth-error">{{ $message }}</span>
+            @enderror
+        </div>
+
+        <div class="auth-forgot">
+            <a href="{{ route('forgotPassword') }}">{{ __('Forgot password?') }}</a>
+        </div>
+
+        @if(isset(allsetting()['google_recapcha']) && allsetting()['google_recapcha'] == STATUS_ACTIVE)
+        <div class="auth-captcha">
+            {!! app('captcha')->display() !!}
+            @error('g-recaptcha-response')
+                <span class="auth-error">{{ $message }}</span>
+            @enderror
+        </div>
+        @endif
+
+        <button type="submit" class="auth-btn">{{ __('Sign In') }}</button>
+
+        {{Form::close()}}
+
+        <div class="auth-divider">
+            {{ __("Don't have an account?") }} <a href="{{ route('signUp') }}">{{ __('Create one') }}</a>
         </div>
     </div>
+
+    <div class="auth-back">
+        <a href="{{ url('/') }}">
+            <i class="fa fa-arrow-left"></i> {{ __('Back to home') }}
+        </a>
+    </div>
+</div>
 @endsection
 
 @section('script')
-
-
-    <script>
-        $(".toggle-password").click(function () {
-            $(this).toggleClass("fa-eye-slash fa-eye");
+<script>
+(function(){
+    var btn = document.getElementById('toggleLoginPwd');
+    var pwd = document.getElementById('login_password');
+    if (btn && pwd) {
+        btn.addEventListener('click', function(){
+            var show = pwd.type === 'password';
+            pwd.type = show ? 'text' : 'password';
+            btn.querySelector('i').className = show ? 'fa fa-eye' : 'fa fa-eye-slash';
         });
-
-        $(".eye").on('click', function () {
-            var $pwd = $(".look-pass-a");
-            if ($pwd.attr('type') === 'password') {
-                $pwd.attr('type', 'text');
-            } else {
-                $pwd.attr('type', 'password');
-            }
-        });
-    </script>
+    }
+})();
+</script>
 @endsection

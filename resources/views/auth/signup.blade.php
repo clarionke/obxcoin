@@ -1,117 +1,125 @@
-@extends('auth.master',['menu'=>'dashboard'])
-@section('title', isset($title) ? $title : '')
+@extends('auth.master')
+@section('title', isset($title) ? $title : __('Create Account') . ' —')
 
 @section('content')
-    <div class="user-content-wrapper">
-        <div>
-            <div class="user-form">
-                <div class="right">
-                    <div class="form-top">
-                        <a class="auth-logo" href="javascript:;">
-                            <img src="{{show_image(1,'login_logo')}}" class="img-fluid" alt="">
-                        </a>
-                        <p>{{__('Sign up your account')}}</p>
-                    </div>
-                    <div class="col-md-12">
-                        @if(session()->has('dismiss'))
+<div class="auth-page">
+    <div class="auth-card">
 
-                            <div class="alert alert-danger">
-                                <strong>{{session('dismiss')}}</strong>
-                                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                                    <span aria-hidden="true">&times;</span>
-                                </button>
-                            </div>
-                        @endif
-                        @if(session()->has('success'))
-                            <div class="alert alert-success">
-                                <strong>{{session('success')}}</strong>
-                                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                                    <span aria-hidden="true">&times;</span>
-                                </button>
-                            </div>
-                        @endif
-                    </div>
-                    {{ Form::open(['route' => 'signUpProcess', 'files' => true]) }}
-                        <div class="form-group">
-                            <label>{{__('First Name')}}<span class="text-danger">*</span></label>
-                            <input type="text" name="first_name" value="{{old('first_name')}}" class="form-control" placeholder="{{__('Your first name here')}}">
-                            @if ($errors->has('first_name'))
-                                <p class="invalid-feedback">{{ $errors->first('first_name') }} </p>
-                            @endif
-                        </div>
-                        <div class="form-group">
-                            <label>{{__('Last Name')}}<span class="text-danger">*</span></label>
-                            <input type="text" name="last_name" value="{{old('last_name')}}" class="form-control" placeholder="{{__('Your last name here')}}">
-                            @if ($errors->has('last_name'))
-                                <p class="invalid-feedback">{{ $errors->first('last_name') }} </p>
-                            @endif
-                        </div>
-                        <div class="form-group">
-                            <label>{{__('Email Address')}}<span class="text-danger">*</span></label>
-                            <input type="email" name="email" value="{{old('email')}}" class="form-control" placeholder="{{__('Your email here')}}">
-                            @if ($errors->has('email'))
-                                <p class="invalid-feedback">{{ $errors->first('email') }} </p>
-                            @endif
-                        </div>
-                        <div class="form-group">
-                            <label>{{__('Password')}}<span class="text-danger">*</span></label>
-                            <input type="password" name="password" class="form-control form-control-password look-pass" placeholder="{{__('Your password here')}}">
-                            @if ($errors->has('password'))
-                                <p class="invalid-feedback">{{ $errors->first('password') }} </p>
-                            @endif
-                            <span class="eye rev"><i class="fa fa-eye-slash toggle-password"></i></span>
-                        </div>
-                        <div class="form-group">
-                            <label>{{__('Confirm Password')}}<span class="text-danger">*</span></label>
-                            <input type="password" name="password_confirmation" class="form-control form-control-password look-pass-1" placeholder="{{__('Your confirm password here')}}">
-                            @if ($errors->has('password_confirmation'))
-                                <p class="invalid-feedback">{{ $errors->first('password_confirmation') }} </p>
-                            @endif
-                            <span class="eye rev-1"><i class="fa fa-eye-slash toggle-password"></i></span>
-                        </div>
-                        <div class="form-group">
-                            <label>{{__('')}}</label>
-                            {!! app('captcha')->display() !!}
-                            @error('g-recaptcha-response')
-                            <p class="invalid-feedback">{{ $message }} </p>
-                            @enderror
-                        </div>
-                        @if( app('request')->input('ref_code'))
-                                {{Form::hidden('ref_code', app('request')->input('ref_code') )}}
-                        @endif
-                        <button type="submit" class="btn btn-primary nimmu-user-sibmit-button">{{__('Signup')}}</button>
-                    {{ Form::close() }}
-                    <div class="form-bottom text-center">
-                        <p>{{__('Already have an account ?')}} <a href="{{route('login')}}">{{__('Return to Sign In')}}</a></p>
-                    </div>
-                </div>
+        {{-- Logo --}}
+        <div class="auth-logo-wrap">
+            <a href="{{ url('/') }}">
+                <img src="{{ show_image(1,'login_logo') }}" alt="{{ settings('app_title') }}">
+            </a>
+        </div>
+
+        <h1 class="auth-heading">{{ __('Create your account') }}</h1>
+        <p class="auth-sub">{{ __('Join the') }} <span class="gradient-text">{{ settings('app_title') }}</span> {{ __('ecosystem today') }}</p>
+
+        @if(session()->has('dismiss'))
+        <div class="auth-alert danger">{{ session('dismiss') }}</div>
+        @endif
+        @if(session()->has('success'))
+        <div class="auth-alert success">{{ session('success') }}</div>
+        @endif
+
+        {{ Form::open(['route' => 'signUpProcess', 'files' => true]) }}
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 16px;">
+            <div class="auth-field">
+                <label class="auth-label" for="reg_first_name">{{ __('First name') }} <span class="req">*</span></label>
+                <input type="text" id="reg_first_name" name="first_name" value="{{ old('first_name') }}" class="auth-input" placeholder="{{ __('John') }}" autocomplete="given-name">
+                @if($errors->has('first_name'))
+                    <span class="auth-error">{{ $errors->first('first_name') }}</span>
+                @endif
+            </div>
+            <div class="auth-field">
+                <label class="auth-label" for="reg_last_name">{{ __('Last name') }} <span class="req">*</span></label>
+                <input type="text" id="reg_last_name" name="last_name" value="{{ old('last_name') }}" class="auth-input" placeholder="{{ __('Doe') }}" autocomplete="family-name">
+                @if($errors->has('last_name'))
+                    <span class="auth-error">{{ $errors->first('last_name') }}</span>
+                @endif
             </div>
         </div>
+
+        <div class="auth-field">
+            <label class="auth-label" for="reg_email">{{ __('Email address') }} <span class="req">*</span></label>
+            <input type="email" id="reg_email" name="email" value="{{ old('email') }}" class="auth-input" placeholder="{{ __('you@example.com') }}" autocomplete="email">
+            @if($errors->has('email'))
+                <span class="auth-error">{{ $errors->first('email') }}</span>
+            @endif
+        </div>
+
+        <div class="auth-field">
+            <label class="auth-label" for="reg_password">{{ __('Password') }} <span class="req">*</span></label>
+            <div class="auth-input-wrap">
+                <input type="password" id="reg_password" name="password" class="auth-input has-eye" placeholder="{{ __('Min. 8 characters') }}" autocomplete="new-password">
+                <button type="button" class="auth-eye" id="toggleRegPwd" aria-label="{{ __('Show password') }}">
+                    <i class="fa fa-eye-slash"></i>
+                </button>
+            </div>
+            @if($errors->has('password'))
+                <span class="auth-error">{{ $errors->first('password') }}</span>
+            @endif
+        </div>
+
+        <div class="auth-field">
+            <label class="auth-label" for="reg_password_confirm">{{ __('Confirm password') }} <span class="req">*</span></label>
+            <div class="auth-input-wrap">
+                <input type="password" id="reg_password_confirm" name="password_confirmation" class="auth-input has-eye" placeholder="{{ __('Repeat password') }}" autocomplete="new-password">
+                <button type="button" class="auth-eye" id="toggleRegPwdConfirm" aria-label="{{ __('Show confirm password') }}">
+                    <i class="fa fa-eye-slash"></i>
+                </button>
+            </div>
+            @if($errors->has('password_confirmation'))
+                <span class="auth-error">{{ $errors->first('password_confirmation') }}</span>
+            @endif
+        </div>
+
+        @if(isset(allsetting()['google_recapcha']) && allsetting()['google_recapcha'] == STATUS_ACTIVE)
+        <div class="auth-captcha">
+            {!! app('captcha')->display() !!}
+            @error('g-recaptcha-response')
+                <span class="auth-error">{{ $message }}</span>
+            @enderror
+        </div>
+        @endif
+
+        @if(app('request')->input('ref_code'))
+            {{ Form::hidden('ref_code', app('request')->input('ref_code')) }}
+        @endif
+
+        <button type="submit" class="auth-btn">{{ __('Create Account') }}</button>
+
+        {{ Form::close() }}
+
+        <div class="auth-divider">
+            {{ __('Already have an account?') }} <a href="{{ route('login') }}">{{ __('Sign in') }}</a>
+        </div>
     </div>
+
+    <div class="auth-back">
+        <a href="{{ url('/') }}">
+            <i class="fa fa-arrow-left"></i> {{ __('Back to home') }}
+        </a>
+    </div>
+</div>
 @endsection
 
 @section('script')
-
 <script>
-    $(".toggle-password").click(function () {
-            $(this).toggleClass("fa-eye-slash fa-eye");
+(function(){
+    function togglePwd(btnId, inputId) {
+        var btn = document.getElementById(btnId);
+        var pwd = document.getElementById(inputId);
+        if (!btn || !pwd) return;
+        btn.addEventListener('click', function(){
+            var show = pwd.type === 'password';
+            pwd.type = show ? 'text' : 'password';
+            btn.querySelector('i').className = show ? 'fa fa-eye' : 'fa fa-eye-slash';
         });
-    $(".rev").on('click',function() {
-		   var $pwd = $(".look-pass");
-		   if ($pwd.attr('type') === 'password') {
-			   $pwd.attr('type', 'text');
-		   } else {
-			   $pwd.attr('type', 'password');
-		   }
-	   });
-
-	   $(".rev-1").on('click',function() {
-		   var $pwd = $(".look-pass-1");
-		   if ($pwd.attr('type') === 'password') {
-			   $pwd.attr('type', 'text');
-		   } else {
-			   $pwd.attr('type', 'password');
-		   }
-	   });
+    }
+    togglePwd('toggleRegPwd', 'reg_password');
+    togglePwd('toggleRegPwdConfirm', 'reg_password_confirm');
+})();
 </script>
 @endsection
