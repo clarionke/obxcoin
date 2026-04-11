@@ -37,6 +37,14 @@
                                            href="#contact">{{__('Contact')}}</a>
                                     </li>
                                     <li>
+                                        <a class="nav-link" @if(isset($tab) && $tab=='token_info')class="active" @endif data-toggle="tab"
+                                           href="#token_info">{{__('Token Info')}}</a>
+                                    </li>
+                                    <li>
+                                        <a class="nav-link" @if(isset($tab) && $tab=='tokenomics')class="active" @endif data-toggle="tab"
+                                           href="#tokenomics">{{__('Tokenomics')}}</a>
+                                    </li>
+                                    <li>
                                         <a class="nav-link" @if(isset($tab) && $tab=='contactUs')class="active" @endif data-toggle="tab"
                                            href="#contactUs">{{__('Received Emails')}}</a>
                                     </li>
@@ -70,6 +78,14 @@
                                     <div class="tab-pane fade @if(isset($tab) && $tab=='contactUs')show active @endif "
                                          id="contactUs" role="tabpanel" aria-labelledby="header-setting-tab">
                                         @include('admin.settings.landing.contact_form')
+                                    </div>
+                                    <div class="tab-pane fade @if(isset($tab) && $tab=='token_info')show active @endif "
+                                         id="token_info" role="tabpanel">
+                                        @include('admin.settings.landing.token-info')
+                                    </div>
+                                    <div class="tab-pane fade @if(isset($tab) && $tab=='tokenomics')show active @endif "
+                                         id="tokenomics" role="tabpanel">
+                                        @include('admin.settings.landing.tokenomics')
                                     </div>
                                 </div>
                             </div>

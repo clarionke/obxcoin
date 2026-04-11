@@ -20,7 +20,7 @@ class MemberBonusDistribute extends Command
      *
      * @var string
      */
-    protected $description = 'distribute monthly membership bonus distribution to add bonus to user default wallet';
+    protected $description = 'distribute monthly membership bonus distribution to add bonus to user OBX wallet';
 
     /**
      * Create a new command instance.
