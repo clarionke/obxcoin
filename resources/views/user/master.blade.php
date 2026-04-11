@@ -546,6 +546,69 @@
     body.has-imp-bar .cp-user-main-wrapper.cp-user-content-expend {
         margin-top: calc(var(--topbar-h) + var(--imp-bar-h)) !important;
     }
+    
+        /* ── RESPONSIVE SIDEBAR IMPROVEMENTS ────────────────────────────────────── */
+        /* Tablet (768px to 991px) — sidebar still overlays, optimize menu */
+        @media(max-width:991px) and (min-width:768px){
+            :root { --sidebar-w: 250px; }
+            #metismenu > li > a { padding: 8px 11px; font-size: 12.5px; }
+            #metismenu > li > ul { padding: 2px 0 4px 32px; }
+            #metismenu > li > ul > li > a { padding: 5px 9px; font-size: 11.5px; }
+        }
+    
+        /* Large mobile (768px) — further compact sidebar */
+        @media(max-width:767px){
+            :root { --sidebar-w: 240px; }
+            .sidebar-brand { padding: 0 14px; }
+            .nav-section-label { font-size: 8.5px; padding: 12px 16px 4px; }
+            #metismenu > li { margin: 0px 6px; }
+            #metismenu > li > a { padding: 7px 10px; font-size: 12px; gap: 8px; }
+            #metismenu > li > ul { padding: 2px 0 3px 28px; margin: 0 6px 2px; }
+            #metismenu > li > ul > li > a { padding: 5px 8px; font-size: 11px; gap: 6px; }
+            .cp-user-sidebar-menu { padding: 4px 0 12px; }
+            .sidebar-close-btn { width: 24px; height: 24px; font-size: 11px; }
+        }
+    
+        /* Small mobile (542px) — further optimize */
+        @media(max-width:542px){
+            :root { --sidebar-w: 220px; }
+            .sidebar-brand { padding: 0 12px; height: 46px; min-height: 46px; }
+            .sidebar-brand img { max-height: 24px; }
+            .nav-section-label { font-size: 7.5px; padding: 10px 14px 3px; letter-spacing: 0.6px; }
+            #metismenu { margin: 0; }
+            #metismenu > li { margin: 0px 4px; }
+            #metismenu > li > a { padding: 6px 8px; font-size: 11px; gap: 7px; }
+            #metismenu > li > a .nav-icon { font-size: 12px; width: 16px; height: 16px; }
+            #metismenu > li > a .cp-user-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+            #metismenu > li.cp-user-active-page > a { border-left: 2px solid var(--accent); padding-left: 10px; }
+            #metismenu > li > ul { padding: 1px 0 3px 24px; margin: 0 4px 1px; }
+            #metismenu > li > ul > li > a { padding: 4px 7px; font-size: 10px; gap: 5px; }
+            #metismenu > li > a.arrow-icon::after { font-size: 9px; }
+            .cp-user-sidebar-menu { padding: 3px 0 10px; overflow-y: auto !important; }
+            .cp-user-sidebar-menu::-webkit-scrollbar { width: 1.5px; }
+        }
+    
+        /* Extra small mobile (< 480px) */
+        @media(max-width:479px){
+            :root { --sidebar-w: 200px; }
+            .sidebar-brand { padding: 0 10px; height: 44px; min-height: 44px; }
+            .sidebar-brand img { max-height: 22px; max-width: 100px; }
+            .nav-section-label { font-size: 7px; padding: 8px 12px 2px; margin: 0; letter-spacing: 0.4px; }
+            .sidebar-close-btn { width: 22px; height: 22px; }
+            #metismenu > li { margin: 0px 3px; }
+            #metismenu > li > a { padding: 5px 7px; font-size: 10px; gap: 6px; border-radius: 5px; }
+            #metismenu > li > a .nav-icon { font-size: 11px; width: 15px; height: 15px; }
+            #metismenu > li > ul { padding: 1px 0 2px 20px; margin: 0 3px 0px; }
+            #metismenu > li > ul > li > a { padding: 3px 6px; font-size: 9px; gap: 4px; }
+            #metismenu > li > ul > li > a::before { width: 2px; height: 2px; }
+            .cp-user-sidebar-menu { padding: 2px 0 8px; }
+        }
+    
+        /* Sidebar overlay improvements */
+        @media(max-width:991px){
+            .sidebar-overlay { z-index: 1039; }
+            .sidebar-overlay.active { opacity: 1; pointer-events: all; }
+        }
     </style>
     @yield('style')
     <title>{{allsetting('app_title')}} — @yield('title')</title>
@@ -1099,6 +1162,15 @@
         setSidebarState(true);
     });
     // Auto-close sidebar when a leaf nav link is tapped on mobile
+        // Sidebar close button click handler
+        $('.sidebar-close-btn').on('click', function(){
+            $('.cp-user-sidebar').addClass('cp-user-sidebar-hide');
+            $('.cp-user-top-bar, .cp-user-main-wrapper').addClass('cp-user-content-expend');
+            $('#sidebarOverlay').removeClass('active');
+            setSidebarState(true);
+        });
+    
+        // Auto-close sidebar when a leaf nav link is tapped on mobile
     $('#metismenu a:not(.arrow-icon)').on('click', function(){
         if($(window).width() <= 991){
             $('.cp-user-sidebar').addClass('cp-user-sidebar-hide');
