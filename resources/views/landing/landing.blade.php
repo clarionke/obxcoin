@@ -244,17 +244,59 @@
         .badge { background:rgba(108,99,255,.12); border:1px solid rgba(108,99,255,.25); color:var(--accent2); border-radius:100px; padding:5px 16px; font-size:.78rem; font-weight:600; }
 
         /* ─── Roadmap ──────────────────────────────────────────────── */
-        .roadmap-line { position:relative; }
-        .roadmap-line::before { content:''; position:absolute; left:50%; top:0; bottom:0; width:2px; background:linear-gradient(180deg,var(--accent) 0%,var(--accent2) 50%,transparent 100%); transform:translateX(-50%); }
-        .roadmap-items { display:flex; flex-direction:column; }
-        .roadmap-item { display:grid; grid-template-columns:1fr 60px 1fr; align-items:start; }
-        .rm-card { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:28px; margin:0 24px 40px; transition:border-color .25s; }
-        .rm-card:hover { border-color:rgba(108,99,255,.5); }
-        .rm-card .rm-date { font-size:.75rem; font-weight:700; text-transform:uppercase; letter-spacing:.12em; color:var(--accent2); margin-bottom:10px; }
-        .rm-card h3 { font-size:1rem; font-weight:700; margin-bottom:8px; }
-        .rm-card p { color:var(--muted); font-size:.88rem; line-height:1.65; }
-        .rm-dot-wrap { display:flex; justify-content:center; align-items:flex-start; padding-top:28px; }
-        .rm-dot { width:18px; height:18px; border-radius:50%; background:linear-gradient(135deg,var(--accent) 0%,var(--accent2) 100%); box-shadow:0 0 0 5px rgba(108,99,255,.2),0 0 20px rgba(108,99,255,.4); z-index:1; }
+        #roadmap { background:linear-gradient(180deg,var(--bg2) 0%,var(--bg) 100%); }
+        .rm-track { position:relative; display:flex; flex-direction:column; gap:0; }
+        /* vertical spine */
+        .rm-spine { position:absolute; left:50%; top:0; bottom:0; width:2px; transform:translateX(-50%); background:var(--border); }
+        .rm-spine-fill { position:absolute; left:0; top:0; width:100%; background:linear-gradient(180deg,var(--accent) 0%,var(--accent2) 60%,rgba(108,99,255,.15) 100%); height:0; transition:height 1.4s cubic-bezier(.4,0,.2,1); }
+
+        .rm-row { display:grid; grid-template-columns:1fr 64px 1fr; align-items:center; position:relative; min-height:140px; }
+        .rm-side { padding:20px 0; }
+        .rm-side.left  { padding-right:36px; text-align:right; }
+        .rm-side.right { padding-left:36px; text-align:left; }
+        .rm-side.empty { pointer-events:none; }
+
+        /* card */
+        .rm-card { background:var(--card); border:1px solid var(--border); border-radius:16px; padding:24px 26px; transition:transform .25s,border-color .25s,box-shadow .25s; position:relative; overflow:hidden; }
+        .rm-card::before { content:''; position:absolute; inset:0; border-radius:16px; opacity:0; transition:opacity .25s; background:linear-gradient(135deg,rgba(108,99,255,.06) 0%,rgba(56,189,248,.04) 100%); pointer-events:none; }
+        .rm-card:hover { transform:translateY(-4px); border-color:rgba(108,99,255,.4); box-shadow:0 12px 40px rgba(0,0,0,.35),0 0 0 1px rgba(108,99,255,.15); }
+        .rm-card:hover::before { opacity:1; }
+
+        /* status badge */
+        .rm-status { display:inline-flex; align-items:center; gap:6px; font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.1em; border-radius:100px; padding:3px 10px; margin-bottom:12px; }
+        .rm-status.done    { background:rgba(16,185,129,.12); color:var(--green);  border:1px solid rgba(16,185,129,.25); }
+        .rm-status.active  { background:rgba(108,99,255,.15); color:var(--accent2); border:1px solid rgba(108,99,255,.3); }
+        .rm-status.planned { background:rgba(148,163,184,.08); color:var(--muted);  border:1px solid rgba(148,163,184,.18); }
+        .rm-status-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+        .rm-status.done    .rm-status-dot { background:var(--green); box-shadow:0 0 6px var(--green); }
+        .rm-status.active  .rm-status-dot { background:var(--accent2); box-shadow:0 0 6px var(--accent2); animation:pulse 2s infinite; }
+        .rm-status.planned .rm-status-dot { background:var(--muted); }
+
+        .rm-date { font-size:.75rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--accent3); margin-bottom:8px; }
+        .rm-title { font-size:1.02rem; font-weight:800; margin-bottom:8px; line-height:1.3; }
+        .rm-desc { color:var(--muted); font-size:.86rem; line-height:1.7; }
+        .rm-items { display:flex; flex-direction:column; gap:5px; margin-top:10px; }
+        .rm-items li { display:flex; align-items:center; gap:8px; font-size:.82rem; color:var(--muted); }
+        .rm-items li::before { content:''; width:5px; height:5px; border-radius:50%; flex-shrink:0; background:var(--accent2); opacity:.7; }
+
+        /* center node */
+        .rm-node-wrap { display:flex; align-items:center; justify-content:center; z-index:2; }
+        .rm-node { width:42px; height:42px; border-radius:50%; background:var(--card); border:2px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:.8rem; font-weight:800; color:var(--muted); transition:border-color .3s,color .3s,box-shadow .3s; }
+        .rm-node.done    { border-color:var(--green);   color:var(--green);   box-shadow:0 0 0 5px rgba(16,185,129,.12),0 0 16px rgba(16,185,129,.3); }
+        .rm-node.active  { border-color:var(--accent);  color:var(--accent2); box-shadow:0 0 0 5px rgba(108,99,255,.18),0 0 20px rgba(108,99,255,.4); }
+        .rm-node.planned { border-color:rgba(148,163,184,.25); }
+
+        /* mobile — single column */
+        @media(max-width:768px){
+            .rm-spine         { left:20px; }
+            .rm-track         { padding-left:52px; }
+            .rm-row           { grid-template-columns:1fr; grid-template-rows:auto; min-height:unset; margin-bottom:0; }
+            .rm-side.left     { text-align:left; padding-right:0; padding-bottom:0; }
+            .rm-side.empty    { display:none; }
+            .rm-node-wrap     { position:absolute; left:-52px; top:24px; width:40px; }
+            .rm-node          { width:32px; height:32px; font-size:.72rem; }
+            .rm-row           { position:relative; padding-bottom:28px; }
+        }
 
         /* ─── Staking Pools ───────────────────────────────────────── */
         #staking { background:var(--bg3); }
@@ -369,12 +411,6 @@
             .stats-grid { grid-template-columns:1fr 1fr; }
             .footer-grid { grid-template-columns:1fr; gap:32px; }
             .form-row { grid-template-columns:1fr; }
-            .roadmap-line::before { left:24px; }
-            .roadmap-item { grid-template-columns:1fr; }
-            .rm-dot-wrap { display:none; }
-            .rm-card { margin:0 0 20px 48px; }
-            .roadmap-items { position:relative; padding-left:24px; }
-            .roadmap-items::before { content:''; position:absolute; left:8px; top:0; bottom:0; width:2px; background:linear-gradient(180deg,var(--accent) 0%,var(--accent2) 100%); }
             .ico-meta { gap:12px; }
         }
         @media(max-width:480px) {
@@ -1001,41 +1037,122 @@
 </script>
 
 {{-- ─── Roadmap ──────────────────────────────────────── --}}
-<section class="section" id="roadmap" style="background:var(--bg2)">
+<section class="section" id="roadmap">
     <div class="container">
-        <div class="text-center reveal">
+        <div class="text-center reveal" style="margin-bottom:64px">
             <p class="section-label">{{ __('Our Journey') }}</p>
             <h2 class="section-title">@if(isset($content['landing_roadmap_title'])) {{ $content['landing_roadmap_title'] }} @else {{ __('Project Roadmap') }} @endif</h2>
             <p class="section-sub">@if(isset($content['landing_roadmap_subtitle'])) {!! clean($content['landing_roadmap_subtitle']) !!} @else {{ __('Track our milestones and see what\'s planned for the future.') }} @endif</p>
         </div>
-        <div class="roadmap-line">
-            <div class="roadmap-items">
-                @php
-                    $rms = [
-                        ['date' => $content['roadmap_1st_date'] ?? __('June 2020'),  'title' => $content['roadmap_1st_title'] ?? __('Project Concept'),      'sub' => $content['roadmap_1st_subtitle'] ?? __('Initial concept whitepaper and team formation.')],
-                        ['date' => $content['roadmap_2nd_date'] ?? __('Sep 2020'),   'title' => $content['roadmap_2nd_title'] ?? __('Platform Launch'),       'sub' => $content['roadmap_2nd_subtitle'] ?? __('Public launch of the core wallet platform.')],
-                        ['date' => $content['roadmap_3rd_date'] ?? __('Jan 2021'),   'title' => $content['roadmap_3rd_title'] ?? __('Exchange Integration'),  'sub' => $content['roadmap_3rd_subtitle'] ?? __('Token exchange features and liquidity pools.')],
-                        ['date' => $content['roadmap_4th_date'] ?? __('Jun 2021'),   'title' => $content['roadmap_4th_title'] ?? __('Staking & Rewards'),     'sub' => $content['roadmap_4th_subtitle'] ?? __('Staking pools with competitive APY rewards.')],
-                        ['date' => $content['roadmap_5th_date'] ?? __('2022+'),      'title' => $content['roadmap_5th_title'] ?? __('Global Expansion'),      'sub' => $content['roadmap_5th_subtitle'] ?? __('Multi-chain support and DeFi integrations.')],
-                    ];
-                @endphp
-                @foreach($rms as $i => $rm)
-                <div class="roadmap-item reveal">
-                    @if($i % 2 === 0)
-                        <div></div>
-                        <div class="rm-dot-wrap"><div class="rm-dot"></div></div>
-                        <div class="rm-card"><div class="rm-date">{{ $rm['date'] }}</div><h3>{!! clean($rm['title']) !!}</h3><p>{!! clean($rm['sub']) !!}</p></div>
-                    @else
-                        <div class="rm-card"><div class="rm-date">{{ $rm['date'] }}</div><h3>{!! clean($rm['title']) !!}</h3><p>{!! clean($rm['sub']) !!}</p></div>
-                        <div class="rm-dot-wrap"><div class="rm-dot"></div></div>
-                        <div></div>
-                    @endif
+
+        @php
+        $rms = [
+            [
+                'date'   => $content['roadmap_1st_date']     ?? 'Q3 2020',
+                'title'  => $content['roadmap_1st_title']    ?? __('Project Concept'),
+                'sub'    => $content['roadmap_1st_subtitle'] ?? __('Initial concept, whitepaper, and team formation.'),
+                'status' => 'done',
+                'items'  => [__('Core whitepaper drafted'), __('Founding team assembled'), __('Vision & tokenomics defined')],
+            ],
+            [
+                'date'   => $content['roadmap_2nd_date']     ?? 'Q1 2021',
+                'title'  => $content['roadmap_2nd_title']    ?? __('Platform Launch'),
+                'sub'    => $content['roadmap_2nd_subtitle'] ?? __('Public launch of the core wallet and trading platform.'),
+                'status' => 'done',
+                'items'  => [__('Wallet platform live'), __('KYC & onboarding'), __('First 1,000 users')],
+            ],
+            [
+                'date'   => $content['roadmap_3rd_date']     ?? 'Q3 2021',
+                'title'  => $content['roadmap_3rd_title']    ?? __('Exchange Integration'),
+                'sub'    => $content['roadmap_3rd_subtitle'] ?? __('Token exchange features, liquidity pools, and DEX listing.'),
+                'status' => 'done',
+                'items'  => [__('DEX listing'), __('Liquidity pools'), __('P2P trading')],
+            ],
+            [
+                'date'   => $content['roadmap_4th_date']     ?? 'Q2 2024',
+                'title'  => $content['roadmap_4th_title']    ?? __('Staking & Burn'),
+                'sub'    => $content['roadmap_4th_subtitle'] ?? __('Staking pools with competitive APY and deflationary burn mechanism.'),
+                'status' => 'active',
+                'items'  => [__('Staking pools launched'), __('Burn on stake/unstake'), __('Live supply tracking')],
+            ],
+            [
+                'date'   => $content['roadmap_5th_date']     ?? '2025–2026',
+                'title'  => $content['roadmap_5th_title']    ?? __('Global Expansion'),
+                'sub'    => $content['roadmap_5th_subtitle'] ?? __('Multi-chain support, DeFi integrations, and global community growth.'),
+                'status' => 'planned',
+                'items'  => [__('Multi-chain bridge'), __('DeFi lending'), __('Mobile app')],
+            ],
+        ];
+        $statusLabels = ['done' => __('Completed'), 'active' => __('In Progress'), 'planned' => __('Planned')];
+        @endphp
+
+        <div class="rm-track" id="rmTrack">
+            <div class="rm-spine"><div class="rm-spine-fill" id="rmSpineFill"></div></div>
+
+            @foreach($rms as $i => $rm)
+            @php $even = ($i % 2 === 0); @endphp
+            <div class="rm-row reveal">
+
+                {{-- left side --}}
+                @if($even)
+                <div class="rm-side empty"></div>
+                @else
+                <div class="rm-side left">
+                    <div class="rm-card">
+                        <span class="rm-status {{ $rm['status'] }}"><span class="rm-status-dot"></span>{{ $statusLabels[$rm['status']] }}</span>
+                        <div class="rm-date">{{ $rm['date'] }}</div>
+                        <div class="rm-title">{!! clean($rm['title']) !!}</div>
+                        <div class="rm-desc">{!! clean($rm['sub']) !!}</div>
+                        <ul class="rm-items">
+                            @foreach($rm['items'] as $it)<li>{{ $it }}</li>@endforeach
+                        </ul>
+                    </div>
                 </div>
-                @endforeach
+                @endif
+
+                {{-- center node --}}
+                <div class="rm-node-wrap">
+                    <div class="rm-node {{ $rm['status'] }}">0{{ $i + 1 }}</div>
+                </div>
+
+                {{-- right side --}}
+                @if($even)
+                <div class="rm-side right">
+                    <div class="rm-card">
+                        <span class="rm-status {{ $rm['status'] }}"><span class="rm-status-dot"></span>{{ $statusLabels[$rm['status']] }}</span>
+                        <div class="rm-date">{{ $rm['date'] }}</div>
+                        <div class="rm-title">{!! clean($rm['title']) !!}</div>
+                        <div class="rm-desc">{!! clean($rm['sub']) !!}</div>
+                        <ul class="rm-items">
+                            @foreach($rm['items'] as $it)<li>{{ $it }}</li>@endforeach
+                        </ul>
+                    </div>
+                </div>
+                @else
+                <div class="rm-side empty"></div>
+                @endif
+
             </div>
+            @endforeach
         </div>
     </div>
 </section>
+<script>
+(function(){
+    var track = document.getElementById('rmTrack');
+    var fill  = document.getElementById('rmSpineFill');
+    if (!track || !fill) return;
+    var obs = new IntersectionObserver(function(entries){
+        entries.forEach(function(e){
+            if (e.isIntersecting) {
+                fill.style.height = '100%';
+                obs.unobserve(e.target);
+            }
+        });
+    }, { threshold: 0.1 });
+    obs.observe(track);
+})();
+</script>
 
 {{-- ─── Staking Pools ────────────────────────────────── --}}
 @if(isset($staking_pools) && $staking_pools->count())
