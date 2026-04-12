@@ -105,6 +105,7 @@ class WalletController extends Controller
                     $wallet->balance = 0;
                     $wallet->coin_id = $coin->id;
                     if (co_wallet_feature_active() && $request->type == CO_WALLET) {
+                        $wallet->max_co_users = max(2, (int) ($request->max_co_users ?? 2));
                         $key = Str::random(64);
                         while (true) {
                             $keyExists = Wallet::where(['key' => $key])->first();
@@ -147,8 +148,7 @@ class WalletController extends Controller
                 return response()->json($data);
             }
 
-            $maxCoUser = settings(MAX_CO_WALLET_USER_SLUG);
-            $maxCoUser = !empty($maxCoUser) ? $maxCoUser : 2;
+            $maxCoUser = !empty($wallet->max_co_users) ? (int) $wallet->max_co_users : 2;
             $coUserCount = WalletCoUser::where(['wallet_id' => $wallet->id])->count();
             if($coUserCount >= $maxCoUser){
                 $data = ['success' => false, 'data' => [], 'message' => __("Can't import this pocket. Max co user limit reached.")];

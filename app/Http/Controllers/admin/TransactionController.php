@@ -129,8 +129,14 @@ class TransactionController extends Controller
                 'status' => STATUS_ACTIVE,
                 'can_approve' => 1,
             ])->count();
-            if ($approverCount <= 1) {
-                return redirect()->back()->with('dismiss', __('At least one signatory approver is required.'));
+
+            $totalMembers = WalletCoUser::where([
+                'wallet_id' => $wallet->id,
+                'status' => STATUS_ACTIVE,
+            ])->count();
+            $groupMinimum = $totalMembers >= 3 ? 3 : 2;
+            if (($approverCount - 1) < $groupMinimum) {
+                return redirect()->back()->with('dismiss', __('Minimum required signatory count would be violated.'));
             }
         }
 

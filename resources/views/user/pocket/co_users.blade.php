@@ -14,6 +14,21 @@
                     </div>
 
                     @if($wallet->user_id == \Illuminate\Support\Facades\Auth::id())
+                        <div style="background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.25);border-radius:10px;padding:14px 16px;margin-bottom:16px;">
+                            <h5 style="margin:0 0 10px;color:#b8f5d4;">{{__('Multi-signature Setup Guide')}}</h5>
+                            <ol style="margin:0 0 0 16px;padding:0;color:#c9d1d9;font-size:12px;line-height:1.7;">
+                                <li>{{__('Set wallet member capacity when creating wallet (minimum 2).')}}</li>
+                                <li>{{__('Add co-users by email until your team is complete.')}}</li>
+                                <li>{{__('Assign signatory approvers from your co-user list.')}}</li>
+                                <li>{{__('For 2-member wallets, keep 2 signatories. For group wallets, keep at least 3 signatories.')}}</li>
+                                <li>{{__('Signatory add/remove changes need approvals: admin minimum setting + one-third of members (and group minimum rules).')}}</li>
+                                <li>{{__('Only assigned signatories can approve withdrawals and signatory-change requests.')}}</li>
+                            </ol>
+                            <small style="display:block;margin-top:10px;color:#9aa4b2;">{{__('Current member capacity for this wallet')}}: {{$wallet->max_co_users ?? 2}}</small>
+                            <small style="display:block;margin-top:6px;color:#9aa4b2;">{{__('Minimum signatories required now')}}: {{$required_signatory_minimum ?? 2}}</small>
+                            <small style="display:block;margin-top:6px;color:#9aa4b2;">{{__('Approvals required for signatory add/remove requests')}}: {{$required_signatory_change_approvals ?? 2}}</small>
+                        </div>
+
                         <div style="background:rgba(99,102,241,.10);border:1px solid rgba(99,102,241,.25);border-radius:10px;padding:14px 16px;margin-bottom:16px;">
                             <form method="POST" action="{{route('addCoWalletUser', $wallet->id)}}" class="row" style="margin:0;">
                                 @csrf

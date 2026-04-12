@@ -121,6 +121,7 @@ class MultiSigSecurityGovernanceTest extends TestCase
         $this->enableCoWalletFeature();
 
         $creator = $this->makeUser(['email' => 'creator-change@example.com']);
+        $coSigner = $this->makeUser(['email' => 'cosigner-change@example.com']);
         $target = $this->makeUser(['email' => 'target-change@example.com']);
 
         $walletId = DB::table('wallets')->insertGetId([
@@ -138,6 +139,7 @@ class MultiSigSecurityGovernanceTest extends TestCase
 
         DB::table('wallet_co_users')->insert([
             ['wallet_id' => $walletId, 'user_id' => $creator->id, 'status' => STATUS_ACTIVE, 'can_approve' => 1, 'created_at' => now(), 'updated_at' => now()],
+            ['wallet_id' => $walletId, 'user_id' => $coSigner->id, 'status' => STATUS_ACTIVE, 'can_approve' => 1, 'created_at' => now(), 'updated_at' => now()],
             ['wallet_id' => $walletId, 'user_id' => $target->id, 'status' => STATUS_ACTIVE, 'can_approve' => 0, 'created_at' => now(), 'updated_at' => now()],
         ]);
 
@@ -153,9 +155,12 @@ class MultiSigSecurityGovernanceTest extends TestCase
             'status' => STATUS_PENDING,
         ]);
 
-        $response = $this->actingAs($creator)->post(route('approveCoWalletSignatoryChange', $request->id));
+        $responseCreator = $this->actingAs($creator)->post(route('approveCoWalletSignatoryChange', $request->id));
+        $responseCreator->assertRedirect();
 
-        $response->assertRedirect();
+        $responseCoSigner = $this->actingAs($coSigner)->post(route('approveCoWalletSignatoryChange', $request->id));
+        $responseCoSigner->assertRedirect();
+
         $this->assertDatabaseHas('wallet_co_users', [
             'id' => $targetCoUserId,
             'can_approve' => 1,

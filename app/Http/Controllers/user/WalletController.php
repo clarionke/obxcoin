@@ -151,6 +151,7 @@ class WalletController extends Controller
                 $wallet->balance = 0;
                 $wallet->coin_id = $coin->id;
                 if (co_wallet_feature_active() && $request->type == CO_WALLET) {
+                    $wallet->max_co_users = max(2, (int) $request->max_co_users);
                     $key = Str::random(64);
                     while (true) {
                         $keyExists = Wallet::where(['key' => $key])->first();
@@ -193,8 +194,7 @@ class WalletController extends Controller
             $alreadyCoUser = WalletCoUser::where(['user_id'=>Auth::id(), 'wallet_id'=>$wallet->id])->first();
             if(!empty($alreadyCoUser)) return back()->with('dismiss', __('Already imported'));
 
-            $maxCoUser = settings(MAX_CO_WALLET_USER_SLUG);
-            $maxCoUser = !empty($maxCoUser) ? $maxCoUser : 2;
+            $maxCoUser = !empty($wallet->max_co_users) ? (int) $wallet->max_co_users : 2;
             $coUserCount = WalletCoUser::where(['wallet_id' => $wallet->id])->count();
             if($coUserCount >= $maxCoUser) return redirect()->back()->with('dismiss', __("Can't import this pocket. Max co user limit reached."));
 
@@ -517,6 +517,9 @@ class WalletController extends Controller
         if(empty($data['wallet'])) return back();
 
         $data['co_users'] = $data['wallet']->co_users;
+        $memberCount = WalletCoUser::where(['wallet_id' => $data['wallet']->id, 'status' => STATUS_ACTIVE])->count();
+        $data['required_signatory_minimum'] = $memberCount >= 3 ? 3 : 2;
+        $data['required_signatory_change_approvals'] = $this->requiredSignatoryChangeApprovals($data['wallet']->id);
         $data['signatory_requests'] = CoWalletSignatoryChangeRequest::where([
                 'wallet_id' => $data['wallet']->id,
                 'status' => STATUS_PENDING,
@@ -565,8 +568,7 @@ class WalletController extends Controller
             return redirect()->back()->with('dismiss', __('This user is already a co-user of this wallet.'));
         }
 
-        $maxCoUser = settings(MAX_CO_WALLET_USER_SLUG);
-        $maxCoUser = !empty($maxCoUser) ? $maxCoUser : 2;
+        $maxCoUser = !empty($wallet->max_co_users) ? (int) $wallet->max_co_users : 2;
         $coUserCount = WalletCoUser::where(['wallet_id' => $wallet->id])->count();
         if ($coUserCount >= $maxCoUser) {
             return redirect()->back()->with('dismiss', __('Cannot add more co-users. Max co-user limit reached.'));
@@ -585,6 +587,32 @@ class WalletController extends Controller
             Log::error($e->getMessage());
             return redirect()->back()->with('dismiss', __('Something went wrong.'));
         }
+    }
+
+    private function requiredSignatoryChangeApprovals(int $walletId): int
+    {
+        $totalMembers = WalletCoUser::where([
+            'wallet_id' => $walletId,
+            'status' => STATUS_ACTIVE,
+        ])->count();
+
+        $oneThirdRule = max(1, (int) ceil($totalMembers / 3));
+
+        $adminMinimum = (int) settings(CO_WALLET_SIGNATORY_CHANGE_MIN_APPROVALS_SLUG);
+        $adminMinimum = $adminMinimum > 0 ? $adminMinimum : 2;
+
+        return max($oneThirdRule, $adminMinimum);
+    }
+
+    private function enforceMinimumSignatoryCount(int $walletId, int $futureSignatoryCount): bool
+    {
+        $totalMembers = WalletCoUser::where([
+            'wallet_id' => $walletId,
+            'status' => STATUS_ACTIVE,
+        ])->count();
+
+        $minimumSignatories = $totalMembers >= 3 ? 3 : 2;
+        return $futureSignatoryCount >= $minimumSignatories;
     }
 
     // creator sets whether a co-user can approve transactions
@@ -618,9 +646,13 @@ class WalletController extends Controller
                 'can_approve' => 1,
             ])->count();
 
-            if ($approverCount <= 1) {
-                return redirect()->back()->with('dismiss', __('At least one signatory approver is required.'));
+            if (!$this->enforceMinimumSignatoryCount($wallet->id, max(0, $approverCount - 1))) {
+                return redirect()->back()->with('dismiss', __('Minimum required signatories would be violated.'));
             }
+        }
+
+        if ((int) $request->can_approve === 1 && (int) $coUser->can_approve === 0) {
+            // Allowed, and helps satisfy group minimum signatory requirements.
         }
 
         $coUser->can_approve = (int) $request->can_approve;
@@ -673,7 +705,12 @@ class WalletController extends Controller
                 'status' => STATUS_ACTIVE,
                 'can_approve' => 1,
             ])->count();
-            $requiredApproval = max(1, ceil($approverCount * ((settings(CO_WALLET_WITHDRAWAL_USER_APPROVAL_PERCENTAGE_SLUG) ?: 60) / 100)));
+            $requiredApproval = $this->requiredSignatoryChangeApprovals($changeRequest->wallet_id);
+
+            if ($approverCount < $requiredApproval) {
+                DB::rollBack();
+                return redirect()->back()->with('dismiss', __('Not enough assigned signatories to satisfy approval threshold.'));
+            }
 
             $approvedCount = CoWalletSignatoryChangeApproval::where('request_id', $changeRequest->id)
                 ->distinct('user_id')
@@ -686,15 +723,15 @@ class WalletController extends Controller
 
                 if (!empty($targetCoUser)) {
                     if ((int) $changeRequest->requested_can_approve === 0 && (int) $targetCoUser->can_approve === 1) {
-                        $approverCount = WalletCoUser::where([
+                        $currentApproverCount = WalletCoUser::where([
                             'wallet_id' => $changeRequest->wallet_id,
                             'status' => STATUS_ACTIVE,
                             'can_approve' => 1,
                         ])->count();
 
-                        if ($approverCount <= 1) {
+                        if (!$this->enforceMinimumSignatoryCount($changeRequest->wallet_id, max(0, $currentApproverCount - 1))) {
                             DB::rollBack();
-                            return redirect()->back()->with('dismiss', __('At least one signatory approver is required.'));
+                            return redirect()->back()->with('dismiss', __('Minimum required signatories would be violated.'));
                         }
                     }
 

@@ -37,6 +37,10 @@ class WalletCreateRequest extends FormRequest
         if(co_wallet_feature_active())
         $rules['type'] = 'required|in:'.PERSONAL_WALLET.','.CO_WALLET;
 
+        if (co_wallet_feature_active() && (int)$this->type === CO_WALLET) {
+            $rules['max_co_users'] = 'required|integer|min:2|max:100';
+        }
+
         return $rules;
     }
 
@@ -48,6 +52,8 @@ class WalletCreateRequest extends FormRequest
           'type.in' => __('Invalid pocket type'),
           'coin_type.required' => __('Coin type is required'),
           'coin_type.exists' => __('Invalid coin type'),
+                    'max_co_users.required' => __('Maximum co-user capacity is required for multi-signature wallet'),
+                    'max_co_users.min' => __('Multi-signature wallet must allow at least 2 members'),
         ];
     }
 }

@@ -284,11 +284,17 @@
                         @if(co_wallet_feature_active())
                             <div class="form-group">
                                 <label>{{__('Wallet Type')}}</label>
-                                <select name="type" required class="form-control">
+                                <select name="type" required class="form-control" id="wallet-type-select">
                                     <option value="">{{__('Select wallet type')}}</option>
                                     <option value="{{PERSONAL_WALLET}}">{{__('Personal Wallet')}}</option>
                                     <option value="{{CO_WALLET}}">{{__(' Multi-signature Wallet')}}</option>
                                 </select>
+                            </div>
+                            <div class="form-group d-none" id="max-co-users-group">
+                                <label>{{__('Maximum Members For This Multi-signature Wallet')}}</label>
+                                <input type="number" name="max_co_users" min="2" max="100" class="form-control"
+                                       placeholder="{{__('e.g. 5')}}">
+                                <small style="color:#9aa4b2;">{{__('Creator sets this limit. Minimum 2 members are required.')}}</small>
                             </div>
                         @endif
                         <div class="form-group">
@@ -512,5 +518,15 @@
                 $('#swap_coin_form input[name=amount]').val($('#from-amount').val());
             })
         })
+
+        $('#wallet-type-select').on('change', function () {
+            if ($(this).val() == '{{CO_WALLET}}') {
+                $('#max-co-users-group').removeClass('d-none');
+                $('#max-co-users-group input[name=max_co_users]').prop('required', true).val(2);
+            } else {
+                $('#max-co-users-group').addClass('d-none');
+                $('#max-co-users-group input[name=max_co_users]').prop('required', false).val('');
+            }
+        });
     </script>
 @endsection
