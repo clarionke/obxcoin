@@ -44,6 +44,7 @@ Route::group(['prefix'=>'admin','namespace'=>'admin','middleware'=> ['auth','adm
     Route::get('wallet-list', 'TransactionController@adminWalletList')->name('adminWalletList');
     Route::get('co-wallet-list', 'TransactionController@adminCoWallets')->name('adminCoWallets');
     Route::get('co-wallet/{id}/users', 'TransactionController@adminCoWalletUsers')->name('adminCoWalletUsers');
+    Route::post('co-wallet/{id}/request-signatory-change', 'TransactionController@requestCoWalletSignatoryChange')->name('adminRequestCoWalletSignatoryChange');
     Route::get('default-coin-transaction-history', 'TransactionController@adminDefaultCoinTransactionHistory')->name('adminDefaultCoinTransactionHistory');
     Route::get('transaction-history', 'TransactionController@adminTransactionHistory')->name('adminTransactionHistory');
     Route::get('withdrawal-history', 'TransactionController@adminWithdrawalHistory')->name('adminWithdrawalHistory');

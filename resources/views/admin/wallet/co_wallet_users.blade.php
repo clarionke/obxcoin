@@ -34,7 +34,9 @@
                                     <th class="all">{{__('Name')}}</th>
                                     <th class="all">{{__('Email')}}</th>
                                     <th class="all">{{__('Phone')}}</th>
+                                    <th class="all">{{__('Can Approve')}}</th>
                                     <th class="desktop">{{__('Wallet Imported At')}}</th>
+                                    <th class="all">{{__('Request Signatory Change')}}</th>
                                 </tr>
                                 </thead>
                                 <tbody>
@@ -49,7 +51,24 @@
                                             </td>
                                             <td>{{ $co_user->user->email }}</td>
                                             <td>{{ $co_user->user->phone }}</td>
+                                            <td>
+                                                @if((int)$co_user->can_approve === 1)
+                                                    <span class="badge badge-success">{{__('Yes')}}</span>
+                                                @else
+                                                    <span class="badge badge-secondary">{{__('No')}}</span>
+                                                @endif
+                                            </td>
                                             <td>{{ $co_user->created_at }}</td>
+                                            <td>
+                                                <form method="POST" action="{{route('adminRequestCoWalletSignatoryChange', $wallet->id)}}">
+                                                    @csrf
+                                                    <input type="hidden" name="wallet_co_user_id" value="{{$co_user->id}}">
+                                                    <input type="hidden" name="requested_can_approve" value="{{(int)$co_user->can_approve === 1 ? 0 : 1}}">
+                                                    <button type="submit" class="btn btn-sm btn-primary">
+                                                        {{(int)$co_user->can_approve === 1 ? __('Request Revoke') : __('Request Grant')}}
+                                                    </button>
+                                                </form>
+                                            </td>
                                         </tr>
                                     @endforeach
                                 @endif

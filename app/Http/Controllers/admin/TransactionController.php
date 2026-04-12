@@ -8,9 +8,11 @@ use App\Jobs\PendingDepositAcceptJob;
 use App\Jobs\PendingDepositRejectJob;
 use App\Model\AdminReceiveTokenTransactionHistory;
 use App\Model\CoinRequest;
+use App\Model\CoWalletSignatoryChangeRequest;
 use App\Model\DepositeTransaction;
 use App\Model\EstimateGasFeesTransactionHistory;
 use App\Model\Wallet;
+use App\Model\WalletCoUser;
 use App\Model\WithdrawHistory;
 use App\Repository\AffiliateRepository;
 use App\Services\CoinPaymentsAPI;
@@ -94,6 +96,64 @@ class TransactionController extends Controller
         $data['co_users'] = $data['wallet']->co_users;
 
         return view('admin.wallet.co_wallet_users',$data);
+    }
+
+    // request signatory permission change (requires multi-user approval)
+    public function requestCoWalletSignatoryChange(Request $request, $id)
+    {
+        $request->validate([
+            'wallet_co_user_id' => 'required|integer',
+            'requested_can_approve' => 'required|in:0,1',
+        ]);
+
+        $wallet = Wallet::where(['id' => $id, 'type' => CO_WALLET])->first();
+        if (empty($wallet)) {
+            return redirect()->back()->with('dismiss', __('Invalid co-wallet.'));
+        }
+
+        $coUser = WalletCoUser::where([
+            'id' => $request->wallet_co_user_id,
+            'wallet_id' => $wallet->id,
+        ])->first();
+        if (empty($coUser)) {
+            return redirect()->back()->with('dismiss', __('Invalid wallet co-user.'));
+        }
+
+        if ((int) $coUser->can_approve === (int) $request->requested_can_approve) {
+            return redirect()->back()->with('dismiss', __('Requested signatory state is same as current state.'));
+        }
+
+        if ((int) $request->requested_can_approve === 0 && (int) $coUser->can_approve === 1) {
+            $approverCount = WalletCoUser::where([
+                'wallet_id' => $wallet->id,
+                'status' => STATUS_ACTIVE,
+                'can_approve' => 1,
+            ])->count();
+            if ($approverCount <= 1) {
+                return redirect()->back()->with('dismiss', __('At least one signatory approver is required.'));
+            }
+        }
+
+        $alreadyPending = CoWalletSignatoryChangeRequest::where([
+            'wallet_id' => $wallet->id,
+            'target_wallet_co_user_id' => $coUser->id,
+            'status' => STATUS_PENDING,
+        ])->exists();
+        if ($alreadyPending) {
+            return redirect()->back()->with('dismiss', __('A pending signatory change request already exists for this user.'));
+        }
+
+        CoWalletSignatoryChangeRequest::create([
+            'wallet_id' => $wallet->id,
+            'requested_by_admin_id' => Auth::id(),
+            'requested_by_user_id' => null,
+            'target_user_id' => $coUser->user_id,
+            'target_wallet_co_user_id' => $coUser->id,
+            'requested_can_approve' => (int) $request->requested_can_approve,
+            'status' => STATUS_PENDING,
+        ]);
+
+        return redirect()->back()->with('success', __('Signatory change request created. Co-wallet signatories must approve it.'));
     }
 
 

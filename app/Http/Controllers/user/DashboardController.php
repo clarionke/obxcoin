@@ -127,10 +127,16 @@ class DashboardController extends Controller
 
         if ($data['co_wallet_feature_active']) {
             $coWalletIds = WalletCoUser::where('user_id', Auth::id())->pluck('wallet_id');
+            $approverWalletIds = WalletCoUser::where([
+                    'user_id' => Auth::id(),
+                    'status' => STATUS_ACTIVE,
+                    'can_approve' => 1,
+                ])
+                ->pluck('wallet_id');
             $data['msig_wallet_count'] = $coWalletIds->count();
 
             $pendingApprovals = TempWithdraw::with('wallet')
-                ->whereIn('wallet_id', $coWalletIds)
+                ->whereIn('wallet_id', $approverWalletIds)
                 ->where('status', STATUS_PENDING)
                 ->whereDoesntHave('user_approvals', function ($query) {
                     $query->where('user_id', Auth::id());

@@ -81,8 +81,8 @@ class MultiSignatureDashboardTest extends TestCase
         ]);
 
         DB::table('wallet_co_users')->insert([
-            ['wallet_id' => $walletId, 'user_id' => $user->id, 'status' => STATUS_ACTIVE, 'created_at' => now(), 'updated_at' => now()],
-            ['wallet_id' => $walletId, 'user_id' => $requester->id, 'status' => STATUS_ACTIVE, 'created_at' => now(), 'updated_at' => now()],
+            ['wallet_id' => $walletId, 'user_id' => $user->id, 'status' => STATUS_ACTIVE, 'can_approve' => 1, 'created_at' => now(), 'updated_at' => now()],
+            ['wallet_id' => $walletId, 'user_id' => $requester->id, 'status' => STATUS_ACTIVE, 'can_approve' => 1, 'created_at' => now(), 'updated_at' => now()],
         ]);
 
         $pendingIdVisible = DB::table('temp_withdraws')->insertGetId([

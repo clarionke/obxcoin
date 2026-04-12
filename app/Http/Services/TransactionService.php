@@ -1033,9 +1033,24 @@ class TransactionService
     public function approvalCounts($tempWithdraw) {
         $userPercentageForApproval = settings(CO_WALLET_WITHDRAWAL_USER_APPROVAL_PERCENTAGE_SLUG);
         $userPercentageForApproval = !empty($userPercentageForApproval) ? $userPercentageForApproval : 60;
-        $coUserCount = WalletCoUser::where(['wallet_id'=> $tempWithdraw->wallet_id])->count();
-        $requiredUserApprovalCount = ceil($coUserCount * ($userPercentageForApproval / 100.0));
-        $alreadyApprovedUserCount = CoWalletWithdrawApproval::where(['temp_withdraw_id'=> $tempWithdraw->id])->count();
+        $approverCount = WalletCoUser::where([
+            'wallet_id'=> $tempWithdraw->wallet_id,
+            'status' => STATUS_ACTIVE,
+            'can_approve' => 1,
+        ])->count();
+        $requiredUserApprovalCount = max(1, ceil($approverCount * ($userPercentageForApproval / 100.0)));
+
+        $alreadyApprovedUserCount = CoWalletWithdrawApproval::where('temp_withdraw_id', $tempWithdraw->id)
+            ->whereIn('user_id', function ($query) use ($tempWithdraw) {
+                $query->select('user_id')
+                    ->from('wallet_co_users')
+                    ->where('wallet_id', $tempWithdraw->wallet_id)
+                    ->where('status', STATUS_ACTIVE)
+                    ->where('can_approve', 1);
+            })
+            ->distinct('user_id')
+            ->count('user_id');
+
         return ['requiredUserApprovalCount' => $requiredUserApprovalCount, 'alreadyApprovedUserCount' => $alreadyApprovedUserCount];
     }
 

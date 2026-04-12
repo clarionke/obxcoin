@@ -10,7 +10,7 @@
                     <div class="cp-user-card-header-area">
                         <div class="cp-user-title">
                             <h4>{{__('Withdrawal Approvals for ')}}({{$tempWithdraw->amount}} {{$tempWithdraw->wallet->coin_type}} to {{$tempWithdraw->address}})</h4>
-                            <p style="color: #B4B8D7"><b>{{__('Need')}} {{$total_required_approval - $approved_count}} {{('more approval')}}</b></p>
+                            <p style="color: #B4B8D7"><b>{{__('Need')}} {{max(0, $total_required_approval - $approved_count)}} {{('more approval')}}</b></p>
                         </div>
                     </div>
 
@@ -45,14 +45,16 @@
                                         </td>
                                         <td>
                                             <ul class="d-flex justify-content-center align-items-center">
-                                                @if($co_user->user_id == \Illuminate\Support\Facades\Auth::id() && $co_user->approved == STATUS_PENDING)
+                                                @if($co_user->user_id == \Illuminate\Support\Facades\Auth::id() && $co_user->approved == STATUS_PENDING && (int)$co_user->can_approve === 1)
                                                 <li>
-                                                    <a title="{{__('Approve withdraw')}}" class="confirm-modal" data-title="{{__('Do you really want to approve?')}}"
-                                                       href="javascript:" data-href="{{route('approveCoWalletWithdraw', $tempWithdraw->id)}}">
-                                                        <img
-                                                            src="{{asset('assets/user/images/wallet-table-icons/send.svg')}}"
-                                                            class="img-fluid" alt="">
-                                                    </a>
+                                                    <form method="POST" action="{{route('approveCoWalletWithdraw', $tempWithdraw->id)}}" onsubmit="return confirm('{{__('Do you really want to approve?')}}');">
+                                                        @csrf
+                                                        <button type="submit" style="background:none;border:none;padding:0;">
+                                                            <img
+                                                                src="{{asset('assets/user/images/wallet-table-icons/send.svg')}}"
+                                                                class="img-fluid" alt="">
+                                                        </button>
+                                                    </form>
                                                 </li>
                                                 @else
                                                     N/A

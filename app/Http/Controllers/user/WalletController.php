@@ -10,6 +10,8 @@ use App\Http\Services\TransactionService;
 use App\Jobs\Withdrawal;
 use App\Model\Coin;
 use App\Model\CoWalletWithdrawApproval;
+use App\Model\CoWalletSignatoryChangeApproval;
+use App\Model\CoWalletSignatoryChangeRequest;
 use App\Model\DepositeTransaction;
 use App\Model\TempWithdraw;
 use App\Model\Wallet;
@@ -162,7 +164,8 @@ class WalletController extends Controller
                 if (co_wallet_feature_active() && $request->type == CO_WALLET) {
                     WalletCoUser::create([
                         'user_id' => Auth::id(),
-                        'wallet_id' => $wallet->id
+                        'wallet_id' => $wallet->id,
+                        'can_approve' => 1,
                     ]);
                 }
                 DB::commit();
@@ -198,7 +201,8 @@ class WalletController extends Controller
             try {
                 WalletCoUser::create([
                     'user_id' => Auth::id(),
-                    'wallet_id' => $wallet->id
+                    'wallet_id' => $wallet->id,
+                    'can_approve' => 0,
                 ]);
             } catch (\Exception $e) {
                 Log::alert($e->getMessage());
@@ -513,6 +517,20 @@ class WalletController extends Controller
         if(empty($data['wallet'])) return back();
 
         $data['co_users'] = $data['wallet']->co_users;
+        $data['signatory_requests'] = CoWalletSignatoryChangeRequest::where([
+                'wallet_id' => $data['wallet']->id,
+                'status' => STATUS_PENDING,
+            ])
+            ->orderByDesc('id')
+            ->get();
+
+        $data['is_approver'] = WalletCoUser::where([
+            'wallet_id' => $data['wallet']->id,
+            'user_id' => Auth::id(),
+            'status' => STATUS_ACTIVE,
+            'can_approve' => 1,
+        ])->exists();
+
         return view('user.pocket.co_users', $data);
     }
 
@@ -521,6 +539,7 @@ class WalletController extends Controller
     {
         $request->validate([
             'email' => 'required|email|max:191',
+            'can_approve' => 'nullable|in:0,1',
         ]);
 
         $wallet = Wallet::where([
@@ -558,10 +577,139 @@ class WalletController extends Controller
                 'wallet_id' => $wallet->id,
                 'user_id' => $targetUser->id,
                 'status' => STATUS_ACTIVE,
+                'can_approve' => (int) ($request->can_approve ?? 0),
             ]);
 
             return redirect()->back()->with('success', __('Co-user added successfully.'));
         } catch (\Exception $e) {
+            Log::error($e->getMessage());
+            return redirect()->back()->with('dismiss', __('Something went wrong.'));
+        }
+    }
+
+    // creator sets whether a co-user can approve transactions
+    public function setCoWalletUserApprover(Request $request, $id, $coUserId)
+    {
+        $request->validate([
+            'can_approve' => 'required|in:0,1',
+        ]);
+
+        $wallet = Wallet::where([
+            'id' => $id,
+            'type' => CO_WALLET,
+            'user_id' => Auth::id(),
+        ])->first();
+        if (empty($wallet)) {
+            return redirect()->back()->with('dismiss', __('Only wallet creator can assign signatories.'));
+        }
+
+        $coUser = WalletCoUser::where([
+            'id' => $coUserId,
+            'wallet_id' => $wallet->id,
+        ])->first();
+        if (empty($coUser)) {
+            return redirect()->back()->with('dismiss', __('Invalid co-user.'));
+        }
+
+        if ((int) $request->can_approve === 0 && (int) $coUser->can_approve === 1) {
+            $approverCount = WalletCoUser::where([
+                'wallet_id' => $wallet->id,
+                'status' => STATUS_ACTIVE,
+                'can_approve' => 1,
+            ])->count();
+
+            if ($approverCount <= 1) {
+                return redirect()->back()->with('dismiss', __('At least one signatory approver is required.'));
+            }
+        }
+
+        $coUser->can_approve = (int) $request->can_approve;
+        $coUser->save();
+
+        return redirect()->back()->with('success', __('Signatory permission updated.'));
+    }
+
+    // co-wallet approver approves a signatory change request
+    public function approveCoWalletSignatoryChange(Request $request, $id)
+    {
+        DB::beginTransaction();
+        try {
+            $changeRequest = CoWalletSignatoryChangeRequest::where('id', $id)
+                ->where('status', STATUS_PENDING)
+                ->lockForUpdate()
+                ->first();
+            if (empty($changeRequest)) {
+                DB::rollBack();
+                return redirect()->back()->with('dismiss', __('Invalid or already processed signatory request.'));
+            }
+
+            $isApprover = WalletCoUser::where([
+                'wallet_id' => $changeRequest->wallet_id,
+                'user_id' => Auth::id(),
+                'status' => STATUS_ACTIVE,
+                'can_approve' => 1,
+            ])->exists();
+
+            if (!$isApprover) {
+                DB::rollBack();
+                return redirect()->back()->with('dismiss', __('Only assigned signatories can approve this request.'));
+            }
+
+            $exists = CoWalletSignatoryChangeApproval::where([
+                'request_id' => $changeRequest->id,
+                'user_id' => Auth::id(),
+            ])->exists();
+
+            if (!$exists) {
+                CoWalletSignatoryChangeApproval::create([
+                    'request_id' => $changeRequest->id,
+                    'wallet_id' => $changeRequest->wallet_id,
+                    'user_id' => Auth::id(),
+                ]);
+            }
+
+            $approverCount = WalletCoUser::where([
+                'wallet_id' => $changeRequest->wallet_id,
+                'status' => STATUS_ACTIVE,
+                'can_approve' => 1,
+            ])->count();
+            $requiredApproval = max(1, ceil($approverCount * ((settings(CO_WALLET_WITHDRAWAL_USER_APPROVAL_PERCENTAGE_SLUG) ?: 60) / 100)));
+
+            $approvedCount = CoWalletSignatoryChangeApproval::where('request_id', $changeRequest->id)
+                ->distinct('user_id')
+                ->count('user_id');
+
+            if ($approvedCount >= $requiredApproval) {
+                $targetCoUser = WalletCoUser::where('id', $changeRequest->target_wallet_co_user_id)
+                    ->where('wallet_id', $changeRequest->wallet_id)
+                    ->first();
+
+                if (!empty($targetCoUser)) {
+                    if ((int) $changeRequest->requested_can_approve === 0 && (int) $targetCoUser->can_approve === 1) {
+                        $approverCount = WalletCoUser::where([
+                            'wallet_id' => $changeRequest->wallet_id,
+                            'status' => STATUS_ACTIVE,
+                            'can_approve' => 1,
+                        ])->count();
+
+                        if ($approverCount <= 1) {
+                            DB::rollBack();
+                            return redirect()->back()->with('dismiss', __('At least one signatory approver is required.'));
+                        }
+                    }
+
+                    $targetCoUser->can_approve = $changeRequest->requested_can_approve;
+                    $targetCoUser->save();
+                }
+
+                $changeRequest->status = STATUS_ACCEPTED;
+                $changeRequest->save();
+            }
+
+            DB::commit();
+            return redirect()->back()->with('success', __('Signatory change approval recorded successfully.'));
+        } catch (\Exception $e) {
+            DB::rollBack();
             Log::error($e->getMessage());
             return redirect()->back()->with('dismiss', __('Something went wrong.'));
         }
@@ -595,46 +743,66 @@ class WalletController extends Controller
     }
 
     //approve co wallet withdraw
-    public function approveCoWalletWithdraw(Request $request) {
-        $tempWithdraw = TempWithdraw::where(['status'=>STATUS_PENDING, 'id'=>$request->id])->first();
-        if(empty($tempWithdraw)) return redirect()->route('myPocket', ['tab'=>'co-pocket'])->with('dismiss', __('Invalid withdrawal.'));
-
-        $userAlreadyApproved = CoWalletWithdrawApproval::where(['temp_withdraw_id'=>$tempWithdraw->id, 'user_id'=>Auth::id()])->first();
-        if(!empty($userAlreadyApproved)) return redirect()->route('walletDetails', [$tempWithdraw->wallet_id, 'q'=> 'activity', 'ac_tab'=>'co-withdraw'])
-            ->with('dismiss', __('You already approved.'));
-
-        $wallet = Wallet::select('wallets.*')
-            ->join('wallet_co_users', 'wallet_co_users.wallet_id','=','wallets.id')
-            ->where(['wallets.id'=>$tempWithdraw->wallet_id, 'wallets.type'=> CO_WALLET, 'wallet_co_users.user_id'=>Auth::id()])
-            ->first();
-        if(empty($wallet)) return redirect()->route('walletDetails', [$tempWithdraw->wallet_id, 'q'=> 'activity', 'ac_tab'=>'co-withdraw'])
-            ->with('dismiss', __('Invalid pocket.'));
-
+    public function approveCoWalletWithdraw(Request $request, $id) {
+        DB::beginTransaction();
         try {
-            CoWalletWithdrawApproval::create([
-                'temp_withdraw_id' => $tempWithdraw->id,
-                'wallet_id' => $wallet->id,
-                'user_id' => Auth::id()
-            ]);
-
-            if ((new TransactionService())->isAllApprovalDoneForCoWalletWithdraw($tempWithdraw)['success']) {
-                dispatch(new Withdrawal($tempWithdraw->toArray()))->onQueue('withdrawal');
-                $message = __('All approval done and withdrawal placed successfully.');
-                return redirect()->route('myPocket', ['tab'=>'co-pocket'])->with('success', $message);
-            } else {
-                $message = __('Approved successfully.');
-                return back()->with('success', $message);
+            $tempWithdraw = TempWithdraw::where(['status' => STATUS_PENDING, 'id' => $id])
+                ->lockForUpdate()
+                ->first();
+            if (empty($tempWithdraw)) {
+                DB::rollBack();
+                return redirect()->route('myPocket', ['tab' => 'co-pocket'])->with('dismiss', __('Invalid withdrawal.'));
             }
+
+            $wallet = Wallet::select('wallets.*')
+                ->join('wallet_co_users', 'wallet_co_users.wallet_id', '=', 'wallets.id')
+                ->where([
+                    'wallets.id' => $tempWithdraw->wallet_id,
+                    'wallets.type' => CO_WALLET,
+                    'wallet_co_users.user_id' => Auth::id(),
+                    'wallet_co_users.status' => STATUS_ACTIVE,
+                    'wallet_co_users.can_approve' => 1,
+                ])
+                ->first();
+            if (empty($wallet)) {
+                DB::rollBack();
+                return redirect()->route('walletDetails', [$tempWithdraw->wallet_id, 'q' => 'activity', 'ac_tab' => 'co-withdraw'])
+                    ->with('dismiss', __('Only assigned signatories can approve this withdrawal.'));
+            }
+
+            $userAlreadyApproved = CoWalletWithdrawApproval::where([
+                'temp_withdraw_id' => $tempWithdraw->id,
+                'user_id' => Auth::id(),
+            ])->exists();
+
+            if (!$userAlreadyApproved) {
+                CoWalletWithdrawApproval::create([
+                    'temp_withdraw_id' => $tempWithdraw->id,
+                    'wallet_id' => $wallet->id,
+                    'user_id' => Auth::id(),
+                ]);
+            }
+
+            $approvalCheck = (new TransactionService())->isAllApprovalDoneForCoWalletWithdraw($tempWithdraw);
+            DB::commit();
+
+            if ($approvalCheck['success']) {
+                dispatch(new Withdrawal($tempWithdraw->toArray()))->onQueue('withdrawal');
+                return redirect()->route('myPocket', ['tab' => 'co-pocket'])->with('success', __('All approval done and withdrawal placed successfully.'));
+            }
+
+            return back()->with('success', __('Approved successfully.'));
         } catch (\Exception $e) {
+            DB::rollBack();
             Log::error($e->getMessage());
-            return redirect()->route('walletDetails', [$tempWithdraw->wallet_id, 'q'=> 'activity', 'ac_tab'=>'co-withdraw'])
+            return redirect()->route('walletDetails', [$id, 'q' => 'activity', 'ac_tab' => 'co-withdraw'])
                 ->with('dismiss', __('Something went wrong.'));
         }
     }
 
     //reject co wallet withdraw by withdraw requester
-    public function rejectCoWalletWithdraw(Request $request) {
-        $tempWithdraw = TempWithdraw::where(['status'=>STATUS_PENDING, 'id'=>$request->id, 'user_id'=> Auth::id()])->first();
+    public function rejectCoWalletWithdraw(Request $request, $id) {
+        $tempWithdraw = TempWithdraw::where(['status'=>STATUS_PENDING, 'id'=>$id, 'user_id'=> Auth::id()])->first();
         if(empty($tempWithdraw)) return redirect()->route('myPocket', ['tab'=>'co-pocket'])->with('dismiss', __('Invalid withdrawal.'));
 
         try {

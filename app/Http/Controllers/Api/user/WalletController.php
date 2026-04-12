@@ -117,7 +117,8 @@ class WalletController extends Controller
                     if (co_wallet_feature_active() && $request->type == CO_WALLET) {
                         WalletCoUser::create([
                             'user_id' => Auth::id(),
-                            'wallet_id' => $wallet->id
+                            'wallet_id' => $wallet->id,
+                            'can_approve' => 1,
                         ]);
                     }
                     DB::commit();
@@ -156,7 +157,8 @@ class WalletController extends Controller
             try {
                 WalletCoUser::create([
                     'user_id' => Auth::id(),
-                    'wallet_id' => $wallet->id
+                    'wallet_id' => $wallet->id,
+                    'can_approve' => 0,
                 ]);
             } catch (\Exception $e) {
                 Log::alert($e->getMessage());
@@ -417,37 +419,57 @@ class WalletController extends Controller
     }
 
     public function pendingWithdrawalRequestApprove(Request $request){
-        $tempWithdraw = TempWithdraw::where(['status'=>STATUS_PENDING, 'id'=>$request->id])->first();
-        if(empty($tempWithdraw)) {
-            return response()->json(['success'=>false,'data'=>[],'message'=> __('Invalid withdrawal')]);
-        }
-        $userAlreadyApproved = CoWalletWithdrawApproval::where(['temp_withdraw_id'=>$tempWithdraw->id, 'user_id'=>Auth::id()])->first();
-        if(!empty($userAlreadyApproved)) {
-            return response()->json(['success'=>false,'data'=>[],'message'=> __('You already approved')]);
-        }
-        $wallet = Wallet::select('wallets.*')
-            ->join('wallet_co_users', 'wallet_co_users.wallet_id','=','wallets.id')
-            ->where(['wallets.id'=>$tempWithdraw->wallet_id, 'wallets.type'=> CO_WALLET, 'wallet_co_users.user_id'=>Auth::id()])
-            ->first();
-        if(empty($wallet)){
-            return response()->json(['success'=>false,'data'=>[],'message'=> __('Invalid pocket')]);
-        }
+        DB::beginTransaction();
         try {
-            CoWalletWithdrawApproval::create([
-                'temp_withdraw_id' => $tempWithdraw->id,
-                'wallet_id' => $wallet->id,
-                'user_id' => Auth::id()
-            ]);
+            $tempWithdraw = TempWithdraw::where(['status'=>STATUS_PENDING, 'id'=>$request->id])
+                ->lockForUpdate()
+                ->first();
+            if(empty($tempWithdraw)) {
+                DB::rollBack();
+                return response()->json(['success'=>false,'data'=>[],'message'=> __('Invalid withdrawal')]);
+            }
 
-            if ((new TransactionService())->isAllApprovalDoneForCoWalletWithdraw($tempWithdraw)['success']) {
+            $wallet = Wallet::select('wallets.*')
+                ->join('wallet_co_users', 'wallet_co_users.wallet_id','=','wallets.id')
+                ->where([
+                    'wallets.id'=>$tempWithdraw->wallet_id,
+                    'wallets.type'=> CO_WALLET,
+                    'wallet_co_users.user_id'=>Auth::id(),
+                    'wallet_co_users.status'=> STATUS_ACTIVE,
+                    'wallet_co_users.can_approve' => 1,
+                ])
+                ->first();
+            if(empty($wallet)){
+                DB::rollBack();
+                return response()->json(['success'=>false,'data'=>[],'message'=> __('Only assigned signatories can approve')]);
+            }
+
+            $userAlreadyApproved = CoWalletWithdrawApproval::where([
+                'temp_withdraw_id'=>$tempWithdraw->id,
+                'user_id'=>Auth::id(),
+            ])->exists();
+
+            if(!$userAlreadyApproved) {
+                CoWalletWithdrawApproval::create([
+                    'temp_withdraw_id' => $tempWithdraw->id,
+                    'wallet_id' => $wallet->id,
+                    'user_id' => Auth::id()
+                ]);
+            }
+
+            $allApproved = (new TransactionService())->isAllApprovalDoneForCoWalletWithdraw($tempWithdraw)['success'];
+            DB::commit();
+
+            if ($allApproved) {
                 dispatch(new Withdrawal($tempWithdraw->toArray()))->onQueue('withdrawal');
                 $message = __('All approval done and withdrawal placed successfully.');
                 return response()->json(['success'=>true,'data'=>[],'message'=> __($message)]);
-            } else {
-                $message = __('Approved successfully.');
-                return response()->json(['success'=>true,'data'=>[],'message'=> __($message)]);
             }
+
+            $message = __('Approved successfully.');
+            return response()->json(['success'=>true,'data'=>[],'message'=> __($message)]);
         } catch (\Exception $e) {
+            DB::rollBack();
             Log::error($e->getMessage());
             return response()->json(['success'=>false,'data'=>[],'message'=> __('Something went wrong')]);
         }

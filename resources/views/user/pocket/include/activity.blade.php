@@ -142,14 +142,15 @@
                                                         </li>
                                                         @if($withdraw->user_id == \Illuminate\Support\Facades\Auth::id())
                                                             <li>
-                                                                <a title="{{__('Reject Withdraw')}}" class="confirm-modal"
-                                                                   data-title="{{__('Do you really want to reject?')}}"
-                                                                   href="javascript:" data-href="{{route('rejectCoWalletWithdraw', $withdraw->id)}}">
-                                                                    <img style="width: 25px; opacity: 0.7"
-                                                                         src="{{asset('assets/user/images/close.png')}}"
-                                                                         class="img-fluid"
-                                                                         alt="">
-                                                                </a>
+                                                                <form method="POST" action="{{route('rejectCoWalletWithdraw', $withdraw->id)}}" onsubmit="return confirm('{{__('Do you really want to reject?')}}');">
+                                                                    @csrf
+                                                                    <button type="submit" style="background:none;border:none;padding:0;">
+                                                                        <img style="width: 25px; opacity: 0.7"
+                                                                             src="{{asset('assets/user/images/close.png')}}"
+                                                                             class="img-fluid"
+                                                                             alt="">
+                                                                    </button>
+                                                                </form>
                                                             </li>
                                                         @endif
                                                     </ul>

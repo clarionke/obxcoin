@@ -96,9 +96,11 @@ Route::group(['prefix'=>'user','namespace'=>'user','middleware'=> ['auth','user'
         Route::any('/wallet-import', 'WalletController@importWallet')->name('importWallet');
         Route::get('/wallet/{id}/users', 'WalletController@coWalletUsers')->name('coWalletUsers');
         Route::post('/wallet/{id}/users/add', 'WalletController@addCoWalletUser')->name('addCoWalletUser');
+        Route::post('/wallet/{id}/users/{coUserId}/approver', 'WalletController@setCoWalletUserApprover')->name('setCoWalletUserApprover');
+        Route::post('/signatory-change/{id}/approve', 'WalletController@approveCoWalletSignatoryChange')->name('approveCoWalletSignatoryChange');
         Route::get('/withdraw/{id}/approvals', 'WalletController@coWalletApprovals')->name('coWalletApprovals');
-        Route::get('/approve/withdraw/{id}', 'WalletController@approveCoWalletWithdraw')->name('approveCoWalletWithdraw');
-        Route::get('/reject/withdraw/{id}', 'WalletController@rejectCoWalletWithdraw')->name('rejectCoWalletWithdraw');
+        Route::post('/approve/withdraw/{id}', 'WalletController@approveCoWalletWithdraw')->name('approveCoWalletWithdraw');
+        Route::post('/reject/withdraw/{id}', 'WalletController@rejectCoWalletWithdraw')->name('rejectCoWalletWithdraw');
     });
 });
 
