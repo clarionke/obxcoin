@@ -15,7 +15,8 @@
         <h1 class="auth-heading">{{ __('Welcome back') }}</h1>
         <p class="auth-sub">{{ __('Sign in to your') }} <span class="gradient-text">{{ settings('app_title') }}</span> {{ __('account') }}</p>
 
-        {{Form::open(['route' => 'loginProcess', 'files' => true])}}
+        <form method="POST" action="{{ route('loginProcess') }}" enctype="multipart/form-data">
+        @csrf
 
         <div class="auth-field">
             <label class="auth-label" for="login_email">{{ __('Email address') }}</label>
@@ -68,7 +69,7 @@
 
         <button type="submit" class="auth-btn">{{ __('Sign In') }}</button>
 
-        {{Form::close()}}
+        </form>
 
         <div class="auth-divider">
             {{ __("Don't have an account?") }} <a href="{{ route('signUp') }}">{{ __('Create one') }}</a>

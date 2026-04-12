@@ -34,7 +34,8 @@
         <div class="auth-alert success">{{ session('success') }}</div>
         @endif
 
-        {{ Form::open(['route' => 'signUpProcess', 'files' => true]) }}
+        <form method="POST" action="{{ route('signUpProcess') }}" enctype="multipart/form-data">
+        @csrf
 
         {{-- Name row --}}
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 16px;">
@@ -125,12 +126,12 @@
         @endif
 
         @if(app('request')->input('ref_code'))
-            {{ Form::hidden('ref_code', app('request')->input('ref_code')) }}
+            <input type="hidden" name="ref_code" value="{{ app('request')->input('ref_code') }}">
         @endif
 
         <button type="submit" class="auth-btn">{{ __('Create Account') }}</button>
 
-        {{ Form::close() }}
+        </form>
 
         <div class="auth-divider">
             {{ __('Already have an account?') }} <a href="{{ route('login') }}">{{ __('Sign in') }}</a>
