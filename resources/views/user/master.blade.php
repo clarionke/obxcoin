@@ -701,6 +701,9 @@
                     <button class="dropdown-item" type="button"><a href="{{route('userProfile')}}"><i class="fa fa-user-circle-o"></i> {{__('Profile')}}</a></button>
                     <button class="dropdown-item" type="button"><a href="{{route('userSetting')}}"><i class="fa fa-cog"></i> {{__('Settings')}}</a></button>
                     <button class="dropdown-item" type="button"><a href="{{route('myPocket')}}"><i class="fa fa-money"></i> {{__('My Wallet')}}</a></button>
+                    @if(co_wallet_feature_active())
+                        <button class="dropdown-item" type="button"><a href="{{route('myPocket', ['tab' => 'co-pocket'])}}"><i class="fa fa-shield"></i> {{__('Multi-signature Wallets')}}</a></button>
+                    @endif
                     <button class="dropdown-item" type="button"><a href="{{route('merchant.keys')}}"><i class="fa fa-key"></i> {{__('API Keys')}}</a></button>
                     <button class="dropdown-item" type="button"><a href="{{route('merchant.apiDocs')}}"><i class="fa fa-plug"></i> {{__('API Documentation')}}</a></button>
                     <button class="dropdown-item" type="button"><a href="{{route('logOut')}}"><i class="fa fa-sign-out"></i> {{__('Logout')}}</a></button>
@@ -778,6 +781,11 @@
                         <li class="@if(isset($sub_menu) && $sub_menu == 'my_pocket') cp-user-submenu-active @endif">
                             <a href="{{route('myPocket')}}">{{__('Wallet Overview')}}</a>
                         </li>
+                        @if(co_wallet_feature_active())
+                            <li class="@if(request()->query('tab') == 'co-pocket') cp-user-submenu-active @endif">
+                                <a href="{{route('myPocket', ['tab' => 'co-pocket'])}}">{{__('Multi-signature Wallets')}}</a>
+                            </li>
+                        @endif
                         @if(getSwapStatus())
                             <li class="@if(isset($sub_menu) && $sub_menu == 'swap_history') cp-user-submenu-active @endif">
                                 <a href="{{route('coinSwapHistory')}}">{{__('Swap History')}}</a>
