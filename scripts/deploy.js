@@ -82,6 +82,10 @@ function addr(a) {
     return ethers.getAddress(a);
 }
 
+function normalizeAddress(a) {
+    return addr(String(a).trim().toLowerCase());
+}
+
 async function deployMockUsdt(deployer) {
     console.log('  Deploying MockUSDT for local/testnet …');
     const MockERC20 = await ethers.getContractFactory('MockERC20', deployer).catch(() => null);
@@ -125,14 +129,15 @@ async function main() {
             throw new Error(`No USDT address configured for chainId=${chainId}. Set USDT_* in .env`);
         }
     }
+    usdtAddress = normalizeAddress(usdtAddress);
     console.log(` USDT:      ${usdtAddress}`);
 
     // ── Resolve treasury ──────────────────────────────────────────────────
-    const treasury = process.env.TREASURY_ADDRESS ? addr(process.env.TREASURY_ADDRESS) : deployer.address;
+    const treasury = process.env.TREASURY_ADDRESS ? normalizeAddress(process.env.TREASURY_ADDRESS) : deployer.address;
     console.log(` Treasury:  ${treasury}`);
 
     // ── Resolve router ────────────────────────────────────────────────────
-    const routerAddress = CHAIN_ROUTER[chainId] || ethers.ZeroAddress;
+    const routerAddress = CHAIN_ROUTER[chainId] ? normalizeAddress(CHAIN_ROUTER[chainId]) : ethers.ZeroAddress;
     console.log(` Router:    ${routerAddress || '(none)'}`);
 
     console.log('──────────────────────────────────────────────────────────\n');

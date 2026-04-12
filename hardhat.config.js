@@ -14,7 +14,8 @@
 
 'use strict';
 
-require('@nomicfoundation/hardhat-toolbox');
+require('@nomicfoundation/hardhat-ethers');
+require('@nomicfoundation/hardhat-verify');
 require('dotenv').config();
 
 const DEPLOYER_PRIVATE_KEY = process.env.OWNER_PRIVATE_KEY || '';
