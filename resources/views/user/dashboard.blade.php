@@ -240,12 +240,16 @@ if (!function_exists('fmtBigNum')) {
     }
 }
 @endphp
+@php
+    $hour = now()->hour;
+    $timeGreeting = $hour < 12 ? __('Good morning') : __('Good evening');
+@endphp
 @section('content')
 
 {{-- Welcome card --}}
 <div class="welcome-card">
     <div class="wc-info">
-        <h5>{{__('Welcome back')}}, {{ Auth::user()->name }} 👋</h5>
+        <h5>{{ $timeGreeting }}, {{ Auth::user()->name }}. {{ __('Welcome back') }}, 👋</h5>
         <p>{{__('Here\'s an overview of your OBXCoin account activity.')}}</p>
     </div>
     <div class="wc-actions">
