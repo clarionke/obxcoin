@@ -80,6 +80,12 @@ Route::group(['prefix'=>'user','namespace'=>'user','middleware'=> ['auth','user'
     Route::post('staking/confirm-stake',    'StakingController@confirmStake')->name('user.staking.confirmStake');
     Route::post('staking/confirm-unstake',  'StakingController@confirmUnstake')->name('user.staking.confirmUnstake');
 
+    // ─── Merchant / Payment API ───────────────────────────────────────────────
+    Route::get('merchant/keys',                    'MerchantController@keys')->name('merchant.keys');
+    Route::post('merchant/keys',                   'MerchantController@storeKey')->name('merchant.storeKey');
+    Route::post('merchant/keys/{id}/revoke',       'MerchantController@revokeKey')->name('merchant.revokeKey');
+    Route::get('merchant/api-docs',                'MerchantController@apiDocs')->name('merchant.apiDocs');
+
     // ─── Airdrop ──────────────────────────────────────────────────────────────
     Route::get('airdrop',                'AirdropController@index')->name('user.airdrop');
     Route::post('airdrop/claim',         'AirdropController@claim')->name('user.airdrop.claim');
@@ -89,6 +95,7 @@ Route::group(['prefix'=>'user','namespace'=>'user','middleware'=> ['auth','user'
     Route::group(['middleware'=> ['co-wallet']], function () {
         Route::any('/wallet-import', 'WalletController@importWallet')->name('importWallet');
         Route::get('/wallet/{id}/users', 'WalletController@coWalletUsers')->name('coWalletUsers');
+        Route::post('/wallet/{id}/users/add', 'WalletController@addCoWalletUser')->name('addCoWalletUser');
         Route::get('/withdraw/{id}/approvals', 'WalletController@coWalletApprovals')->name('coWalletApprovals');
         Route::get('/approve/withdraw/{id}', 'WalletController@approveCoWalletWithdraw')->name('approveCoWalletWithdraw');
         Route::get('/reject/withdraw/{id}', 'WalletController@rejectCoWalletWithdraw')->name('rejectCoWalletWithdraw');

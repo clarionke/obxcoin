@@ -516,6 +516,57 @@ class WalletController extends Controller
         return view('user.pocket.co_users', $data);
     }
 
+    // creator adds a co-user by email
+    public function addCoWalletUser(Request $request, $id)
+    {
+        $request->validate([
+            'email' => 'required|email|max:191',
+        ]);
+
+        $wallet = Wallet::where([
+            'id' => $id,
+            'type' => CO_WALLET,
+            'user_id' => Auth::id(),
+        ])->first();
+
+        if (empty($wallet)) {
+            return redirect()->back()->with('dismiss', __('Only the wallet creator can add co-users.'));
+        }
+
+        $targetUser = User::where('email', $request->email)->first();
+        if (empty($targetUser)) {
+            return redirect()->back()->with('dismiss', __('User not found for this email.'));
+        }
+
+        $alreadyCoUser = WalletCoUser::where([
+            'wallet_id' => $wallet->id,
+            'user_id' => $targetUser->id,
+        ])->first();
+        if (!empty($alreadyCoUser)) {
+            return redirect()->back()->with('dismiss', __('This user is already a co-user of this wallet.'));
+        }
+
+        $maxCoUser = settings(MAX_CO_WALLET_USER_SLUG);
+        $maxCoUser = !empty($maxCoUser) ? $maxCoUser : 2;
+        $coUserCount = WalletCoUser::where(['wallet_id' => $wallet->id])->count();
+        if ($coUserCount >= $maxCoUser) {
+            return redirect()->back()->with('dismiss', __('Cannot add more co-users. Max co-user limit reached.'));
+        }
+
+        try {
+            WalletCoUser::create([
+                'wallet_id' => $wallet->id,
+                'user_id' => $targetUser->id,
+                'status' => STATUS_ACTIVE,
+            ]);
+
+            return redirect()->back()->with('success', __('Co-user added successfully.'));
+        } catch (\Exception $e) {
+            Log::error($e->getMessage());
+            return redirect()->back()->with('dismiss', __('Something went wrong.'));
+        }
+    }
+
     //co wallet withdraw approval list
     public function coWalletApprovals(Request $request) {
         $data['title'] = __('Withdraw Approvals');
