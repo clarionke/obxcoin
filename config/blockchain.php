@@ -16,7 +16,19 @@ return [
     */
 
     'bsc_rpc_url'          => env('BSC_RPC_URL', 'https://bsc-dataseed.binance.org/'),
+    'rpc_urls' => [
+        56  => env('BSC_RPC_URL', 'https://bsc-dataseed.binance.org/'),
+        97  => env('BSC_TESTNET_RPC_URL', 'https://data-seed-prebsc-1-s1.bnbchain.org:8545/'),
+        1   => env('ETH_RPC_URL', 'https://eth.llamarpc.com'),
+        137 => env('POLYGON_RPC_URL', 'https://polygon-rpc.com'),
+    ],
     'presale_contract'     => env('PRESALE_CONTRACT', ''),
+    'presale_contracts' => [
+        56  => env('PRESALE_CONTRACT_BSC', env('PRESALE_CONTRACT', '')),
+        97  => env('PRESALE_CONTRACT_BSC_TEST', env('PRESALE_CONTRACT', '')),
+        1   => env('PRESALE_CONTRACT_ETH', env('PRESALE_CONTRACT', '')),
+        137 => env('PRESALE_CONTRACT_POLYGON', env('PRESALE_CONTRACT', '')),
+    ],
     'obx_token_contract'   => env('OBX_TOKEN_CONTRACT', ''),  // OBXToken.sol address
     'owner_private_key'    => env('OWNER_PRIVATE_KEY', ''),
     'bscscan_api_key'      => env('BSCSCAN_API_KEY', ''),
@@ -40,10 +52,24 @@ return [
 
     // OBXToken contract addresses by chain (same ABI, different addresses per chain)
     'obx_token_addresses' => [
-        56  => env('OBX_TOKEN_BSC',        ''),
-        97  => env('OBX_TOKEN_BSC_TEST',   ''),
-        1   => env('OBX_TOKEN_ETH',        ''),
-        137 => env('OBX_TOKEN_POLYGON',    ''),
+        56  => env('OBX_TOKEN_BSC',      env('OBX_TOKEN_CONTRACT', '')),
+        97  => env('OBX_TOKEN_BSC_TEST', env('OBX_TOKEN_CONTRACT', '')),
+        1   => env('OBX_TOKEN_ETH',      env('OBX_TOKEN_CONTRACT', '')),
+        137 => env('OBX_TOKEN_POLYGON',  env('OBX_TOKEN_CONTRACT', '')),
+    ],
+
+    'airdrop_contracts' => [
+        56  => env('AIRDROP_CONTRACT_BSC', ''),
+        97  => env('AIRDROP_CONTRACT_BSC_TEST', ''),
+        1   => env('AIRDROP_CONTRACT_ETH', ''),
+        137 => env('AIRDROP_CONTRACT_POLYGON', ''),
+    ],
+
+    'staking_contracts' => [
+        56  => env('STAKING_CONTRACT_BSC', ''),
+        97  => env('STAKING_CONTRACT_BSC_TEST', ''),
+        1   => env('STAKING_CONTRACT_ETH', ''),
+        137 => env('STAKING_CONTRACT_POLYGON', ''),
     ],
 
     // Block number to start scanning for TokensPurchased events (set to deployment block)

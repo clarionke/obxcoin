@@ -57,11 +57,22 @@ class BlockchainService
 
     public function __construct()
     {
-        $this->rpcUrl          = config('blockchain.bsc_rpc_url',       'https://bsc-dataseed.binance.org/');
-        $this->contractAddress = config('blockchain.presale_contract',   '');
-        $this->obxTokenAddress = config('blockchain.obx_token_contract', '');
-        $this->bscscanKey      = config('blockchain.bscscan_api_key',    '');
-        $this->chainId         = (int) config('blockchain.presale_chain_id', 56);
+        $this->chainId = (int) config('blockchain.presale_chain_id', 56);
+
+        $rpcUrls          = (array) config('blockchain.rpc_urls', []);
+        $presaleContracts = (array) config('blockchain.presale_contracts', []);
+        $tokenContracts   = (array) config('blockchain.obx_token_addresses', []);
+
+        $this->rpcUrl = (string) ($rpcUrls[$this->chainId]
+            ?? config('blockchain.bsc_rpc_url', 'https://bsc-dataseed.binance.org/'));
+
+        $this->contractAddress = (string) ($presaleContracts[$this->chainId]
+            ?? config('blockchain.presale_contract', ''));
+
+        $this->obxTokenAddress = (string) ($tokenContracts[$this->chainId]
+            ?? config('blockchain.obx_token_contract', ''));
+
+        $this->bscscanKey = (string) config('blockchain.bscscan_api_key', '');
     }
 
     // â”€â”€â”€ Read: active phase â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
