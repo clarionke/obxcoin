@@ -391,7 +391,7 @@ contract OBXPresale {
         if (treasuryUsdt > 0) {
             require(
                 usdt.transferFrom(msg.sender, treasury, treasuryUsdt),
-                "USDT treasury transfer failed — approve first"
+                "USDT treasury transfer failed - approve first"
             );
         }
 
@@ -399,7 +399,7 @@ contract OBXPresale {
         if (liqUsdt > 0) {
             require(
                 usdt.transferFrom(msg.sender, address(this), liqUsdt),
-                "USDT LP transfer failed — approve first"
+                "USDT LP transfer failed - approve first"
             );
         }
 

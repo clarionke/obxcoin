@@ -1,4 +1,8 @@
 /node_modules
+/contracts/node_modules/
+/artifacts/
+/cache/
+/bootstrap/cache/
 /vendor
 /public/uploaded_file/*
 /storage/*.key
@@ -15,4 +19,4 @@ yarn-error.log
 composer.lock
 package-lock.json
 phpunit_out.txt  
-contracts/node_modules/  
+

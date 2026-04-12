@@ -38,6 +38,27 @@
 
 const { ethers } = require('ethers');
 
+const RPC_URLS = {
+    56: process.env.BSC_RPC_URL || 'https://bsc-dataseed.binance.org/',
+    97: process.env.BSC_TESTNET_RPC_URL || 'https://data-seed-prebsc-1-s1.bnbchain.org:8545/',
+    1: process.env.ETH_RPC_URL || 'https://eth.llamarpc.com',
+    137: process.env.POLYGON_RPC_URL || 'https://polygon-rpc.com',
+};
+
+const PRESALE_CONTRACTS = {
+    56: process.env.PRESALE_CONTRACT_BSC || process.env.PRESALE_CONTRACT || '',
+    97: process.env.PRESALE_CONTRACT_BSC_TEST || process.env.PRESALE_CONTRACT || '',
+    1: process.env.PRESALE_CONTRACT_ETH || process.env.PRESALE_CONTRACT || '',
+    137: process.env.PRESALE_CONTRACT_POLYGON || process.env.PRESALE_CONTRACT || '',
+};
+
+const OBX_TOKEN_CONTRACTS = {
+    56: process.env.OBX_TOKEN_BSC || process.env.OBX_TOKEN_CONTRACT || '',
+    97: process.env.OBX_TOKEN_BSC_TEST || process.env.OBX_TOKEN_CONTRACT || '',
+    1: process.env.OBX_TOKEN_ETH || process.env.OBX_TOKEN_CONTRACT || '',
+    137: process.env.OBX_TOKEN_POLYGON || process.env.OBX_TOKEN_CONTRACT || '',
+};
+
 // â”€â”€â”€ ABIs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const PRESALE_ABI = [
@@ -87,6 +108,52 @@ const OBX_TOKEN_ABI = [
     'event FeeExemptUpdated(address indexed account, bool exempt)',
 ];
 
+function normalizePrivateKey(privateKey) {
+    if (!privateKey) return '';
+    return privateKey.startsWith('0x') ? privateKey : `0x${privateKey}`;
+}
+
+function normalizeAddress(address) {
+    return ethers.utils.getAddress(String(address).trim());
+}
+
+function resolveRpcUrl(payload) {
+    if (payload.rpcUrl) {
+        return String(payload.rpcUrl).trim();
+    }
+
+    const chainId = Number(payload.chainId || process.env.PRESALE_CHAIN_ID || 56);
+    return RPC_URLS[chainId] || RPC_URLS[56];
+}
+
+function inferContractType(action) {
+    switch (action) {
+        case 'fundPresale':
+        case 'setFeeExempt':
+        case 'transferObx':
+            return 'token';
+        default:
+            return 'presale';
+    }
+}
+
+function resolveContractAddress(payload) {
+    if (payload.contractAddress) {
+        return normalizeAddress(payload.contractAddress);
+    }
+
+    const chainId = Number(payload.chainId || process.env.PRESALE_CHAIN_ID || 56);
+    const contractType = payload.contractType || inferContractType(payload.action);
+
+    if (contractType === 'token') {
+        const tokenAddress = OBX_TOKEN_CONTRACTS[chainId];
+        return tokenAddress ? normalizeAddress(tokenAddress) : '';
+    }
+
+    const presaleAddress = PRESALE_CONTRACTS[chainId];
+    return presaleAddress ? normalizeAddress(presaleAddress) : '';
+}
+
 // â”€â”€â”€ Entry point â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function main() {
@@ -114,18 +181,21 @@ async function main() {
 
     // -- User wallet transfer: uses SIGNER_PRIVATE_KEY, not OWNER_PRIVATE_KEY --
     if (payload.action === 'transferObx') {
-        const signerKey = process.env.SIGNER_PRIVATE_KEY;
+        const signerKey = normalizePrivateKey(process.env.SIGNER_PRIVATE_KEY);
         if (!signerKey) { out({ error: 'SIGNER_PRIVATE_KEY not set for transferObx' }); process.exit(1); }
         const p = payload.params || {};
-        if (!payload.rpcUrl || !p.obxTokenAddress || !p.to || !p.amount) {
-            out({ error: 'transferObx requires rpcUrl, params.obxTokenAddress, params.to, params.amount' });
+        const rpcUrl = resolveRpcUrl(payload);
+        const obxTokenAddress = p.obxTokenAddress ? normalizeAddress(p.obxTokenAddress) : resolveContractAddress({ ...payload, contractType: 'token' });
+
+        if (!rpcUrl || !obxTokenAddress || !p.to || !p.amount) {
+            out({ error: 'transferObx requires rpcUrl, token address, params.to, params.amount' });
             process.exit(1);
         }
         try {
-            const provider   = new ethers.providers.JsonRpcProvider(payload.rpcUrl);
+            const provider   = new ethers.providers.JsonRpcProvider(rpcUrl);
             const userWallet = new ethers.Wallet(signerKey, provider);
-            const obxToken   = new ethers.Contract(p.obxTokenAddress, OBX_TOKEN_ABI, userWallet);
-            const tx         = await obxToken.transfer(p.to, ethers.BigNumber.from(p.amount));
+            const obxToken   = new ethers.Contract(obxTokenAddress, OBX_TOKEN_ABI, userWallet);
+            const tx         = await obxToken.transfer(normalizeAddress(p.to), ethers.BigNumber.from(p.amount));
             const receipt    = await tx.wait(1);
             out({ txHash: tx.hash, blockNumber: receipt.blockNumber, gasUsed: receipt.gasUsed.toString(), success: true });
         } catch (e) {
@@ -156,20 +226,23 @@ async function main() {
     }
 
     // â”€â”€ All write actions require private key + RPC â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    const privateKey = process.env.OWNER_PRIVATE_KEY;
+    const privateKey = normalizePrivateKey(process.env.OWNER_PRIVATE_KEY);
     if (!privateKey) {
         out({ error: 'OWNER_PRIVATE_KEY not set in environment' });
         process.exit(1);
     }
 
-    if (!payload.rpcUrl || !payload.contractAddress) {
-        out({ error: 'rpcUrl and contractAddress are required for write actions' });
+    const rpcUrl = resolveRpcUrl(payload);
+    const contractAddress = resolveContractAddress(payload);
+
+    if (!rpcUrl || !contractAddress) {
+        out({ error: 'Could not resolve rpcUrl or contractAddress for write action' });
         process.exit(1);
     }
 
-    const provider = new ethers.providers.JsonRpcProvider(payload.rpcUrl);
+    const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
     const wallet   = new ethers.Wallet(privateKey, provider);
-    const contract = new ethers.Contract(payload.contractAddress, PRESALE_ABI, wallet);
+    const contract = new ethers.Contract(contractAddress, PRESALE_ABI, wallet);
     const p        = payload.params || {};
 
     let tx;
@@ -215,7 +288,7 @@ async function main() {
                 break;
 
             case 'setRouter':
-                tx = await contract.setRouter(p.router);
+                tx = await contract.setRouter(normalizeAddress(p.router));
                 break;
 
             case 'setLiquidityBps':
@@ -235,12 +308,12 @@ async function main() {
                 break;
 
             case 'setTreasury':
-                tx = await contract.setTreasury(p.treasury);
+                tx = await contract.setTreasury(normalizeAddress(p.treasury));
                 break;
 
             case 'withdrawUnsoldObx':
                 tx = await contract.withdrawUnsoldObx(
-                    p.to,
+                    normalizeAddress(p.to),
                     ethers.BigNumber.from(p.amount)
                 );
                 break;
@@ -250,23 +323,25 @@ async function main() {
                 break;
 
             case 'transferOwnership':
-                tx = await contract.transferOwnership(p.newOwner);
+                tx = await contract.transferOwnership(normalizeAddress(p.newOwner));
                 break;
 
             // â”€â”€ OBXToken operations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
             case 'fundPresale': {
-                const obxContract = new ethers.Contract(p.obxTokenAddress, OBX_TOKEN_ABI, wallet);
+                const obxTokenAddress = p.obxTokenAddress ? normalizeAddress(p.obxTokenAddress) : resolveContractAddress({ ...payload, contractType: 'token' });
+                const obxContract = new ethers.Contract(obxTokenAddress, OBX_TOKEN_ABI, wallet);
                 tx = await obxContract.transfer(
-                    payload.contractAddress,
+                    contractAddress,
                     ethers.BigNumber.from(p.amount)
                 );
                 break;
             }
 
             case 'setFeeExempt': {
-                const obxContract = new ethers.Contract(p.obxTokenAddress, OBX_TOKEN_ABI, wallet);
-                tx = await obxContract.setFeeExempt(p.account, p.exempt);
+                const obxTokenAddress = p.obxTokenAddress ? normalizeAddress(p.obxTokenAddress) : resolveContractAddress({ ...payload, contractType: 'token' });
+                const obxContract = new ethers.Contract(obxTokenAddress, OBX_TOKEN_ABI, wallet);
+                tx = await obxContract.setFeeExempt(normalizeAddress(p.account), p.exempt);
                 break;
             }
 
