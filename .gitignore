@@ -1,13 +1,10 @@
 /node_modules
-/public/hot
 /vendor
-/public/storage
 /public/uploaded_file/*
 /storage/*.key
 .env
 vendor
 # Allow locally-bundled front-end vendor scripts (replaces CDN for security)
-!/public/js/vendor
 /.idea
 .env.backup
 .phpunit.result.cache
@@ -15,11 +12,6 @@ Homestead.json
 Homestead.yaml
 npm-debug.log
 yarn-error.log
-storage/logs/*
-storage/framework/cache/*
-storage/framework/sessions/*
-storage/framework/views/*
-bootstrap/cache/*.php
 composer.lock
 package-lock.json
 phpunit_out.txt  

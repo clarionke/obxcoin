@@ -16,7 +16,7 @@ class HardenMultisigAndAddSignatoryChangeRequests extends Migration
 
         try {
             Schema::table('wallet_co_users', function (Blueprint $table) {
-                $table->index(['wallet_id', 'can_approve']);
+                $table->index(['wallet_id', 'can_approve'], 'wcu_wallet_can_approve_idx');
             });
         } catch (\Exception $e) {
             // Index may already exist on environments where schema was patched manually.
@@ -34,8 +34,8 @@ class HardenMultisigAndAddSignatoryChangeRequests extends Migration
                 $table->tinyInteger('status')->default(STATUS_PENDING);
                 $table->timestamps();
 
-                $table->index(['wallet_id', 'status']);
-                $table->index(['target_wallet_co_user_id']);
+                $table->index(['wallet_id', 'status'], 'cwscr_wallet_status_idx');
+                $table->index(['target_wallet_co_user_id'], 'cwscr_target_co_user_idx');
             });
         }
 
@@ -47,7 +47,7 @@ class HardenMultisigAndAddSignatoryChangeRequests extends Migration
                 $table->bigInteger('user_id');
                 $table->timestamps();
 
-                $table->index(['request_id', 'user_id']);
+                $table->index(['request_id', 'user_id'], 'cwsca_request_user_idx');
             });
         }
     }
@@ -65,7 +65,7 @@ class HardenMultisigAndAddSignatoryChangeRequests extends Migration
         if (Schema::hasColumn('wallet_co_users', 'can_approve')) {
             try {
                 Schema::table('wallet_co_users', function (Blueprint $table) {
-                    $table->dropIndex(['wallet_id', 'can_approve']);
+                    $table->dropIndex('wcu_wallet_can_approve_idx');
                 });
             } catch (\Exception $e) {
                 // Ignore when index does not exist.
