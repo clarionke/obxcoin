@@ -12,13 +12,14 @@
                         </a>
                         <p>{{__('Forgot Password')}}</p>
                     </div>
-                    {{Form::open(['route' => 'sendForgotMail', 'files' => true])}}
+                    <form method="POST" action="{{ route('sendForgotMail') }}" enctype="multipart/form-data">
+                    @csrf
                     <div class="form-group">
                         <label>{{__('Email address')}}</label>
                         <input type="email" name="email" class="form-control" placeholder="{{__('Your email here')}}">
                     </div>
                     <button type="submit" class="btn btn-primary nimmu-user-sibmit-button">{{__('Send')}}</button>
-                    {{ Form::close() }}
+                    </form>
                     <div class="form-bottom text-center">
                         <p>{{__('Return to sign in')}} <a href="{{route('login')}}">{{__('Sign in')}}</a></p>
                     </div>

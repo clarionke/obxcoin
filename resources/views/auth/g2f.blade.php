@@ -13,7 +13,8 @@
                         <h2>{{__('Two Factor Authentication')}}</h2>
                         <p>{{__('Open your authentication app and enter the code for')}} {{settings('app_title')}}</p>
                     </div>
-                    {{Form::open(['route' => 'g2fVerify', 'files' => true])}}
+                    <form method="POST" action="{{ route('g2fVerify') }}" enctype="multipart/form-data">
+                    @csrf
                     <div class="form-group">
                         <label>{{__('Authentication Code')}}</label>
                         <input type="text" value="{{old('code')}}" id="exampleInputEmail1" name="code"
@@ -23,7 +24,7 @@
                         @enderror
                     </div>
                     <button type="submit" class="btn btn-primary nimmu-user-sibmit-button">{{__('Verify')}}</button>
-                    {{Form::close()}}
+                    </form>
                 </div>
             </div>
         </div>

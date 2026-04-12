@@ -1522,7 +1522,7 @@ function custom_number_format($value)
     return $number[0] . '.' . substr($number[1], 0, 8);
 }
 
-function converts_currency($amountInUsd, $to = 'BTC', $price)
+function converts_currency($amountInUsd, $to, $price)
 {
     try {
         $array['amount'] = $amountInUsd;
@@ -1599,7 +1599,7 @@ function createUserActivity($userId, $action = '', $ip = null, $device = null){
     ActivityLog::create($activity);
 }
 // user image
-function show_image($id=null, $type)
+function show_image($id, $type)
 {
     $img = asset('assets/img/avater.png');
     if ($type =='logo') {

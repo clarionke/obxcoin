@@ -27,7 +27,8 @@
                 </div>
                 <div class="profile-info-form">
                     <div class="card-body">
-                        {{Form::open(['route'=>'adminCoinSaveProcess', 'files' => true])}}
+                        <form method="POST" action="{{ route('adminCoinSaveProcess') }}" enctype="multipart/form-data">
+                        @csrf
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group">
@@ -114,7 +115,7 @@
                                 <button type="submit" class="btn btn-success">{{$button_title}}</button>
                             </div>
                         </div>
-                        {{Form::close()}}
+                        </form>
                     </div>
                 </div>
             </div>
