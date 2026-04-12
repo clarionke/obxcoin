@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Auth;
 use App\User;
 
 /**
- * Feature tests for admin user-impersonation.
+ * Feature tests for admin user-impersonation
  *
  * Covers:
  *  • Admin can start impersonating an active regular user
