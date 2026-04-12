@@ -8,6 +8,7 @@ use App\Http\Requests\withDrawRequest;
 use App\Http\Services\CommonService;
 use App\Http\Services\TransactionService;
 use App\Jobs\Withdrawal;
+use App\Jobs\CoWalletObxWithdrawal;
 use App\Model\Coin;
 use App\Model\CoWalletWithdrawApproval;
 use App\Model\CoWalletSignatoryChangeApproval;
@@ -408,7 +409,7 @@ class WalletController extends Controller
                             DB::commit();
 
                             if ($transactionService->isAllApprovalDoneForCoWalletWithdraw($tempWithdraw)['success']) {
-                                dispatch(new Withdrawal($tempWithdraw->toArray()))->onQueue('withdrawal');
+                                $this->dispatchCoWalletWithdrawal($wallet, $tempWithdraw->toArray());
                                 return redirect()->back()->with('success', __('Withdrawal placed successfully'));
                             }
                             return redirect()->back()->with('success', __('Process successful. Need other co users approval.'));
@@ -836,7 +837,8 @@ class WalletController extends Controller
             DB::commit();
 
             if ($approvalCheck['success']) {
-                dispatch(new Withdrawal($tempWithdraw->toArray()))->onQueue('withdrawal');
+                $wallet = Wallet::find($tempWithdraw->wallet_id);
+                $this->dispatchCoWalletWithdrawal($wallet, $tempWithdraw->toArray());
                 return redirect()->route('myPocket', ['tab' => 'co-pocket'])->with('success', __('All approval done and withdrawal placed successfully.'));
             }
 
@@ -846,6 +848,21 @@ class WalletController extends Controller
             Log::error($e->getMessage());
             return redirect()->route('walletDetails', [$id, 'q' => 'activity', 'ac_tab' => 'co-withdraw'])
                 ->with('dismiss', __('Something went wrong.'));
+        }
+    }
+
+    /**
+     * Dispatch the appropriate withdrawal job for a co-wallet based on coin type.
+     * DEFAULT_COIN_TYPE (OBXCoin) uses on-chain transfer via BlockchainService (burns 0.05%).
+     * Other coin types use the standard off-chain Withdrawal job.
+     */
+    private function dispatchCoWalletWithdrawal(?Wallet $wallet, array $tempWithdrawData): void
+    {
+        if ($wallet && strcasecmp((string) $wallet->coin_type, DEFAULT_COIN_TYPE) === 0) {
+            dispatch(new CoWalletObxWithdrawal($tempWithdrawData))->onQueue('withdrawal');
+            TempWithdraw::where('id', $tempWithdrawData['id'] ?? 0)->update(['status' => STATUS_SUCCESS]);
+        } else {
+            dispatch(new Withdrawal($tempWithdrawData))->onQueue('withdrawal');
         }
     }
 

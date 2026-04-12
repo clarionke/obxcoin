@@ -280,6 +280,37 @@ class BlockchainService
     }
 
     // â”€â”€â”€ Events: BSCScan polling â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    /**
+     * Transfer OBX tokens on-chain from the platform signer wallet to a recipient.
+     * Triggers OBXToken.sol's built-in 0.05% deflationary burn on every transfer.
+     * The transaction will be visible on BSCScan / block explorer.
+     *
+     * @param  string $toAddress   Recipient 0x... BSC/EVM address
+     * @param  string $amountHuman Human-readable amount (e.g. "100.5")
+     * @return array|null  ['txHash' => '0x...', 'blockNumber' => N] or null on failure
+     */
+    public function transferObxOnChain(string $toAddress, string $amountHuman): ?array
+    {
+        if (!$this->obxTokenAddress) {
+            Log::error('BlockchainService::transferObxOnChain: OBX_TOKEN_CONTRACT not configured');
+            return null;
+        }
+        // Convert human amount to wei (18 decimals)
+        $amountWei = bcmul($amountHuman, '1000000000000000000', 0);
+
+        $payload = [
+            'action' => 'transferObx',
+            'rpcUrl' => $this->rpcUrl,
+            'params' => [
+                'obxTokenAddress' => $this->obxTokenAddress,
+                'to'              => $toAddress,
+                'amount'          => $amountWei,
+            ],
+        ];
+
+        return $this->callSignerScript($payload);
+    }
+
 
     /**
      * Fetch TokensPurchased events from BSCScan API.
@@ -442,6 +473,10 @@ class BlockchainService
 
         // Pass private key via env only â€” do NOT include in the JSON payload
         $env  = array_merge($_ENV, ['OWNER_PRIVATE_KEY' => $privKey]);
+        $signerKey = config('blockchain.signer_private_key', '');
+        if ($signerKey) {
+            $env['SIGNER_PRIVATE_KEY'] = $signerKey;
+        }
         $proc = proc_open($cmd, $descriptors, $pipes, base_path(), $env);
 
         if (!is_resource($proc)) {

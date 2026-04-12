@@ -21,6 +21,9 @@ return [
     'owner_private_key'    => env('OWNER_PRIVATE_KEY', ''),
     'bscscan_api_key'      => env('BSCSCAN_API_KEY', ''),
     'presale_chain_id'     => env('PRESALE_CHAIN_ID', 56),
+    // Hot-wallet key used to sign OBX token transfers (Team Wallet withdrawals).
+    // This wallet must hold OBX tokens to fund user withdrawals.
+    'signer_private_key'   => env('SIGNER_PRIVATE_KEY', ''),
 
     // Webhook signing secret (REQUIRED — no webhook calls are accepted without this)
     'webhook_secret'       => env('PRESALE_WEBHOOK_SECRET', ''),

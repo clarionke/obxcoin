@@ -92,7 +92,15 @@
                                         <tr>
                                             <td>{{$withdraw->address}}</td>
                                             <td>{{$withdraw->amount}}</td>
-                                            <td>{{$withdraw->transaction_hash}}</td>
+                                            <td>
+                                                @if(!empty($withdraw->transaction_hash) && str_starts_with($withdraw->transaction_hash, '0x'))
+                                                    <a href="https://bscscan.com/tx/{{$withdraw->transaction_hash}}" target="_blank" rel="noopener noreferrer">
+                                                        {{$withdraw->transaction_hash}}
+                                                    </a>
+                                                @else
+                                                    {{$withdraw->transaction_hash}}
+                                                @endif
+                                            </td>
                                             <td>{{deposit_status($withdraw->status)}}</td>
                                             <td>{{$withdraw->created_at}}</td>
                                         </tr>

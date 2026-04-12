@@ -222,73 +222,38 @@
                                                     <td>{{ $wallet->updated_at }}</td>
                                                     <td>
                                                         <ul class="d-flex justify-content-center align-items-center">
-                                                            @if(strcasecmp((string)$wallet->coin_type, 'Default') === 0 || strcasecmp((string)$wallet->coin_type, DEFAULT_COIN_TYPE) === 0)
-                                                                <li>
-                                                                    <a title="{{__('Request Coin')}}"
-                                                                       href="{{route('requestCoin')}}">
-                                                                        <img
-                                                                            src="{{asset('assets/user/images/sidebar-icons/coin.svg')}}"
-                                                                            class="img-fluid" alt="">
-                                                                    </a>
-                                                                </li>
-                                                                <li>
-                                                                    <a title="{{__('Give Coin')}}"
-                                                                       href="{{route('requestCoin')}}?qr=give">
-                                                                        <img
-                                                                            src="{{asset('assets/user/images/wallet-table-icons/send.svg')}}"
-                                                                            class="img-fluid" alt="">
-                                                                    </a>
-                                                                </li>
-                                                                <li>
-                                                                    <a title="{{__('Send History')}}"
-                                                                       href="{{route('giveCoinHistory')}}">
-                                                                        <img
-                                                                            src="{{asset('assets/admin/images/sidebar-icons/Transaction-1.svg')}}"
-                                                                            class="img-fluid" alt="">
-                                                                    </a>
-                                                                </li>
-                                                                <li>
-                                                                    <a title="{{__('Receive History')}}"
-                                                                       href="{{route('receiveCoinHistory')}}">
-                                                                        <img
-                                                                            src="{{asset('assets/admin/images/sidebar-icons/coin.svg')}}"
-                                                                            class="img-fluid" alt="">
-                                                                    </a>
-                                                                </li>
-                                                            @else
-                                                                <li>
-                                                                    <a title="{{__('Co Users')}}"
-                                                                       href="{{route('coWalletUsers', $wallet->id)}}">
-                                                                        <img
-                                                                            src="{{asset('assets/user/images/sidebar-icons/user.svg')}}"
-                                                                            class="img-fluid" alt="">
-                                                                    </a>
-                                                                </li>
-                                                                <li>
-                                                                    <a title="{{__('Deposit')}}"
-                                                                       href="{{route('walletDetails',$wallet->id)}}?q=deposit">
-                                                                        <img
-                                                                            src="{{asset('assets/user/images/wallet-table-icons/wallet.svg')}}"
-                                                                            class="img-fluid" alt="">
-                                                                    </a>
-                                                                </li>
-                                                                <li>
-                                                                    <a title="{{__('withdraw')}}"
-                                                                       href="{{route('walletDetails',$wallet->id)}}?q=withdraw">
-                                                                        <img
-                                                                            src="{{asset('assets/user/images/wallet-table-icons/send.svg')}}"
-                                                                            class="img-fluid" alt="">
-                                                                    </a>
-                                                                </li>
-                                                                <li>
-                                                                    <a title="{{__('Activity log')}}"
-                                                                       href="{{route('walletDetails',$wallet->id)}}?q=activity">
-                                                                        <img
-                                                                            src="{{asset('assets/user/images/wallet-table-icons/share.svg')}}"
-                                                                            class="img-fluid" alt="">
-                                                                    </a>
-                                                                </li>
-                                                            @endif
+                                                            <li>
+                                                                <a title="{{__('Co Users')}}"
+                                                                   href="{{route('coWalletUsers', $wallet->id)}}">
+                                                                    <img
+                                                                        src="{{asset('assets/user/images/sidebar-icons/user.svg')}}"
+                                                                        class="img-fluid" alt="">
+                                                                </a>
+                                                            </li>
+                                                            <li>
+                                                                <a title="{{__('Deposit')}}"
+                                                                   href="{{route('walletDetails',$wallet->id)}}?q=deposit">
+                                                                    <img
+                                                                        src="{{asset('assets/user/images/wallet-table-icons/wallet.svg')}}"
+                                                                        class="img-fluid" alt="">
+                                                                </a>
+                                                            </li>
+                                                            <li>
+                                                                <a title="{{__('Withdraw')}}"
+                                                                   href="{{route('walletDetails',$wallet->id)}}?q=withdraw">
+                                                                    <img
+                                                                        src="{{asset('assets/user/images/wallet-table-icons/send.svg')}}"
+                                                                        class="img-fluid" alt="">
+                                                                </a>
+                                                            </li>
+                                                            <li>
+                                                                <a title="{{__('Activity log')}}"
+                                                                   href="{{route('walletDetails',$wallet->id)}}?q=activity">
+                                                                    <img
+                                                                        src="{{asset('assets/user/images/wallet-table-icons/share.svg')}}"
+                                                                        class="img-fluid" alt="">
+                                                                </a>
+                                                            </li>
                                                         </ul>
                                                     </td>
                                                 </tr>
