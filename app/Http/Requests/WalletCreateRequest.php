@@ -39,6 +39,7 @@ class WalletCreateRequest extends FormRequest
 
         if (co_wallet_feature_active() && (int)$this->type === CO_WALLET) {
             $rules['max_co_users'] = 'required|integer|min:2|max:100';
+            $rules['approval_timeout_minutes'] = 'nullable|integer|min:5|max:10080';
         }
 
         return $rules;
@@ -54,6 +55,8 @@ class WalletCreateRequest extends FormRequest
           'coin_type.exists' => __('Invalid coin type'),
                     'max_co_users.required' => __('Maximum user capacity is required for Team Wallet'),
                     'max_co_users.min' => __('Team Wallet must allow at least 2 members'),
+                    'approval_timeout_minutes.min' => __('Approval duration must be at least 5 minutes'),
+                    'approval_timeout_minutes.max' => __('Approval duration must not exceed 10080 minutes (7 days)'),
         ];
     }
 }

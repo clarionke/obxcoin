@@ -21,6 +21,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 
@@ -1016,6 +1017,17 @@ class TransactionService
             Log::warning('Empty temp withdrawal.');
             return ['success' => false, 'message' => __('Invalid withdrawal.')];
         }
+
+        if ($this->isTempWithdrawExpired($tempWithdraw)) {
+            $tempWithdraw->status = STATUS_REJECTED;
+            try {
+                $tempWithdraw->save();
+            } catch (\Exception $e) {
+                Log::warning($e->getMessage());
+            }
+            return ['success' => false, 'message' => __('Withdrawal approval window expired. Request cancelled automatically.')];
+        }
+
         $response = $this->approvalCounts($tempWithdraw);
         if($response['alreadyApprovedUserCount'] >= $response['requiredUserApprovalCount']) {
             $tempWithdraw->status = STATUS_ACCEPTED;
@@ -1028,6 +1040,15 @@ class TransactionService
             }
         }
         else return ['success' => false, 'message' => __('Not enough approval done yet.')];
+    }
+
+    public function isTempWithdrawExpired($tempWithdraw): bool
+    {
+        if (empty($tempWithdraw)) return false;
+        if (!Schema::hasColumn('temp_withdraws', 'expires_at')) return false;
+        if (empty($tempWithdraw->expires_at)) return false;
+
+        return Carbon::now()->greaterThanOrEqualTo(Carbon::parse($tempWithdraw->expires_at));
     }
 
     public function approvalCounts($tempWithdraw) {

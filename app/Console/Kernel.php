@@ -18,6 +18,7 @@ class Kernel extends ConsoleKernel
         Commands\AdjustCustomTokenDeposit::class,
         Commands\FetchCMCPrice::class,
         Commands\ReportCMCSupply::class,
+        Commands\CancelExpiredCoWalletWithdrawals::class,
     ];
 
     /**
@@ -45,6 +46,11 @@ class Kernel extends ConsoleKernel
         // Report circulating supply to CoinMarketCap daily
         $schedule->command('cmc:report-supply')
             ->daily()
+            ->withoutOverlapping();
+
+        // Cancel expired pending co-wallet withdrawal requests automatically
+        $schedule->command('co-wallet:cancel-expired-withdrawals')
+            ->everyMinute()
             ->withoutOverlapping();
     }
 

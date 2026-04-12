@@ -21,6 +21,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Carbon\Carbon;
 use PragmaRX\Google2FA\Google2FA;
 
 class WalletController extends Controller
@@ -124,6 +125,9 @@ class WalletController extends Controller
                     $wallet->coin_id = $coin->id;
                     if (co_wallet_feature_active() && $request->type == CO_WALLET) {
                         $wallet->max_co_users = max(2, (int) ($request->max_co_users ?? 2));
+                        if (Schema::hasColumn('wallets', 'approval_timeout_minutes')) {
+                            $wallet->approval_timeout_minutes = max(5, (int) ($request->approval_timeout_minutes ?? 60));
+                        }
                         if (Schema::hasColumn('wallets', 'team_wallet_uid')) {
                             $teamWalletUid = 'TW-' . strtoupper(Str::random(10));
                             while (Wallet::where('team_wallet_uid', $teamWalletUid)->exists()) {
@@ -373,12 +377,18 @@ class WalletController extends Controller
                     return response()->json(['success'=>true,'message'=> __('Withdrawal placed successfully')]);
                 } else if (co_wallet_feature_active() && $wallet->type == CO_WALLET) {
                     DB::beginTransaction();
+                    $expiresAt = null;
+                    if (Schema::hasColumn('temp_withdraws', 'expires_at')) {
+                        $timeoutMinutes = max(5, (int) ($wallet->approval_timeout_minutes ?? 60));
+                        $expiresAt = Carbon::now()->addMinutes($timeoutMinutes);
+                    }
                     $tempWithdraw = TempWithdraw::create([
                         'user_id' => $user->id,
                         'wallet_id' => $wallet->id,
                         'amount' => $request->amount,
                         'address' => $request->address,
-                        'message' => $request->message
+                        'message' => $request->message,
+                        'expires_at' => $expiresAt,
                     ]);
 
                     CoWalletWithdrawApproval::create([
@@ -409,7 +419,14 @@ class WalletController extends Controller
     public function coWalletPendingWithdrawList(Request $request){
         try{
             if(co_wallet_feature_active()) {
-                $data['pending_withdraws'] = TempWithdraw::where(['wallet_id'=>$request->wallet_id, 'status'=>STATUS_PENDING])->orderBy('id','desc')->get();
+                $data['pending_withdraws'] = TempWithdraw::where(['wallet_id'=>$request->wallet_id, 'status'=>STATUS_PENDING])
+                    ->when(Schema::hasColumn('temp_withdraws', 'expires_at'), function ($q) {
+                        return $q->where(function ($query) {
+                            $query->whereNull('expires_at')->orWhere('expires_at', '>', now());
+                        });
+                    })
+                    ->orderBy('id','desc')
+                    ->get();
             }
          } catch (\Exception $e) {
             return response()->json(['success'=>false,'data'=>[],'message'=> __('Pending withdrawal list')]);
@@ -420,6 +437,14 @@ class WalletController extends Controller
     public function coWalletUserStatusPendingWithdrawal(Request $request){
         try{
             $data['tempWithdraw'] = TempWithdraw::where(['status'=>STATUS_PENDING, 'id'=>$request->id])->first();
+            if (empty($data['tempWithdraw'])) {
+                return response()->json(['success'=>false,'data'=>[],'message'=> __('Invalid withdrawal.')]);
+            }
+            if ((new TransactionService())->isTempWithdrawExpired($data['tempWithdraw'])) {
+                $data['tempWithdraw']->status = STATUS_REJECTED;
+                $data['tempWithdraw']->save();
+                return response()->json(['success'=>false,'data'=>[],'message'=> __('Withdrawal approval window expired. Request cancelled automatically.')]);
+            }
             $response = (new TransactionService())->approvalCounts($data['tempWithdraw']);
             $data['total_required_approval'] = $response['requiredUserApprovalCount'];
             $data['approved_count'] = $response['alreadyApprovedUserCount'];
@@ -452,6 +477,13 @@ class WalletController extends Controller
             if(empty($tempWithdraw)) {
                 DB::rollBack();
                 return response()->json(['success'=>false,'data'=>[],'message'=> __('Invalid withdrawal')]);
+            }
+
+            if ((new TransactionService())->isTempWithdrawExpired($tempWithdraw)) {
+                $tempWithdraw->status = STATUS_REJECTED;
+                $tempWithdraw->save();
+                DB::commit();
+                return response()->json(['success'=>false,'data'=>[],'message'=> __('Withdrawal approval window expired. Request cancelled automatically.')]);
             }
 
             $wallet = Wallet::select('wallets.*')

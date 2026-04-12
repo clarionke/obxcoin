@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Wallet extends Model
 {
-    protected $fillable = ['user_id','name','balance','referral_balance','status','is_primary','coin_type','coin_id','key','team_wallet_uid','type','max_co_users'];
+    protected $fillable = ['user_id','name','balance','referral_balance','status','is_primary','coin_type','coin_id','key','team_wallet_uid','type','max_co_users','approval_timeout_minutes'];
 
     public function user(){
         return $this->hasOne(User::class,'id','user_id');

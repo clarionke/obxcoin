@@ -7,6 +7,7 @@ use App\Model\CoWalletSignatoryChangeRequest;
 use App\User;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 class MultiSigSecurityGovernanceTest extends TestCase
@@ -168,6 +169,111 @@ class MultiSigSecurityGovernanceTest extends TestCase
         $this->assertDatabaseHas('co_wallet_signatory_change_requests', [
             'id' => $request->id,
             'status' => STATUS_ACCEPTED,
+        ]);
+    }
+
+    /** @test */
+    public function expired_pending_withdrawals_are_auto_cancelled_by_command()
+    {
+        if (!Schema::hasColumn('temp_withdraws', 'expires_at')) {
+            $this->markTestSkipped('temp_withdraws.expires_at not available.');
+        }
+
+        $this->enableCoWalletFeature();
+
+        $creator = $this->makeUser(['email' => 'creator-expire@example.com']);
+
+        $walletId = DB::table('wallets')->insertGetId([
+            'user_id' => $creator->id,
+            'name' => 'Expiry Wallet',
+            'coin_type' => DEFAULT_COIN_TYPE,
+            'status' => STATUS_ACTIVE,
+            'is_primary' => 0,
+            'balance' => 200,
+            'referral_balance' => 0,
+            'type' => CO_WALLET,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('wallet_co_users')->insert([
+            ['wallet_id' => $walletId, 'user_id' => $creator->id, 'status' => STATUS_ACTIVE, 'can_approve' => 1, 'created_at' => now(), 'updated_at' => now()],
+        ]);
+
+        $tempWithdrawId = DB::table('temp_withdraws')->insertGetId([
+            'user_id' => $creator->id,
+            'wallet_id' => $walletId,
+            'withdraw_id' => null,
+            'amount' => 10,
+            'address' => '0x1111111111111111111111111111111111111111',
+            'message' => 'should expire',
+            'status' => STATUS_PENDING,
+            'expires_at' => now()->subMinutes(1),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->artisan('co-wallet:cancel-expired-withdrawals')->assertExitCode(0);
+
+        $this->assertDatabaseHas('temp_withdraws', [
+            'id' => $tempWithdrawId,
+            'status' => STATUS_REJECTED,
+        ]);
+    }
+
+    /** @test */
+    public function signatory_cannot_approve_expired_pending_withdrawal()
+    {
+        if (!Schema::hasColumn('temp_withdraws', 'expires_at')) {
+            $this->markTestSkipped('temp_withdraws.expires_at not available.');
+        }
+
+        $this->enableCoWalletFeature();
+
+        $creator = $this->makeUser(['email' => 'creator-expired-approve@example.com']);
+        $signatory = $this->makeUser(['email' => 'signatory-expired-approve@example.com']);
+
+        $walletId = DB::table('wallets')->insertGetId([
+            'user_id' => $creator->id,
+            'name' => 'Expired Approval Wallet',
+            'coin_type' => DEFAULT_COIN_TYPE,
+            'status' => STATUS_ACTIVE,
+            'is_primary' => 0,
+            'balance' => 300,
+            'referral_balance' => 0,
+            'type' => CO_WALLET,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('wallet_co_users')->insert([
+            ['wallet_id' => $walletId, 'user_id' => $creator->id, 'status' => STATUS_ACTIVE, 'can_approve' => 1, 'created_at' => now(), 'updated_at' => now()],
+            ['wallet_id' => $walletId, 'user_id' => $signatory->id, 'status' => STATUS_ACTIVE, 'can_approve' => 1, 'created_at' => now(), 'updated_at' => now()],
+        ]);
+
+        $tempWithdrawId = DB::table('temp_withdraws')->insertGetId([
+            'user_id' => $creator->id,
+            'wallet_id' => $walletId,
+            'withdraw_id' => null,
+            'amount' => 25,
+            'address' => '0x2222222222222222222222222222222222222222',
+            'message' => 'expired approval request',
+            'status' => STATUS_PENDING,
+            'expires_at' => now()->subMinute(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $response = $this->actingAs($signatory)->post(route('approveCoWalletWithdraw', $tempWithdrawId));
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('temp_withdraws', [
+            'id' => $tempWithdrawId,
+            'status' => STATUS_REJECTED,
+        ]);
+        $this->assertDatabaseMissing('co_wallet_withdraw_approvals', [
+            'temp_withdraw_id' => $tempWithdrawId,
+            'user_id' => $signatory->id,
         ]);
     }
 }

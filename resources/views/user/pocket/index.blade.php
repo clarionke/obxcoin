@@ -331,6 +331,12 @@
                                        placeholder="{{__('e.g. 5')}}">
                                 <small style="color:#9aa4b2;">{{__('Creator sets this limit. Minimum 2 members are required.')}}</small>
                             </div>
+                            <div class="form-group d-none" id="approval-timeout-group">
+                                <label>{{__('Approval Duration (minutes)')}}</label>
+                                <input type="number" name="approval_timeout_minutes" min="5" max="10080" class="form-control"
+                                       placeholder="{{__('e.g. 60')}}">
+                                <small style="color:#9aa4b2;">{{__('If required signatories do not approve within this time, the request is auto-cancelled.')}}</small>
+                            </div>
                         @endif
                         <div class="form-group">
                             <label>{{__('Wallet Name')}}</label>
@@ -558,9 +564,13 @@
             if ($(this).val() == '{{CO_WALLET}}') {
                 $('#max-co-users-group').removeClass('d-none');
                 $('#max-co-users-group input[name=max_co_users]').prop('required', true).val(2);
+                $('#approval-timeout-group').removeClass('d-none');
+                $('#approval-timeout-group input[name=approval_timeout_minutes]').prop('required', true).val(60);
             } else {
                 $('#max-co-users-group').addClass('d-none');
                 $('#max-co-users-group input[name=max_co_users]').prop('required', false).val('');
+                $('#approval-timeout-group').addClass('d-none');
+                $('#approval-timeout-group input[name=approval_timeout_minutes]').prop('required', false).val('');
             }
         });
     </script>
