@@ -195,143 +195,39 @@
 .chg-up { color: #4ade80 !important; }
 .chg-dn { color: #f87171 !important; }
 .chg-neutral { color: #7d8590 !important; }
-
-/* multisig widget */
-.multisig-note {
-    background: linear-gradient(135deg,#1c2333 0%,#171d29 100%);
-    border: 1px solid rgba(99,102,241,.18);
-    border-radius: 14px;
-    padding: 16px 18px;
-    margin-bottom: 18px;
-}
-.multisig-note h6 {
-    margin: 0 0 6px;
-    font-size: 14px;
-    font-weight: 700;
-    color: #e6edf3;
-}
-.multisig-note p {
-    margin: 0;
-    font-size: 12.5px;
-    color: #9ca3af;
-    line-height: 1.6;
-}
-.multisig-queue {
-    display: grid;
-    gap: 12px;
-}
-.multisig-item {
-    border: 1px solid rgba(255,255,255,.08);
-    border-radius: 12px;
-    background: rgba(255,255,255,.03);
-    padding: 14px 15px;
-}
-.multisig-item-head {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 10px;
-}
-.multisig-item-title {
-    font-size: 13px;
-    font-weight: 700;
-    color: #e6edf3;
-    margin: 0 0 3px;
-}
-.multisig-item-sub {
-    font-size: 11.5px;
-    color: #7d8590;
-    margin: 0;
-}
-.multisig-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    border-radius: 999px;
-    padding: 4px 10px;
-    font-size: 10.5px;
-    font-weight: 700;
-    white-space: nowrap;
-}
-.multisig-pill.pending {
-    background: rgba(245,158,11,.12);
-    border: 1px solid rgba(245,158,11,.24);
-    color: #fbbf24;
-}
-.multisig-pill.ready {
-    background: rgba(34,197,94,.12);
-    border: 1px solid rgba(34,197,94,.24);
-    color: #4ade80;
-}
-.multisig-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 10px;
-}
-.multisig-meta span {
-    font-size: 11px;
-    color: #c9d1d9;
-    background: rgba(255,255,255,.04);
-    border: 1px solid rgba(255,255,255,.06);
-    border-radius: 999px;
-    padding: 4px 9px;
-}
-.multisig-actions {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-}
-.multisig-action {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    min-width: 110px;
-    padding: 7px 12px;
-    border-radius: 8px;
-    text-decoration: none !important;
-    font-size: 12px;
-    font-weight: 600;
-}
-.multisig-action.primary {
-    background: rgba(99,102,241,.15);
-    border: 1px solid rgba(99,102,241,.3);
-    color: #a5b4fc;
-}
-.multisig-action.primary:hover {
-    background: rgba(99,102,241,.22);
-    color: #c7d2fe;
-}
-.multisig-action.secondary {
-    background: rgba(255,255,255,.03);
-    border: 1px solid rgba(255,255,255,.08);
-    color: #c9d1d9;
-}
-.multisig-action.secondary:hover {
-    background: rgba(255,255,255,.06);
-    color: #e6edf3;
-}
-.multisig-action.danger {
-    background: rgba(248,81,73,.12);
-    border: 1px solid rgba(248,81,73,.24);
-    color: #f87171;
-}
-.multisig-action.danger:hover {
-    background: rgba(248,81,73,.2);
-    color: #fecaca;
-}
-.multisig-empty {
-    border: 1px dashed rgba(255,255,255,.12);
-    border-radius: 12px;
-    padding: 18px;
-    text-align: center;
-    color: #7d8590;
-    font-size: 12.5px;
-}
 @media(max-width:991px) { .obx-market-widget .mw-stats { grid-template-columns: repeat(3,1fr); } }
 @media(max-width:575px) { .obx-market-widget .mw-stats { grid-template-columns: repeat(2,1fr); } }
+
+/* multisig panel */
+.msig-card {
+    background: linear-gradient(135deg, #1a2136 0%, #1d2335 100%);
+    border: 1px solid rgba(99,102,241,.22);
+    border-radius: 12px;
+    padding: 18px 20px;
+    margin-bottom: 20px;
+}
+.msig-head { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:12px; }
+.msig-title { margin:0; font-size:14px; font-weight:700; color:#e6edf3; }
+.msig-sub { margin:4px 0 0; color:#8b93a0; font-size:12px; }
+.msig-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin-bottom:12px; }
+.msig-stat { background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.07); border-radius:9px; padding:10px 12px; }
+.msig-stat-label { font-size:10px; color:#8b93a0; text-transform:uppercase; letter-spacing:.5px; }
+.msig-stat-val { font-size:18px; color:#e6edf3; font-weight:700; line-height:1.25; }
+.msig-list { border-top:1px solid rgba(255,255,255,.08); padding-top:10px; }
+.msig-item { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 0; border-bottom:1px dashed rgba(255,255,255,.06); }
+.msig-item:last-child { border-bottom:none; }
+.msig-item-main { min-width:0; }
+.msig-item-main strong { color:#dbe2ff; font-size:12.5px; }
+.msig-item-main p { margin:2px 0 0; color:#8b93a0; font-size:11.5px; }
+.msig-btn {
+    display:inline-flex; align-items:center; gap:6px;
+    background:rgba(99,102,241,.16); border:1px solid rgba(99,102,241,.35);
+    color:#b8c0ff; border-radius:7px; font-size:11.5px; font-weight:600;
+    padding:6px 10px; text-decoration:none;
+}
+.msig-btn:hover { color:#d9ddff; text-decoration:none; background:rgba(99,102,241,.22); }
+@media(max-width:767px){ .msig-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:520px){ .msig-grid { grid-template-columns:1fr; } }
 </style>
 @endsection
 @php
@@ -448,134 +344,47 @@ if (!function_exists('fmtBigNum')) {
     </div>
 </div>
 
-@if($multisig_enabled)
-<div class="multisig-note">
-    <h6>{{__('How wallet multisignature works')}}</h6>
-    <p>{{__('Your OBX multisignature wallets use co-wallet approvals. Every withdrawal stays pending until at least :percent% of wallet members approve it, which gives you a shared-signoff safety layer before funds move.', ['percent' => $multisig_approval_percentage])}}</p>
-</div>
+@if($co_wallet_feature_active)
+<div class="msig-card">
+    <div class="msig-head">
+        <div>
+            <h5 class="msig-title"><i class="fa fa-shield" style="margin-right:6px;color:#a5b4fc;"></i>{{__('Multi-signature Wallet Security')}}</h5>
+            <p class="msig-sub">{{__('Multi-signature wallets require multiple co-user approvals before a withdrawal is executed.')}}</p>
+        </div>
+        <a href="{{route('myPocket', ['tab' => 'co-pocket'])}}" class="msig-btn">
+            <i class="fa fa-wallet"></i> {{__('Open Multi-signature Wallets')}}
+        </a>
+    </div>
 
-<div class="row mb-4">
-    <div class="col-xl-4 col-md-6 col-12 mb-3 mb-xl-0">
-        <div class="dash-stat-card">
-            <div class="dsc-icon dsc-icon-blue">
-                <i class="fa fa-users"></i>
-            </div>
-            <div class="dsc-body">
-                <div class="dsc-label">{{__('Multisig Wallets')}}</div>
-                <div class="dsc-value">{{number_format($multisig_wallet_count)}}</div>
-                <div class="dsc-sub">{{__('Wallets you co-manage')}}</div>
-            </div>
+    <div class="msig-grid">
+        <div class="msig-stat">
+            <div class="msig-stat-label">{{__('Wallets Joined')}}</div>
+            <div class="msig-stat-val">{{$msig_wallet_count}}</div>
+        </div>
+        <div class="msig-stat">
+            <div class="msig-stat-label">{{__('Pending Your Approval')}}</div>
+            <div class="msig-stat-val">{{$msig_pending_approvals_count}}</div>
+        </div>
+        <div class="msig-stat">
+            <div class="msig-stat-label">{{__('Approval Threshold')}}</div>
+            <div class="msig-stat-val">{{$msig_approval_percentage}}%</div>
         </div>
     </div>
-    <div class="col-xl-4 col-md-6 col-12 mb-3 mb-xl-0">
-        <div class="dash-stat-card">
-            <div class="dsc-icon dsc-icon-amber">
-                <i class="fa fa-pencil-square-o"></i>
-            </div>
-            <div class="dsc-body">
-                <div class="dsc-label">{{__('Approvals Needed')}}</div>
-                <div class="dsc-value">{{number_format($multisig_pending_for_user_count)}}</div>
-                <div class="dsc-sub">{{__('Requests still waiting for your signature')}}</div>
-            </div>
-        </div>
-    </div>
-    <div class="col-xl-4 col-md-6 col-12">
-        <div class="dash-stat-card">
-            <div class="dsc-icon dsc-icon-green">
-                <i class="fa fa-hourglass-half"></i>
-            </div>
-            <div class="dsc-body">
-                <div class="dsc-label">{{__('My Pending Requests')}}</div>
-                <div class="dsc-value">{{number_format($multisig_pending_requests_count)}}</div>
-                <div class="dsc-sub">{{__('Your withdrawals waiting for co-signers')}}</div>
-            </div>
-        </div>
-    </div>
-</div>
 
-<div class="row mb-4">
-    <div class="col-xl-7 mb-4 mb-xl-0">
-        <div class="chart-card h-100">
-            <div class="chart-card-header">
-                <h5><i class="fa fa-check-square-o" style="color:#a5b4fc;margin-right:6px;font-size:12px;"></i>{{__('Multisig Approval Queue')}}</h5>
-                <a href="{{route('myPocket', ['tab' => 'co-pocket'])}}" class="wc-btn-outline">{{__('Open Wallets')}}</a>
-            </div>
-            <div class="chart-subtitle">{{__('Requests from your shared wallets that still need your approval before they can be processed.')}}</div>
-
-            @if($multisig_pending_approvals->isEmpty())
-                <div class="multisig-empty">{{__('No multisignature approvals are waiting for you right now.')}}</div>
-            @else
-                <div class="multisig-queue">
-                    @foreach($multisig_pending_approvals as $pendingApproval)
-                        @php
-                            $requesterName = trim(($pendingApproval->user->first_name ?? '') . ' ' . ($pendingApproval->user->last_name ?? ''));
-                            $approvalsReady = $pendingApproval->approved_approvals >= $pendingApproval->required_approvals;
-                        @endphp
-                        <div class="multisig-item">
-                            <div class="multisig-item-head">
-                                <div>
-                                    <p class="multisig-item-title">{{$pendingApproval->wallet->name ?? __('Shared wallet')}} · {{number_format((float) $pendingApproval->amount, 8)}} {{$pendingApproval->wallet->coin_type ?? ''}}</p>
-                                    <p class="multisig-item-sub">{{__('Requested by')}} {{ $requesterName !== '' ? $requesterName : __('Unknown user') }} · {{__('To')}} {{\Illuminate\Support\Str::limit($pendingApproval->address, 24)}}</p>
-                                </div>
-                                <span class="multisig-pill {{$approvalsReady ? 'ready' : 'pending'}}">{{$pendingApproval->approved_approvals}} / {{$pendingApproval->required_approvals}} {{__('approved')}}</span>
-                            </div>
-                            <div class="multisig-meta">
-                                <span>{{__('Created')}} {{optional($pendingApproval->created_at)->diffForHumans()}}</span>
-                                <span>{{__('Queue total')}} {{number_format($multisig_pending_total)}}</span>
-                            </div>
-                            <div class="multisig-actions">
-                                <a href="javascript:" class="multisig-action primary confirm-modal" data-title="{{__('Approve this multisignature withdrawal?')}}" data-href="{{route('approveCoWalletWithdraw', $pendingApproval->id)}}">
-                                    <i class="fa fa-check"></i> {{__('Approve')}}
-                                </a>
-                                <a href="{{route('coWalletApprovals', $pendingApproval->id)}}" class="multisig-action secondary">
-                                    <i class="fa fa-eye"></i> {{__('View')}}
-                                </a>
-                            </div>
-                        </div>
-                    @endforeach
+    <div class="msig-list">
+        @forelse($msig_pending_approvals as $pending)
+            <div class="msig-item">
+                <div class="msig-item-main">
+                    <strong>{{__('Request')}} #{{$pending->id}} · {{$pending->amount}} {{$pending->wallet->coin_type ?? __('Coin')}}</strong>
+                    <p>{{__('Wallet')}}: {{$pending->wallet->name ?? __('N/A')}} · {{__('To')}}: {{$pending->address}}</p>
                 </div>
-            @endif
-        </div>
-    </div>
-    <div class="col-xl-5">
-        <div class="chart-card h-100">
-            <div class="chart-card-header">
-                <h5><i class="fa fa-clock-o" style="color:#fbbf24;margin-right:6px;font-size:12px;"></i>{{__('My Multisig Requests')}}</h5>
-                <a href="{{route('myPocket', ['tab' => 'co-pocket'])}}" class="wc-btn-outline">{{__('Manage Multisig')}}</a>
+                <a href="{{route('coWalletApprovals', $pending->id)}}" class="msig-btn">
+                    <i class="fa fa-check-circle"></i> {{__('Review & Approve')}}
+                </a>
             </div>
-            <div class="chart-subtitle">{{__('Withdrawals you started that are still waiting for enough co-signers to clear.')}}</div>
-
-            @if($multisig_my_requests->isEmpty())
-                <div class="multisig-empty">{{__('You have no pending multisignature withdrawal requests.')}}</div>
-            @else
-                <div class="multisig-queue">
-                    @foreach($multisig_my_requests as $multisigRequest)
-                        @php $requestReady = $multisigRequest->approved_approvals >= $multisigRequest->required_approvals; @endphp
-                        <div class="multisig-item">
-                            <div class="multisig-item-head">
-                                <div>
-                                    <p class="multisig-item-title">{{$multisigRequest->wallet->name ?? __('Shared wallet')}} · {{number_format((float) $multisigRequest->amount, 8)}} {{$multisigRequest->wallet->coin_type ?? ''}}</p>
-                                    <p class="multisig-item-sub">{{__('Destination')}} {{\Illuminate\Support\Str::limit($multisigRequest->address, 24)}}</p>
-                                </div>
-                                <span class="multisig-pill {{$requestReady ? 'ready' : 'pending'}}">{{$multisigRequest->approved_approvals}} / {{$multisigRequest->required_approvals}} {{__('approved')}}</span>
-                            </div>
-                            <div class="multisig-meta">
-                                <span>{{__('Started')}} {{optional($multisigRequest->created_at)->diffForHumans()}}</span>
-                                <span>{{__('Status')}} {{__('Pending')}}</span>
-                            </div>
-                            <div class="multisig-actions">
-                                <a href="{{route('coWalletApprovals', $multisigRequest->id)}}" class="multisig-action secondary">
-                                    <i class="fa fa-eye"></i> {{__('Review')}}
-                                </a>
-                                <a href="javascript:" class="multisig-action danger confirm-modal" data-title="{{__('Cancel this multisignature withdrawal request?')}}" data-href="{{route('rejectCoWalletWithdraw', $multisigRequest->id)}}">
-                                    <i class="fa fa-times"></i> {{__('Cancel')}}
-                                </a>
-                            </div>
-                        </div>
-                    @endforeach
-                </div>
-            @endif
-        </div>
+        @empty
+            <div style="font-size:12px;color:#8b93a0;">{{__('No pending multi-signature approvals for you right now.')}}</div>
+        @endforelse
     </div>
 </div>
 @endif
