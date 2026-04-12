@@ -35,6 +35,26 @@ class CoWalletUserManagementTest extends TestCase
         );
     }
 
+    private function ensureActiveCoin(string $type = DEFAULT_COIN_TYPE): int
+    {
+        $coinId = DB::table('coins')->where('type', $type)->value('id');
+        if (!empty($coinId)) {
+            return (int) $coinId;
+        }
+
+        return (int) DB::table('coins')->insertGetId([
+            'name' => $type,
+            'type' => $type,
+            'status' => STATUS_ACTIVE,
+            'is_withdrawal' => 1,
+            'is_deposit' => 1,
+            'is_buy' => 1,
+            'is_sell' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+
     /** @test */
     public function creator_can_add_user_to_multisig_wallet_by_email()
     {
@@ -167,6 +187,97 @@ class CoWalletUserManagementTest extends TestCase
             $this->assertNotEmpty($walletsWithUid[0]->team_wallet_uid);
             $this->assertNotEmpty($walletsWithUid[1]->team_wallet_uid);
             $this->assertNotEquals($walletsWithUid[0]->team_wallet_uid, $walletsWithUid[1]->team_wallet_uid);
+        }
+    }
+
+    /** @test */
+    public function team_wallet_obx_actions_show_withdraw_and_hide_give_request_actions()
+    {
+        $creator = $this->makeUser(['email' => 'creator4@example.com']);
+        $this->enableCoWalletFeature();
+
+        $coinId = $this->ensureActiveCoin(DEFAULT_COIN_TYPE);
+
+        $walletData = [
+            'user_id' => $creator->id,
+            'name' => 'OBX Team Wallet',
+            'coin_id' => $coinId,
+            'coin_type' => DEFAULT_COIN_TYPE,
+            'key' => 'TEAM-KEY-OBX-123',
+            'status' => STATUS_ACTIVE,
+            'is_primary' => 0,
+            'balance' => 0,
+            'referral_balance' => 0,
+            'type' => CO_WALLET,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ];
+        if (Schema::hasColumn('wallets', 'team_wallet_uid')) {
+            $walletData['team_wallet_uid'] = 'TW-TESTUID001';
+        }
+
+        $walletId = DB::table('wallets')->insertGetId($walletData);
+
+        DB::table('wallet_co_users')->insert([
+            'wallet_id' => $walletId,
+            'user_id' => $creator->id,
+            'status' => STATUS_ACTIVE,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $response = $this->actingAs($creator)->get(route('myPocket', ['tab' => 'co-pocket']));
+
+        $response->assertOk();
+        $response->assertSee('Withdraw');
+        $response->assertDontSee('Give Coin');
+        $response->assertDontSee('Request Coin');
+    }
+
+    /** @test */
+    public function team_wallet_list_shows_uid_column_for_obx_team_wallets()
+    {
+        $creator = $this->makeUser(['email' => 'creator5@example.com']);
+        $this->enableCoWalletFeature();
+
+        $coinId = $this->ensureActiveCoin(DEFAULT_COIN_TYPE);
+
+        $walletData = [
+            'user_id' => $creator->id,
+            'name' => 'OBX Team Wallet UID',
+            'coin_id' => $coinId,
+            'coin_type' => DEFAULT_COIN_TYPE,
+            'key' => 'TEAM-KEY-OBX-456',
+            'status' => STATUS_ACTIVE,
+            'is_primary' => 0,
+            'balance' => 0,
+            'referral_balance' => 0,
+            'type' => CO_WALLET,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ];
+        if (Schema::hasColumn('wallets', 'team_wallet_uid')) {
+            $walletData['team_wallet_uid'] = 'TW-TESTUID002';
+        }
+
+        $walletId = DB::table('wallets')->insertGetId($walletData);
+
+        DB::table('wallet_co_users')->insert([
+            'wallet_id' => $walletId,
+            'user_id' => $creator->id,
+            'status' => STATUS_ACTIVE,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $response = $this->actingAs($creator)->get(route('myPocket', ['tab' => 'co-pocket']));
+
+        $response->assertOk();
+        $response->assertSee('Team Wallet ID');
+        if (Schema::hasColumn('wallets', 'team_wallet_uid')) {
+            $response->assertSee('TW-TESTUID002');
+        } else {
+            $response->assertSee('N/A');
         }
     }
 }
