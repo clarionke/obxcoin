@@ -19,6 +19,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use PragmaRX\Google2FA\Google2FA;
 
@@ -51,11 +52,17 @@ class WalletController extends Controller
             ->where(['wallets.type'=> CO_WALLET, 'wallet_co_users.user_id'=>Auth::id(), 'coins.status' => STATUS_ACTIVE])
             ->when(isset($request->search), function($q)use($request){
                 return $q->where(function($query) use($request){
-                    return $query->where('wallets.name', 'like', "%$request->search%")
+                    $query->where('wallets.name', 'like', "%$request->search%")
                     ->orWhere('wallets.coin_type', 'like', "%$request->search%")
                     ->orWhere('wallets.balance', 'like', "%$request->search%")
                     ->orWhere('wallets.updated_at', 'like', "%$request->search%")
                     ->orWhere('wallets.key', 'like', "%$request->search%");
+
+                    if (Schema::hasColumn('wallets', 'team_wallet_uid')) {
+                        $query->orWhere('wallets.team_wallet_uid', 'like', "%$request->search%");
+                    }
+
+                    return $query;
                 });
             })
             ->orderBy('created_at', 'DESC')->paginate($limit);
@@ -64,6 +71,7 @@ class WalletController extends Controller
         $data['wallets']->map(function($wallet){
             $wallet->minimum_withdrawal = $wallet->coin->minimum_withdrawal;
             $wallet->maximum_withdrawal = $wallet->coin->maximum_withdrawal;
+            $wallet->coin_type = check_default_coin_type($wallet->coin_type);
             unset($wallet->coin);
         });
         $data = ['success' => true, 'data' => $data['wallets'], 'message' => __('Wallet List')];
@@ -75,6 +83,12 @@ class WalletController extends Controller
             ->join('wallet_co_users', 'wallet_co_users.wallet_id','=','wallets.id')
             ->where(['wallets.type'=> CO_WALLET, 'wallet_co_users.user_id'=>Auth::id()])
             ->orderBy('id', 'ASC')->get();
+
+        $co_wallets->map(function ($wallet) {
+            $wallet->coin_type = check_default_coin_type($wallet->coin_type);
+            return $wallet;
+        });
+
         $data = ['success' => true, 'data' => $co_wallets, 'message' => __('Co-Wallet List')];
         return response()->json($data);
     }
@@ -89,8 +103,12 @@ class WalletController extends Controller
         if (!empty($request->wallet_name)) {
             $wallet_type = $request->type ?? PERSONAL_WALLET;
             $coin = Coin::where(['type' => strtoupper($request->coin_type)])->first();
-            $alreadyWallet =  Wallet::where(['coin_id' => $coin->id,'type' => $wallet_type, 'user_id' => Auth::id()])->first();
-            if($alreadyWallet) {
+            $alreadyWallet = Wallet::where([
+                'coin_id' => $coin->id,
+                'type' => $wallet_type,
+                'user_id' => Auth::id(),
+            ])->first();
+            if ($wallet_type == PERSONAL_WALLET && $alreadyWallet) {
                 $data = ['success' => false, 'data' => [], 'message' => __('You already have this type of wallet')];
             }
             else{
@@ -106,6 +124,13 @@ class WalletController extends Controller
                     $wallet->coin_id = $coin->id;
                     if (co_wallet_feature_active() && $request->type == CO_WALLET) {
                         $wallet->max_co_users = max(2, (int) ($request->max_co_users ?? 2));
+                        if (Schema::hasColumn('wallets', 'team_wallet_uid')) {
+                            $teamWalletUid = 'TW-' . strtoupper(Str::random(10));
+                            while (Wallet::where('team_wallet_uid', $teamWalletUid)->exists()) {
+                                $teamWalletUid = 'TW-' . strtoupper(Str::random(10));
+                            }
+                            $wallet->team_wallet_uid = $teamWalletUid;
+                        }
                         $key = Str::random(64);
                         while (true) {
                             $keyExists = Wallet::where(['key' => $key])->first();
@@ -176,7 +201,7 @@ class WalletController extends Controller
     {
         $data['wallet_id'] = $id;
         $data['wallet_types'][PERSONAL_WALLET] = 'Personal Wallet';
-        $data['wallet_types'][CO_WALLET] = 'Multi-Signature Wallet';
+        $data['wallet_types'][CO_WALLET] = 'Team Wallet';
         $data['wallet_details'] = Wallet::select('wallets.*')
             ->join('wallet_co_users', 'wallet_co_users.wallet_id', '=', 'wallets.id')
             ->where(['wallets.id' => $id, 'wallet_co_users.user_id' => Auth::id()])

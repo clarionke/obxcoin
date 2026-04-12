@@ -1851,12 +1851,7 @@ if(!function_exists('co_wallet_feature_active')) {
 
 function find_coin_type($coin_type)
 {
-    $type = $coin_type;
-    if ($coin_type == DEFAULT_COIN_TYPE) {
-        $type = settings('coin_name');
-    }
-
-    return $type;
+    return check_default_coin_type($coin_type);
 }
 
 function decryptId($encryptedId)

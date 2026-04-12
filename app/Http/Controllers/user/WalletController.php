@@ -29,6 +29,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\Str;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
@@ -136,8 +137,12 @@ class WalletController extends Controller
         if (!empty($request->wallet_name)) {
             $request->type = $request->type ?? PERSONAL_WALLET;
             $coin = Coin::where(['type' => strtoupper($request->coin_type)])->first();
-            $alreadyWallet =  Wallet::where(['coin_id' => $coin->id, 'user_id' => Auth::id(), 'type' => $request->type])->first();
-            if($alreadyWallet) {
+            $alreadyWallet = Wallet::where([
+                'coin_id' => $coin->id,
+                'user_id' => Auth::id(),
+                'type' => $request->type,
+            ])->first();
+            if ($request->type == PERSONAL_WALLET && $alreadyWallet) {
                 return redirect()->back()->with('dismiss', __("You already have this type of wallet"));
             }
             try {
@@ -152,6 +157,13 @@ class WalletController extends Controller
                 $wallet->coin_id = $coin->id;
                 if (co_wallet_feature_active() && $request->type == CO_WALLET) {
                     $wallet->max_co_users = max(2, (int) $request->max_co_users);
+                    if (Schema::hasColumn('wallets', 'team_wallet_uid')) {
+                        $teamWalletUid = 'TW-' . strtoupper(Str::random(10));
+                        while (Wallet::where('team_wallet_uid', $teamWalletUid)->exists()) {
+                            $teamWalletUid = 'TW-' . strtoupper(Str::random(10));
+                        }
+                        $wallet->team_wallet_uid = $teamWalletUid;
+                    }
                     $key = Str::random(64);
                     while (true) {
                         $keyExists = Wallet::where(['key' => $key])->first();

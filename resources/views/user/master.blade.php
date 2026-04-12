@@ -702,7 +702,7 @@
                     <button class="dropdown-item" type="button"><a href="{{route('userSetting')}}"><i class="fa fa-cog"></i> {{__('Settings')}}</a></button>
                     <button class="dropdown-item" type="button"><a href="{{route('myPocket')}}"><i class="fa fa-money"></i> {{__('My Wallet')}}</a></button>
                     @if(co_wallet_feature_active())
-                        <button class="dropdown-item" type="button"><a href="{{route('myPocket', ['tab' => 'co-pocket'])}}"><i class="fa fa-shield"></i> {{__('Multi-signature Wallets')}}</a></button>
+                        <button class="dropdown-item" type="button"><a href="{{route('myPocket', ['tab' => 'co-pocket'])}}"><i class="fa fa-shield"></i> {{__('Team Wallet')}}</a></button>
                     @endif
                     <button class="dropdown-item" type="button"><a href="{{route('merchant.keys')}}"><i class="fa fa-key"></i> {{__('API Keys')}}</a></button>
                     <button class="dropdown-item" type="button"><a href="{{route('merchant.apiDocs')}}"><i class="fa fa-plug"></i> {{__('API Documentation')}}</a></button>
@@ -783,7 +783,7 @@
                         </li>
                         @if(co_wallet_feature_active())
                             <li class="@if(request()->query('tab') == 'co-pocket') cp-user-submenu-active @endif">
-                                <a href="{{route('myPocket', ['tab' => 'co-pocket'])}}">{{__('Multi-signature Wallets')}}</a>
+                                <a href="{{route('myPocket', ['tab' => 'co-pocket'])}}">{{__('Team Wallet')}}</a>
                             </li>
                         @endif
                         @if(getSwapStatus())

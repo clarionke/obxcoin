@@ -428,7 +428,7 @@ class ProfileController extends Controller
             $data['coins'] = Coin::where(['status' => STATUS_ACCEPTED])->select('id','name','type','minimum_withdrawal','maximum_withdrawal','withdrawal_fees')->get();
             $data['small_plan_description'] = MembershipPlan::where(['status'=>STATUS_ACTIVE])->orderBy('amount','asc')->first();
             $data['wallet_type'] = [ PERSONAL_WALLET => __('Personal Pocket') ];
-            if(co_wallet_feature_active()) $data['wallet_type'][CO_WALLET] = __('Multi-signature Pocket');
+            if(co_wallet_feature_active()) $data['wallet_type'][CO_WALLET] = __('Team Wallet Pocket');
             $response = ['success' => true, 'data' => $data, 'message' => __('Setting Info.')];
         } catch (\Exception $e) {
             $response = ['success' => false, 'data' => [], 'message' => __('Something went wrong.')];

@@ -243,11 +243,19 @@ function paymentMethods($input = null)
 // check coin type
 function check_default_coin_type($coin_type)
 {
-    $type = $coin_type;
-    if($coin_type == DEFAULT_COIN_TYPE) {
-        $type = settings('coin_name');
+    $normalized = trim((string) $coin_type);
+
+    // Keep legacy values mapped to the public-facing token name.
+    if (
+        strcasecmp($normalized, DEFAULT_COIN_TYPE) === 0 ||
+        strcasecmp($normalized, 'Default') === 0 ||
+        strcasecmp($normalized, 'Default Coin') === 0 ||
+        strcasecmp($normalized, 'Default Token') === 0
+    ) {
+        return 'OBXCoin';
     }
-    return $type;
+
+    return $coin_type;
 }
 
 

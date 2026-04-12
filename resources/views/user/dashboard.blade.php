@@ -348,11 +348,11 @@ if (!function_exists('fmtBigNum')) {
 <div class="msig-card">
     <div class="msig-head">
         <div>
-            <h5 class="msig-title"><i class="fa fa-shield" style="margin-right:6px;color:#a5b4fc;"></i>{{__('Multi-signature Wallet Security')}}</h5>
-            <p class="msig-sub">{{__('Multi-signature wallets require multiple co-user approvals before a withdrawal is executed.')}}</p>
+            <h5 class="msig-title"><i class="fa fa-shield" style="margin-right:6px;color:#a5b4fc;"></i>{{__('Team Wallet Security')}}</h5>
+            <p class="msig-sub">{{__('Team Wallet requires multiple co-user approvals before a withdrawal is executed.')}}</p>
         </div>
         <a href="{{route('myPocket', ['tab' => 'co-pocket'])}}" class="msig-btn">
-            <i class="fa fa-wallet"></i> {{__('Open Multi-signature Wallets')}}
+            <i class="fa fa-wallet"></i> {{__('Open Team Wallet')}}
         </a>
     </div>
 
@@ -383,7 +383,7 @@ if (!function_exists('fmtBigNum')) {
                 </a>
             </div>
         @empty
-            <div style="font-size:12px;color:#8b93a0;">{{__('No pending multi-signature approvals for you right now.')}}</div>
+            <div style="font-size:12px;color:#8b93a0;">{{__('No pending Team Wallet approvals for you right now.')}}</div>
         @endforelse
     </div>
 </div>

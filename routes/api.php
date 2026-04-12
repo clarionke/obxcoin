@@ -98,6 +98,7 @@ Route::group(['namespace' => 'Api', 'middleware' => ['auth:api','two_step']], fu
     Route::post('submit-passport-photo', 'user\ProfileController@submitPassportPhoto');
     Route::post('submit-driving-license-photo', 'user\ProfileController@submitDrivingLincensePhoto');
     Route::get('my-pocket-list', 'user\WalletController@myPocketList');
+    Route::get('my-team-wallet-pocket-list', 'user\WalletController@myMultiSignaturePocketList');
     Route::get('my-multi-signature-pocket-list', 'user\WalletController@myMultiSignaturePocketList');
     Route::get('pocket-coin-list', 'user\WalletController@pocketCoinList');
     Route::post('create-wallet','user\WalletController@createWallet');

@@ -43,7 +43,7 @@ class MultiSignatureDashboardTest extends TestCase
         $response = $this->actingAs($user)->get(route('userDashboard'));
 
         $response->assertStatus(200);
-        $response->assertSee('Multi-signature Wallet Security');
+        $response->assertSee('Team Wallet Security');
         $response->assertSee('Approval Threshold');
     }
 
@@ -56,7 +56,7 @@ class MultiSignatureDashboardTest extends TestCase
         $response = $this->actingAs($user)->get(route('userDashboard'));
 
         $response->assertStatus(200);
-        $response->assertDontSee('Multi-signature Wallet Security');
+        $response->assertDontSee('Team Wallet Security');
     }
 
     /** @test */

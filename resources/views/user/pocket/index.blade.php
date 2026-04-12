@@ -84,7 +84,7 @@
                                     data-target="#add-pocket">{{__('Add Wallet')}}</button>
                             @if(co_wallet_feature_active())
                                 <button class="btn cp-user-add-pocket" data-toggle="modal"
-                                        data-target="#import-pocket">{{__('Import  Multi-signature Wallet')}}</button>
+                                        data-target="#import-pocket">{{__('Import Team Wallet')}}</button>
                             @endif
                         </div>
                     </div>
@@ -102,7 +102,7 @@
                                 <a class="nav-link @if(isset($tab) && $tab=='co-pocket') active @endif" id="co-pocket-tab"
                                    data-toggle="pill"
                                    href="#co-pocket" role="tab" aria-controls="co-pocket"
-                                   aria-selected="false">{{__(' Multi-signature Wallets')}}</a>
+                                   aria-selected="false">{{__('Team Wallet')}}</a>
                             </li>
                         </ul>
                         <div class="tab-content" id="pills-tabContent">
@@ -200,6 +200,7 @@
                                         <thead>
                                         <tr>
                                             <th class="all">{{__('Name')}}</th>
+                                            <th class="all">{{__('Team Wallet ID')}}</th>
                                             <th class="all">{{__('Key')}}</th>
                                             <th class="all">{{__('Coin Type')}}</th>
                                             <th class="desktop">{{__('Balance')}}</th>
@@ -213,6 +214,7 @@
                                             @foreach($coWallets as $wallet)
                                                 <tr>
                                                     <td>{{ $wallet->name }}</td>
+                                                    <td>{{ $wallet->team_wallet_uid ?? __('N/A') }}</td>
                                                     <td>{{ $wallet->key }}</td>
                                                     <td>{{ check_default_coin_type($wallet->coin_type) }}</td>
                                                     <td>{{ $wallet->balance }}</td>
@@ -220,7 +222,7 @@
                                                     <td>{{ $wallet->updated_at }}</td>
                                                     <td>
                                                         <ul class="d-flex justify-content-center align-items-center">
-                                                            @if($wallet->coin_type == 'Default')
+                                                            @if(strcasecmp((string)$wallet->coin_type, 'Default') === 0 || strcasecmp((string)$wallet->coin_type, DEFAULT_COIN_TYPE) === 0)
                                                                 <li>
                                                                     <a title="{{__('Request Coin')}}"
                                                                        href="{{route('requestCoin')}}">
@@ -355,11 +357,11 @@
                                 <select name="type" required class="form-control" id="wallet-type-select">
                                     <option value="">{{__('Select wallet type')}}</option>
                                     <option value="{{PERSONAL_WALLET}}">{{__('Personal Wallet')}}</option>
-                                    <option value="{{CO_WALLET}}">{{__(' Multi-signature Wallet')}}</option>
+                                    <option value="{{CO_WALLET}}">{{__('Team Wallet')}}</option>
                                 </select>
                             </div>
                             <div class="form-group d-none" id="max-co-users-group">
-                                <label>{{__('Maximum Members For This Multi-signature Wallet')}}</label>
+                                <label>{{__('Maximum Members For This Team Wallet')}}</label>
                                 <input type="number" name="max_co_users" min="2" max="100" class="form-control"
                                        placeholder="{{__('e.g. 5')}}">
                                 <small style="color:#9aa4b2;">{{__('Creator sets this limit. Minimum 2 members are required.')}}</small>
@@ -401,7 +403,7 @@
                     <div class="text-center">
                         <img src="{{asset('assets/user/images/add-pockaet-vector.svg')}}" class="img-fluid img-vector"
                              alt="">
-                        <h3>{{__('Want To Import a  Multi-signature Wallet?')}}</h3>
+                        <h3>{{__('Want To Import Team Wallet?')}}</h3>
                     </div>
                     <div class="modal-body">
                         <form method="post" action="{{route('importWallet')}}" id="walletImportForm">

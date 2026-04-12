@@ -15,7 +15,7 @@
 
                     @if($wallet->user_id == \Illuminate\Support\Facades\Auth::id())
                         <div style="background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.25);border-radius:10px;padding:14px 16px;margin-bottom:16px;">
-                            <h5 style="margin:0 0 10px;color:#b8f5d4;">{{__('Multi-signature Setup Guide')}}</h5>
+                            <h5 style="margin:0 0 10px;color:#b8f5d4;">{{__('Team Wallet Setup Guide')}}</h5>
                             <ol style="margin:0 0 0 16px;padding:0;color:#c9d1d9;font-size:12px;line-height:1.7;">
                                 <li>{{__('Set wallet member capacity when creating wallet (minimum 2).')}}</li>
                                 <li>{{__('Add co-users by email until your team is complete.')}}</li>

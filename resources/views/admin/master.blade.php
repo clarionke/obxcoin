@@ -100,7 +100,7 @@
                             <a href="{{route('adminWalletList')}}">{{__('Personal Wallets')}}</a>
                         </li>
                         <li class="@if(isset($sub_menu) && $sub_menu == 'co') submenu-active @endif">
-                            <a href="{{route('adminCoWallets')}}">{{__(' Multi-signature Wallets')}}</a>
+                            <a href="{{route('adminCoWallets')}}">{{__('Team Wallet')}}</a>
                         </li>
                     </ul>
                 </li>

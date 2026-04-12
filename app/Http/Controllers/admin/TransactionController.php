@@ -219,12 +219,12 @@ class TransactionController extends Controller
                     return deposit_status($dpst->status);
                 })
                 ->addColumn('sender', function ($dpst) {
-                    if (!empty($dpst->senderWallet) && $dpst->senderWallet->type == CO_WALLET) return  'Multi-signature Pocket: '.$dpst->senderWallet->name;
+                    if (!empty($dpst->senderWallet) && $dpst->senderWallet->type == CO_WALLET) return  'Team Wallet Pocket: '.$dpst->senderWallet->name;
                     else
                         return isset($dpst->senderWallet->user) ? $dpst->senderWallet->user->first_name . ' ' . $dpst->senderWallet->user->last_name : 'N/A';
                 })
                 ->addColumn('receiver', function ($dpst) {
-                    if (!empty($dpst->receiverWallet) && $dpst->receiverWallet->type == CO_WALLET) return  'Multi-signature Pocket: '.$dpst->receiverWallet->name;
+                    if (!empty($dpst->receiverWallet) && $dpst->receiverWallet->type == CO_WALLET) return  'Team Wallet Pocket: '.$dpst->receiverWallet->name;
                     else
                         return isset($dpst->receiverWallet->user) ? $dpst->receiverWallet->user->first_name . ' ' . $dpst->receiverWallet->user->last_name : 'N/A';
                 })
@@ -263,7 +263,7 @@ class TransactionController extends Controller
                     return isset($user) ? $user->first_name . ' ' . $user->last_name : 'N/A';
                 })
                 ->addColumn('receiver', function ($wdrl) {
-                    if (!empty($wdrl->receiverWallet) && $wdrl->receiverWallet->type == CO_WALLET) return  'Multi-signature Pocket: '.$wdrl->receiverWallet->name;
+                    if (!empty($wdrl->receiverWallet) && $wdrl->receiverWallet->type == CO_WALLET) return  'Team Wallet Pocket: '.$wdrl->receiverWallet->name;
                     else
                     return isset($wdrl->receiverWallet->user) ? $wdrl->receiverWallet->user->first_name . ' ' . $wdrl->receiverWallet->user->last_name : 'N/A';
                 })
@@ -312,7 +312,7 @@ class TransactionController extends Controller
                     return isset($user) ? $user->first_name . ' ' . $user->last_name : 'N/A';
                 })
                 ->addColumn('receiver', function ($wdrl) {
-                    if (!empty($wdrl->receiverWallet) && $wdrl->receiverWallet->type == CO_WALLET) return  'Multi-signature Pocket: '.$wdrl->receiverWallet->name;
+                    if (!empty($wdrl->receiverWallet) && $wdrl->receiverWallet->type == CO_WALLET) return  'Team Wallet Pocket: '.$wdrl->receiverWallet->name;
                     else
                     return isset($wdrl->receiverWallet->user) ? $wdrl->receiverWallet->user->first_name . ' ' . $wdrl->receiverWallet->user->last_name : 'N/A';
                 })
@@ -363,7 +363,7 @@ class TransactionController extends Controller
                     return isset($user) ? $user->first_name . ' ' . $user->last_name : 'N/A';
                 })
                 ->addColumn('receiver', function ($wdrl) {
-                    if (!empty($wdrl->receiverWallet) && $wdrl->receiverWallet->type == CO_WALLET) return  'Multi-signature Pocket: '.$wdrl->receiverWallet->name;
+                    if (!empty($wdrl->receiverWallet) && $wdrl->receiverWallet->type == CO_WALLET) return  'Team Wallet Pocket: '.$wdrl->receiverWallet->name;
                     else
                     return isset($wdrl->receiverWallet->user) ? $wdrl->receiverWallet->user->first_name . ' ' . $wdrl->receiverWallet->user->last_name : 'N/A';
                 })
@@ -406,7 +406,7 @@ class TransactionController extends Controller
                     return isset($user) ? $user->first_name . ' ' . $user->last_name : 'N/A';
                 })
                 ->addColumn('receiver', function ($wdrl) {
-                    if (!empty($wdrl->receiverWallet) && $wdrl->receiverWallet->type == CO_WALLET) return  'Multi-signature Pocket: '.$wdrl->receiverWallet->name;
+                    if (!empty($wdrl->receiverWallet) && $wdrl->receiverWallet->type == CO_WALLET) return  'Team Wallet Pocket: '.$wdrl->receiverWallet->name;
                     else
                     return isset($wdrl->receiverWallet->user) ? $wdrl->receiverWallet->user->first_name . ' ' . $wdrl->receiverWallet->user->last_name : 'N/A';
                 })

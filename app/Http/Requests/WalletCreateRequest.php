@@ -52,8 +52,8 @@ class WalletCreateRequest extends FormRequest
                     'type.in' => __('Invalid wallet type'),
           'coin_type.required' => __('Coin type is required'),
           'coin_type.exists' => __('Invalid coin type'),
-                    'max_co_users.required' => __('Maximum user capacity is required for multi-signature wallet'),
-                    'max_co_users.min' => __('Multi-signature wallet must allow at least 2 members'),
+                    'max_co_users.required' => __('Maximum user capacity is required for Team Wallet'),
+                    'max_co_users.min' => __('Team Wallet must allow at least 2 members'),
         ];
     }
 }

@@ -26,8 +26,8 @@
                                     <li class="nav-item">
                                         <a class="nav-link @if(isset($ac_tab) && $ac_tab == 'co-withdraw') active @endif"
                                            data-toggle="tab"
-                                           onclick="$('#list_title').html('Pending Multi-signature Withdrawals')"
-                                           href="#co-withdraw">{{__('Pending Multi-signature Withdraw')}}</a>
+                                           onclick="$('#list_title').html('Pending Team Wallet Withdrawals')"
+                                           href="#co-withdraw">{{__('Pending Team Wallet Withdraw')}}</a>
                                     </li>
                                 @endif
                             </ul>
