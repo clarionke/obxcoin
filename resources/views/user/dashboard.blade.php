@@ -241,15 +241,40 @@ if (!function_exists('fmtBigNum')) {
 }
 @endphp
 @php
-    $hour = now()->hour;
+    $profileUser = Auth::user();
+    $countryCodeRaw = trim((string) ($profileUser->country_code ?: $profileUser->country));
+    $countryCode = '';
+    if (strlen($countryCodeRaw) === 2 && ctype_alpha($countryCodeRaw)) {
+        $countryCode = strtoupper($countryCodeRaw);
+    }
+
+    $tz = config('app.timezone', 'UTC');
+    if (!empty($countryCode)) {
+        try {
+            $zones = \DateTimeZone::listIdentifiers(\DateTimeZone::PER_COUNTRY, $countryCode);
+            if (!empty($zones[0])) {
+                $tz = $zones[0];
+            }
+        } catch (\Exception $e) {
+            // Keep application timezone fallback.
+        }
+    }
+
+    $localNow = now($tz);
+    $hour = (int) $localNow->format('G');
     $timeGreeting = $hour < 12 ? __('Good morning') : __('Good evening');
+
+    $profileName = trim((string) (($profileUser->first_name ?? '') . ' ' . ($profileUser->last_name ?? '')));
+    if ($profileName === '') {
+        $profileName = $profileUser->name ?? $profileUser->email ?? __('User');
+    }
 @endphp
 @section('content')
 
 {{-- Welcome card --}}
 <div class="welcome-card">
     <div class="wc-info">
-        <h5>{{ $timeGreeting }}, {{ Auth::user()->name }}. {{ __('Welcome back') }}, 👋</h5>
+        <h5>{{ $timeGreeting }}, {{ $profileName }}. {{ __('Welcome back') }}, 👋</h5>
         <p>{{__('Here\'s an overview of your OBXCoin account activity.')}}</p>
     </div>
     <div class="wc-actions">
