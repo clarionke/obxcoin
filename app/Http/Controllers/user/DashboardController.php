@@ -7,6 +7,7 @@ use App\Model\BuyCoinHistory;
 use App\Model\DepositeTransaction;
 use App\Model\Faq;
 use App\Model\Notification;
+use App\Model\TempWithdraw;
 use App\Model\Wallet;
 use App\Model\WithdrawHistory;
 use Carbon\Carbon;
@@ -116,6 +117,74 @@ class DashboardController extends Controller
         $data['obx_wallet'] = Wallet::where(['user_id' => Auth::id(), 'coin_type' => DEFAULT_COIN_TYPE])
             ->orderByDesc('is_primary')
             ->first();
+
+        $data['multisig_enabled'] = co_wallet_feature_active();
+        $data['multisig_wallet_count'] = 0;
+        $data['multisig_pending_total'] = 0;
+        $data['multisig_pending_for_user_count'] = 0;
+        $data['multisig_pending_requests_count'] = 0;
+        $data['multisig_pending_approvals'] = collect();
+        $data['multisig_my_requests'] = collect();
+        $data['multisig_approval_percentage'] = (int) (settings(CO_WALLET_WITHDRAWAL_USER_APPROVAL_PERCENTAGE_SLUG) ?: 60);
+
+        if ($data['multisig_enabled']) {
+            $coWalletIds = Wallet::query()
+                ->join('wallet_co_users', 'wallet_co_users.wallet_id', '=', 'wallets.id')
+                ->join('coins', 'coins.id', '=', 'wallets.coin_id')
+                ->where([
+                    'wallets.type' => CO_WALLET,
+                    'wallet_co_users.user_id' => Auth::id(),
+                    'coins.status' => STATUS_ACTIVE,
+                ])
+                ->distinct()
+                ->pluck('wallets.id');
+
+            $data['multisig_wallet_count'] = $coWalletIds->count();
+
+            if ($coWalletIds->isNotEmpty()) {
+                $pendingWithdrawBase = TempWithdraw::query()
+                    ->with(['wallet', 'user', 'user_approvals'])
+                    ->whereIn('wallet_id', $coWalletIds)
+                    ->where('status', STATUS_PENDING)
+                    ->orderByDesc('id');
+
+                $data['multisig_pending_total'] = (clone $pendingWithdrawBase)->count();
+
+                $data['multisig_pending_for_user_count'] = (clone $pendingWithdrawBase)
+                    ->whereDoesntHave('user_approvals', function ($query) {
+                        $query->where('user_id', Auth::id());
+                    })
+                    ->count();
+
+                $data['multisig_pending_requests_count'] = (clone $pendingWithdrawBase)
+                    ->where('user_id', Auth::id())
+                    ->count();
+
+                $data['multisig_pending_approvals'] = (clone $pendingWithdrawBase)
+                    ->whereDoesntHave('user_approvals', function ($query) {
+                        $query->where('user_id', Auth::id());
+                    })
+                    ->limit(5)
+                    ->get()
+                    ->map(function (TempWithdraw $tempWithdraw) {
+                        $approvalSummary = app(\App\Http\Services\TransactionService::class)->approvalCounts($tempWithdraw);
+                        $tempWithdraw->required_approvals = $approvalSummary['requiredUserApprovalCount'];
+                        $tempWithdraw->approved_approvals = $approvalSummary['alreadyApprovedUserCount'];
+                        return $tempWithdraw;
+                    });
+
+                $data['multisig_my_requests'] = (clone $pendingWithdrawBase)
+                    ->where('user_id', Auth::id())
+                    ->limit(5)
+                    ->get()
+                    ->map(function (TempWithdraw $tempWithdraw) {
+                        $approvalSummary = app(\App\Http\Services\TransactionService::class)->approvalCounts($tempWithdraw);
+                        $tempWithdraw->required_approvals = $approvalSummary['requiredUserApprovalCount'];
+                        $tempWithdraw->approved_approvals = $approvalSummary['alreadyApprovedUserCount'];
+                        return $tempWithdraw;
+                    });
+            }
+        }
 
         return view('user.dashboard', $data);
     }
