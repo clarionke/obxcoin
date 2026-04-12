@@ -267,8 +267,10 @@ class CoinController extends Controller
     public function requestCoin(Request $request)
     {
         $data['title'] = __('Request or Give Coin ');
-        $data['wallets'] = Wallet::where(['user_id' => Auth::id(), 'coin_type' => DEFAULT_COIN_TYPE])->where('balance','>',0)->get();
-        $data['coin'] = Coin::where(['type' => DEFAULT_COIN_TYPE])->first();
+        $data['wallets'] = Wallet::where('user_id', Auth::id())
+            ->whereRaw('LOWER(coin_type) = ?', [strtolower(DEFAULT_COIN_TYPE)])
+            ->get();
+        $data['coin'] = Coin::whereRaw('LOWER(type) = ?', [strtolower(DEFAULT_COIN_TYPE)])->first();
         $data['qr'] = (!empty($request->qr)) ? $request->qr : 'requests';
 
         return view ('user.request_coin.coin_request', $data);
@@ -278,7 +280,7 @@ class CoinController extends Controller
     // send coin request
     public function sendCoinRequest(Request $request)
     {
-        $coin = Coin::where(['type' => DEFAULT_COIN_TYPE])->first();
+        $coin = Coin::whereRaw('LOWER(type) = ?', [strtolower(DEFAULT_COIN_TYPE)])->first();
         $rules = [
             'email' => 'required|exists:users,email',
             'amount' => ['required','numeric','min:'.$coin->minimum_withdrawal,'max:'.$coin->maximum_withdrawal]
@@ -310,7 +312,7 @@ class CoinController extends Controller
     // send coin request
     public function giveCoin(Request $request)
     {
-        $coin = Coin::where(['type' => DEFAULT_COIN_TYPE])->first();
+        $coin = Coin::whereRaw('LOWER(type) = ?', [strtolower(DEFAULT_COIN_TYPE)])->first();
         $rules = [
             'wallet_id' => 'required|exists:wallets,id',
             'amount' => ['required','numeric','min:'.$coin->minimum_withdrawal,'max:'.$coin->maximum_withdrawal],
