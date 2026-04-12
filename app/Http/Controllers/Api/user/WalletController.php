@@ -123,7 +123,7 @@ class WalletController extends Controller
                         ]);
                     }
                     DB::commit();
-                    $data = ['success' => true, 'data' => [], 'message' => __('Pocket created successfully')];
+                    $data = ['success' => true, 'data' => [], 'message' => __('Wallet created successfully')];
                 } catch (\Exception $e) {
                     Log::alert($e->getMessage());
                     DB::rollBack();
@@ -151,7 +151,7 @@ class WalletController extends Controller
             $maxCoUser = !empty($wallet->max_co_users) ? (int) $wallet->max_co_users : 2;
             $coUserCount = WalletCoUser::where(['wallet_id' => $wallet->id])->count();
             if($coUserCount >= $maxCoUser){
-                $data = ['success' => false, 'data' => [], 'message' => __("Can't import this pocket. Max co user limit reached.")];
+                $data = ['success' => false, 'data' => [], 'message' => __("Can't import this wallet. Max co user limit reached.")];
                 return response()->json($data);
             }
             try {
@@ -165,7 +165,7 @@ class WalletController extends Controller
                 $data = ['success' => false, 'data' => [], 'message' => __("Something went wrong.")];
                 return response()->json($data);
             }
-            $data = ['success' => true, 'data' => [], 'message' => __("Co Pocket imported successfully")];
+            $data = ['success' => true, 'data' => [], 'message' => __("Co-wallet imported successfully")];
             return response()->json($data);
         }
         $data = ['success' => false, 'data' => [], 'message' => __("Key can't be empty")];
@@ -323,7 +323,7 @@ class WalletController extends Controller
         }
         $address = $request->address;
         $user = Auth::user();
-        if(empty($wallet)) return response()->json(['success'=>false,'message'=> __('Pocket not found.')]);
+        if(empty($wallet)) return response()->json(['success'=>false,'message'=> __('Wallet not found.')]);
         if ($wallet->balance >= $request->amount) {
             $checkValidate = $transactionService->checkWithdrawalValidation( $request, $user, $wallet);
             if ($checkValidate['success'] == false) {
@@ -368,7 +368,7 @@ class WalletController extends Controller
                     }
                     return response()->json(['success'=>true,'message'=> __('Process successful. Need other co users approval.')]);
                 } else {
-                    return response()->json(['success'=>false,'message'=> __('Invalid Pocket type.')]);
+                    return response()->json(['success'=>false,'message'=> __('Invalid wallet type.')]);
                 }
 
             } catch (\Exception $e) {
@@ -501,7 +501,7 @@ class WalletController extends Controller
             $maxCoUser = settings(MAX_CO_WALLET_USER_SLUG);
             $maxCoUser = !empty($maxCoUser) ? $maxCoUser : 2;
             $coUserCount = WalletCoUser::where(['wallet_id' => $wallet->id])->count();
-            if($coUserCount >= $maxCoUser) return response()->json(['success'=>false,'data'=>[],'message'=> __("Can't import this pocket. Max co user limit reached.")]);
+            if($coUserCount >= $maxCoUser) return response()->json(['success'=>false,'data'=>[],'message'=> __("Can't import this wallet. Max co user limit reached.")]);
 
             try{
                 WalletCoUser::create([
@@ -513,7 +513,7 @@ class WalletController extends Controller
                 return response()->json(['success'=>false,'data'=>[],'message'=> __('Something went wrong.')]);
             }
 
-            return response()->json(['success'=>true,'data'=>[],'message'=> __("Co Pocket imported successfully")]);
+            return response()->json(['success'=>true,'data'=>[],'message'=> __("Co-wallet imported successfully")]);
         }
         return response()->json(['success'=>false,'data'=>[],'message'=> __('Key can\'t be empty')]);
     }

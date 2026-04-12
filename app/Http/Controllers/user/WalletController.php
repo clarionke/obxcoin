@@ -44,7 +44,7 @@ class WalletController extends Controller
         $this->repo = new WalletRepository();
     }
 
-    // my pocket
+    // my wallet
     public function myPocket(Request $request)
     {
         $data['tab'] = $request->tab ?? null;
@@ -59,7 +59,7 @@ class WalletController extends Controller
             ->where(['wallets.type'=> CO_WALLET, 'wallet_co_users.user_id'=>Auth::id(), 'coins.status' => STATUS_ACTIVE])
             ->orderBy('id', 'ASC')->get();
         $data['coins'] = Coin::where('status', STATUS_ACTIVE)->get();
-        $data['title'] = __('My Pocket');
+        $data['title'] = __('My Wallet');
 
         return view('user.pocket.index', $data);
     }
@@ -171,9 +171,9 @@ class WalletController extends Controller
                 }
                 DB::commit();
                 if (co_wallet_feature_active() && $request->type == CO_WALLET) {
-                    return redirect()->route('myPocket', ['tab'=>'co-pocket'])->with('success', __("Pocket created successfully"));
+                    return redirect()->route('myPocket', ['tab'=>'co-pocket'])->with('success', __("Wallet created successfully"));
                 } else {
-                    return redirect()->back()->with('success', __("Pocket created successfully"));
+                    return redirect()->back()->with('success', __("Wallet created successfully"));
                 }
             } catch (\Exception $e) {
                 Log::alert($e->getMessage());
@@ -181,7 +181,7 @@ class WalletController extends Controller
                 return redirect()->back()->with('dismiss', __("Something went wrong."));
             }
         }
-        return redirect()->back()->with('dismiss', __("Pocket name can't be empty"));
+        return redirect()->back()->with('dismiss', __("Wallet name can't be empty"));
     }
 
     // create new wallet
@@ -196,7 +196,7 @@ class WalletController extends Controller
 
             $maxCoUser = !empty($wallet->max_co_users) ? (int) $wallet->max_co_users : 2;
             $coUserCount = WalletCoUser::where(['wallet_id' => $wallet->id])->count();
-            if($coUserCount >= $maxCoUser) return redirect()->back()->with('dismiss', __("Can't import this pocket. Max co user limit reached."));
+            if($coUserCount >= $maxCoUser) return redirect()->back()->with('dismiss', __("Can't import this wallet. Max co user limit reached."));
 
             try {
                 WalletCoUser::create([
@@ -209,7 +209,7 @@ class WalletController extends Controller
                 return redirect()->back()->with('dismiss', __("Something went wrong."));
             }
 
-            return redirect()->route('myPocket', ['tab'=>'co-pocket'])->with('success', __("Co Pocket imported successfully"));
+            return redirect()->route('myPocket', ['tab'=>'co-pocket'])->with('success', __("Co-wallet imported successfully"));
         }
         return redirect()->back()->with('dismiss', __("Key can't be empty"));
     }
@@ -330,7 +330,7 @@ class WalletController extends Controller
         $address = $request->address;
         $user = Auth::user();
         if ($request->ajax()) {
-            if(empty($wallet)) return response()->json(['success'=>false,'message'=> __('Pocket not found.')]);
+            if(empty($wallet)) return response()->json(['success'=>false,'message'=> __('Wallet not found.')]);
             if ($wallet->balance >= $request->amount) {
                 $checkValidate = $transactionService->checkWithdrawalValidation( $request, $user, $wallet);
 
@@ -349,7 +349,7 @@ class WalletController extends Controller
             }
 
         } else {
-            if(empty($wallet)) return redirect()->back()->with('dismiss', __('Pocket not found.'));
+            if(empty($wallet)) return redirect()->back()->with('dismiss', __('Wallet not found.'));
             $checkValidate = $transactionService->checkWithdrawalValidation( $request, $user, $wallet);
 
             if ($checkValidate['success'] == false) {
@@ -401,7 +401,7 @@ class WalletController extends Controller
                             }
                             return redirect()->back()->with('success', __('Process successful. Need other co users approval.'));
                         } else {
-                            return redirect()->back()->with('dismiss', __('Invalid Pocket type.'));
+                            return redirect()->back()->with('dismiss', __('Invalid wallet type.'));
                         }
 
                     } catch (\Exception $e) {
@@ -509,7 +509,7 @@ class WalletController extends Controller
 
     //co wallet users
     public function coWalletUsers(Request $request) {
-        $data['title'] = __('Co Pocket Users');
+        $data['title'] = __('Co-wallet Users');
         $data['wallet'] = Wallet::select('wallets.*')
             ->join('wallet_co_users', 'wallet_co_users.wallet_id','=','wallets.id')
             ->where(['wallets.id'=>$request->id, 'wallets.type'=> CO_WALLET, 'wallet_co_users.user_id'=>Auth::id()])

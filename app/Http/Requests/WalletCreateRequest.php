@@ -47,12 +47,12 @@ class WalletCreateRequest extends FormRequest
     public function messages()
     {
         return [
-          'wallet_name.required' => __('Pocket name is required'),
-          'type.required' => __('Pocket type is required'),
-          'type.in' => __('Invalid pocket type'),
+                    'wallet_name.required' => __('Wallet name is required'),
+                    'type.required' => __('Wallet type is required'),
+                    'type.in' => __('Invalid wallet type'),
           'coin_type.required' => __('Coin type is required'),
           'coin_type.exists' => __('Invalid coin type'),
-                    'max_co_users.required' => __('Maximum co-user capacity is required for multi-signature wallet'),
+                    'max_co_users.required' => __('Maximum user capacity is required for multi-signature wallet'),
                     'max_co_users.min' => __('Multi-signature wallet must allow at least 2 members'),
         ];
     }

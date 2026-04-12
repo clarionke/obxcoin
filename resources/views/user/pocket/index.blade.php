@@ -1,6 +1,74 @@
 @extends('user.master',['menu'=>'wallet','sub_menu'=>'my_wallet'])
 @section('title', isset($title) ? $title : '')
 @section('style')
+<style>
+/* Improve visibility in wallet create/import modals on dark dashboard theme */
+.cp-user-move-coin-modal .modal-content {
+    background: #161b22;
+    border: 1px solid rgba(255, 255, 255, .12);
+}
+
+.cp-user-move-coin-modal .modal-content h3,
+.cp-user-move-coin-modal .modal-content label {
+    color: #e6edf3 !important;
+    font-weight: 600;
+}
+
+.cp-user-move-coin-modal .modal-body,
+.cp-user-move-coin-modal .text-center,
+.cp-user-move-coin-modal .text-center h3 {
+    color: #e6edf3 !important;
+}
+
+.cp-user-move-coin-modal .modal-content .form-control {
+    background: #0f1520 !important;
+    border: 1px solid rgba(255, 255, 255, .18) !important;
+    color: #e6edf3 !important;
+    -webkit-text-fill-color: #e6edf3;
+}
+
+.cp-user-move-coin-modal .modal-content select.form-control,
+.cp-user-move-coin-modal .modal-content input.form-control {
+    color: #e6edf3 !important;
+    -webkit-text-fill-color: #e6edf3;
+}
+
+.cp-user-move-coin-modal .modal-content .form-control::placeholder {
+    color: #9aa4b2 !important;
+    opacity: 1;
+}
+
+.cp-user-move-coin-modal .modal-content .form-control:-ms-input-placeholder {
+    color: #9aa4b2 !important;
+}
+
+.cp-user-move-coin-modal .modal-content .form-control::-ms-input-placeholder {
+    color: #9aa4b2 !important;
+}
+
+.cp-user-move-coin-modal .modal-content .form-control:focus {
+    border-color: rgba(99, 102, 241, .65);
+    box-shadow: 0 0 0 0.1rem rgba(99, 102, 241, .18);
+}
+
+.cp-user-move-coin-modal .modal-content select.form-control option {
+    color: #e6edf3 !important;
+    background: #0f1520 !important;
+}
+
+.cp-user-move-coin-modal .modal-content select.form-control option[value=""] {
+    color: #b8c1cc !important;
+}
+
+.cp-user-move-coin-modal .cp-user-move-btn {
+    color: #ffffff !important;
+    font-weight: 600;
+}
+
+.cp-user-move-coin-modal .modal-content small {
+    color: #9aa4b2 !important;
+}
+</style>
 @endsection
 @section('content')
     <div class="row">
@@ -300,7 +368,7 @@
                         <div class="form-group">
                             <label>{{__('Wallet Name')}}</label>
                             <input type="text" name="wallet_name" required class="form-control"
-                                   placeholder="{{__('Write Your Pocket Name')}}">
+                                   placeholder="{{__('Write Your Wallet Name')}}">
                         </div>
                         <div class="form-group">
                             <label>{{__('Coin Type')}}</label>
@@ -341,7 +409,7 @@
                             <div class="form-group">
                                 <label>{{__('Enter Wallet Key')}}</label>
                                 <input type="text" name="key" required class="form-control"
-                                       placeholder="{{__('Enter pocket key')}}">
+                                        placeholder="{{__('Enter wallet key')}}">
                             </div>
                             <button type="submit" class="btn btn-block cp-user-move-btn">{{__('Submit')}}</button>
                         </form>
