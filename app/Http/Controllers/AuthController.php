@@ -22,6 +22,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Session;
 use PragmaRX\Google2FA\Google2FA;
@@ -65,6 +66,14 @@ class AuthController extends Controller
     // sign up process with referral sign up
     public function signUpProcess(RegisterUser $request)
     {
+        $geo = $this->resolveSignupGeo($request);
+        if (!empty($geo['is_vpn'])) {
+            return redirect()->back()->withInput()->with('dismiss', __('Please disable VPN/Proxy to create an account.'));
+        }
+        if (empty($geo['country'])) {
+            return redirect()->back()->withInput()->with('dismiss', __('We could not detect your country automatically. Please disable VPN/Proxy and try again.'));
+        }
+
         DB::beginTransaction();
         $parentUserId = 0;
         try {
@@ -90,7 +99,8 @@ class AuthController extends Controller
                 'email' => $request['email'],
                 'role' => USER_ROLE_USER,
                 'password' => Hash::make($request['password']),
-                'country' => $request['country'],
+                'country' => $geo['country'],
+                'country_code' => $geo['country_code'] ?? null,
                 'phone'   => $request['phone'],
             ]);
             UserVerificationCode::create(['user_id' => $user->id, 'code' => $mail_key, 'expired_at' => date('Y-m-d', strtotime('+15 days'))]);
@@ -120,6 +130,55 @@ class AuthController extends Controller
         } else {
             return redirect()->back()->with('dismiss',__('Something went wrong'));
         }
+    }
+
+    private function resolveSignupGeo(Request $request): array
+    {
+        $ip = (string) $request->ip();
+        if (in_array($ip, ['127.0.0.1', '::1'])) {
+            // Local development fallback
+            return [
+                'country' => (string) ($request->country ?? ''),
+                'country_code' => null,
+                'is_vpn' => false,
+            ];
+        }
+
+        // Primary source: ip-api (proxy/hosting detection)
+        try {
+            $primary = Http::timeout(8)->get('http://ip-api.com/json/' . $ip, [
+                'fields' => 'status,country,countryCode,proxy,hosting,mobile',
+            ]);
+            if ($primary->ok()) {
+                $data = $primary->json();
+                if (($data['status'] ?? null) === 'success') {
+                    return [
+                        'country' => $data['country'] ?? null,
+                        'country_code' => $data['countryCode'] ?? null,
+                        'is_vpn' => (bool) (($data['proxy'] ?? false) || ($data['hosting'] ?? false)),
+                    ];
+                }
+            }
+        } catch (\Exception $e) {
+            // Fallback below
+        }
+
+        // Fallback source: ipapi (country only)
+        try {
+            $fallback = Http::timeout(8)->get('https://ipapi.co/' . $ip . '/json/');
+            if ($fallback->ok()) {
+                $data = $fallback->json();
+                return [
+                    'country' => $data['country_name'] ?? null,
+                    'country_code' => $data['country_code'] ?? null,
+                    'is_vpn' => false,
+                ];
+            }
+        } catch (\Exception $e) {
+            // Ignore and return empty
+        }
+
+        return ['country' => null, 'country_code' => null, 'is_vpn' => false];
     }
 
     private function generate_email_verification_key()

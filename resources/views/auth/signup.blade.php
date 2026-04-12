@@ -10,12 +10,6 @@
     .phone-row { display:flex; gap:0; }
     .phone-dial { width:90px; flex-shrink:0; background:var(--bg3); border:1px solid var(--border); border-radius:10px 0 0 10px; color:var(--text); font-size:.88rem; font-weight:600; padding:11px 8px; text-align:center; pointer-events:none; }
     .phone-input { flex:1; border-radius:0 10px 10px 0; border-left:none !important; }
-    .country-detect-row { display:flex; align-items:center; gap:8px; }
-    .country-detect-row .auth-select { flex:1; }
-    .detect-btn { flex-shrink:0; background:var(--bg3); border:1px solid var(--border); border-radius:10px; color:var(--muted); font-size:.78rem; padding:11px 12px; cursor:pointer; white-space:nowrap; transition:border-color .2s,color .2s; }
-    .detect-btn:hover { border-color:var(--accent); color:var(--accent2); }
-    .detect-spinner { display:none; width:14px; height:14px; border:2px solid var(--border); border-top-color:var(--accent2); border-radius:50%; animation:spin .7s linear infinite; }
-    @keyframes spin { to { transform:rotate(360deg); } }
 </style>
 @endsection
 
@@ -71,44 +65,12 @@
 
         {{-- Country --}}
         <div class="auth-field">
-            <label class="auth-label" for="reg_country">{{ __('Country') }} <span class="req">*</span></label>
-            <div class="country-detect-row">
-                <select id="reg_country" name="country" class="auth-select" autocomplete="country-name">
-                    <option value="">— {{ __('Select your country') }} —</option>
-                    @php
-                    $countries = [
-                        'Afghanistan','Albania','Algeria','Andorra','Angola','Antigua and Barbuda','Argentina','Armenia','Australia','Austria',
-                        'Azerbaijan','Bahamas','Bahrain','Bangladesh','Barbados','Belarus','Belgium','Belize','Benin','Bhutan','Bolivia',
-                        'Bosnia and Herzegovina','Botswana','Brazil','Brunei','Bulgaria','Burkina Faso','Burundi','Cabo Verde','Cambodia',
-                        'Cameroon','Canada','Central African Republic','Chad','Chile','China','Colombia','Comoros','Congo (Brazzaville)',
-                        'Congo (Kinshasa)','Costa Rica','Croatia','Cuba','Cyprus','Czech Republic','Denmark','Djibouti','Dominica',
-                        'Dominican Republic','Ecuador','Egypt','El Salvador','Equatorial Guinea','Eritrea','Estonia','Eswatini','Ethiopia',
-                        'Fiji','Finland','France','Gabon','Gambia','Georgia','Germany','Ghana','Greece','Grenada','Guatemala','Guinea',
-                        'Guinea-Bissau','Guyana','Haiti','Honduras','Hungary','Iceland','India','Indonesia','Iran','Iraq','Ireland','Israel',
-                        'Italy','Jamaica','Japan','Jordan','Kazakhstan','Kenya','Kiribati','Kosovo','Kuwait','Kyrgyzstan','Laos','Latvia',
-                        'Lebanon','Lesotho','Liberia','Libya','Liechtenstein','Lithuania','Luxembourg','Madagascar','Malawi','Malaysia',
-                        'Maldives','Mali','Malta','Marshall Islands','Mauritania','Mauritius','Mexico','Micronesia','Moldova','Monaco',
-                        'Mongolia','Montenegro','Morocco','Mozambique','Myanmar','Namibia','Nauru','Nepal','Netherlands','New Zealand',
-                        'Nicaragua','Niger','Nigeria','North Korea','North Macedonia','Norway','Oman','Pakistan','Palau','Palestine',
-                        'Panama','Papua New Guinea','Paraguay','Peru','Philippines','Poland','Portugal','Qatar','Romania','Russia','Rwanda',
-                        'Saint Kitts and Nevis','Saint Lucia','Saint Vincent and the Grenadines','Samoa','San Marino','Sao Tome and Principe',
-                        'Saudi Arabia','Senegal','Serbia','Seychelles','Sierra Leone','Singapore','Slovakia','Slovenia','Solomon Islands',
-                        'Somalia','South Africa','South Korea','South Sudan','Spain','Sri Lanka','Sudan','Suriname','Sweden','Switzerland',
-                        'Syria','Taiwan','Tajikistan','Tanzania','Thailand','Timor-Leste','Togo','Tonga','Trinidad and Tobago','Tunisia',
-                        'Turkey','Turkmenistan','Tuvalu','Uganda','Ukraine','United Arab Emirates','United Kingdom','United States',
-                        'Uruguay','Uzbekistan','Vanuatu','Vatican City','Venezuela','Vietnam','Yemen','Zambia','Zimbabwe',
-                    ];
-                    $oldCountry = old('country');
-                    @endphp
-                    @foreach($countries as $c)
-                    <option value="{{ $c }}" @if($oldCountry === $c) selected @endif>{{ $c }}</option>
-                    @endforeach
-                </select>
-                <button type="button" class="detect-btn" id="detectCountryBtn" title="{{ __('Auto-detect my country') }}">
-                    <span id="detectLabel">&#x1F4CD; {{ __('Detect') }}</span>
-                    <span class="detect-spinner" id="detectSpinner"></span>
-                </button>
-            </div>
+            <label class="auth-label" for="reg_country_display">{{ __('Country') }} <span class="req">*</span></label>
+            @php $oldCountry = old('country'); @endphp
+            <input type="text" id="reg_country_display" class="auth-input" value="{{ $oldCountry }}" placeholder="{{ __('Detecting your country...') }}" readonly>
+            <input type="hidden" id="reg_country" name="country" value="{{ $oldCountry }}">
+            <small style="color:#9aa4b2;display:block;margin-top:6px;">{{ __('Country is auto-detected and cannot be changed during registration.') }}</small>
+            <span class="auth-error" id="country_auto_error" style="display:none;"></span>
             @if($errors->has('country'))
                 <span class="auth-error">{{ $errors->first('country') }}</span>
             @endif
@@ -245,64 +207,54 @@
         'Venezuela':'+58','Vietnam':'+84','Yemen':'+967','Zambia':'+260','Zimbabwe':'+263',
     };
 
-    var countrySelect = document.getElementById('reg_country');
-    var dialEl        = document.getElementById('phoneDial');
+    var countryHidden  = document.getElementById('reg_country');
+    var countryDisplay = document.getElementById('reg_country_display');
+    var countryError   = document.getElementById('country_auto_error');
+    var dialEl         = document.getElementById('phoneDial');
+    var signupForm     = document.querySelector('form[action*="sign-up-process"]');
 
     function setDial(country) {
         dialEl.textContent = dialCodes[country] || '+?';
     }
 
-    countrySelect.addEventListener('change', function(){
-        setDial(this.value);
-    });
-
     // init dial from old() value if present
-    if (countrySelect.value) setDial(countrySelect.value);
+    if (countryHidden.value) setDial(countryHidden.value);
 
     /* ── Auto-detect country via ipapi.co ──────────────────── */
-    var detectBtn     = document.getElementById('detectCountryBtn');
-    var detectLabel   = document.getElementById('detectLabel');
-    var detectSpinner = document.getElementById('detectSpinner');
 
     function detectCountry() {
-        detectLabel.style.display  = 'none';
-        detectSpinner.style.display = 'inline-block';
-        detectBtn.disabled = true;
-
         fetch('https://ipapi.co/json/')
             .then(function(r){ return r.ok ? r.json() : null; })
             .then(function(d){
                 if (d && d.country_name) {
                     var name = d.country_name;
-                    // Try exact match first, then case-insensitive
-                    var opts = countrySelect.options;
-                    var matched = false;
-                    for (var i = 0; i < opts.length; i++) {
-                        if (opts[i].value === name || opts[i].value.toLowerCase() === name.toLowerCase()) {
-                            countrySelect.value = opts[i].value;
-                            setDial(opts[i].value);
-                            matched = true;
-                            break;
-                        }
-                    }
-                    if (!matched && d.calling_code) {
-                        dialEl.textContent = '+' + d.calling_code;
+                    countryHidden.value = name;
+                    countryDisplay.value = name;
+                    setDial(name);
+                    if (countryError) {
+                        countryError.style.display = 'none';
+                        countryError.textContent = '';
                     }
                 }
             })
-            .catch(function(){})
-            .finally(function(){
-                detectLabel.style.display   = 'inline';
-                detectSpinner.style.display = 'none';
-                detectBtn.disabled = false;
-            });
+            .catch(function(){});
     }
 
-    detectBtn.addEventListener('click', detectCountry);
-
     // Auto-detect on page load only if no old() value
-    if (!countrySelect.value) {
+    if (!countryHidden.value) {
         detectCountry();
+    }
+
+    if (signupForm) {
+        signupForm.addEventListener('submit', function(e){
+            if (!countryHidden.value) {
+                e.preventDefault();
+                if (countryError) {
+                    countryError.textContent = '{{ __('Country detection failed. Please disable VPN/Proxy and refresh to continue.') }}';
+                    countryError.style.display = 'block';
+                }
+            }
+        });
     }
 })();
 </script>

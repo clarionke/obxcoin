@@ -1,0 +1,78 @@
+name: Deploy To Hosting
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Git ref to deploy (branch/tag/sha)
+        required: false
+        default: main
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Resolve ref
+        id: ref
+        run: |
+          REF="${{ github.event.inputs.ref }}"
+          if [ -z "$REF" ]; then
+            REF="${{ github.sha }}"
+          fi
+          echo "ref=$REF" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PROD_USER }}
+          key: ${{ secrets.PROD_SSH_KEY }}
+          port: ${{ secrets.PROD_PORT }}
+          script_stop: true
+          command_timeout: 30m
+          script: |
+            set -e
+            APP_PATH="${{ secrets.PROD_APP_PATH }}"
+            REF="${{ steps.ref.outputs.ref }}"
+
+            if [ -z "$APP_PATH" ]; then
+              echo "PROD_APP_PATH secret is empty"
+              exit 1
+            fi
+
+            cd "$APP_PATH"
+
+            if [ ! -d .git ]; then
+              echo "Target path is not a git repository: $APP_PATH"
+              exit 1
+            fi
+
+            git fetch --all --prune
+            git checkout "$REF"
+
+            # Ensure dependencies and framework caches are production-ready
+            if command -v composer >/dev/null 2>&1; then
+              composer install --no-dev --prefer-dist --no-interaction --optimize-autoloader
+            else
+              echo "Composer is not installed on server"
+              exit 1
+            fi
+
+            if [ -f artisan ]; then
+              php artisan migrate --force
+              php artisan config:cache
+              php artisan route:cache
+              php artisan view:cache
+              php artisan queue:restart || true
+            fi
+
+            echo "Deployment completed successfully"
