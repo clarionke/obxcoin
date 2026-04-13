@@ -96,6 +96,39 @@ async function generateAddress(req, res)
     
 }
 
+async function getAddressByPk(req, res)
+{
+    try {
+        const network = req.headers.chainlinks;
+        const networkType = req.headers.networktype;
+        const privateKey = String(req.body.contracts || '').trim();
+
+        if (!network) {
+            return res.json({ status: false, message: "No chain provided", data: {} });
+        }
+
+        if (!privateKey) {
+            return res.json({ status: false, message: "Private key required", data: {} });
+        }
+
+        if (parseInt(networkType) == 6) {
+            return res.json({ status: false, message: "Use get-trx-address for TRX network", data: {} });
+        }
+
+        const web3 = new Web3(new Web3.providers.HttpProvider(network));
+        const normalizedPk = privateKey.startsWith('0x') ? privateKey : `0x${privateKey}`;
+        const account = web3.eth.accounts.privateKeyToAccount(normalizedPk);
+
+        return res.json({
+            status: true,
+            message: "process successfully",
+            data: { address: account.address }
+        });
+    } catch (e) {
+        return res.json({ status: false, message: e.message, data: {} });
+    }
+}
+
 async function getWalletBalance(req, res)
 {
     try {
@@ -866,6 +899,7 @@ async function getContractDetails(req, res)
 module.exports = {
     getData,
     generateAddress,
+    getAddressByPk,
     getWalletBalance,
     sendEth,
     sendToken,

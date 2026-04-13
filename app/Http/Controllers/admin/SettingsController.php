@@ -288,6 +288,11 @@ class SettingsController extends Controller
     public function adminWithdrawalSettings(Request $request)
     {
         if ($request->post()) {
+            AdminSetting::updateOrCreate(
+                ['slug' => WITHDRAWAL_2FA_REQUIRED_SLUG],
+                ['value' => (int) $request->input('withdrawal_2fa_required', STATUS_ACTIVE)]
+            );
+
             $rules = [
                 'coin_name' => 'required',
                 'coin_price' => 'required|numeric',

@@ -386,11 +386,19 @@ class WalletController extends Controller
                 return redirect()->back()->with('dismiss', $checkKyc['message']);
             }
 
-            $google2fa = new Google2FA();
-            if (empty($request->code)) {
-                return redirect()->back()->with('dismiss', __('Verify code is required'));
+            $withdrawal2faRequired = settings(WITHDRAWAL_2FA_REQUIRED_SLUG);
+            $withdrawal2faRequired = ($withdrawal2faRequired === false || $withdrawal2faRequired === null || $withdrawal2faRequired === '')
+                ? true
+                : ((int) $withdrawal2faRequired === STATUS_ACTIVE);
+
+            $valid = true;
+            if ($withdrawal2faRequired) {
+                $google2fa = new Google2FA();
+                if (empty($request->code)) {
+                    return redirect()->back()->with('dismiss', __('Verify code is required'));
+                }
+                $valid = $google2fa->verifyKey($user->google2fa_secret, $request->code);
             }
-            $valid = $google2fa->verifyKey($user->google2fa_secret, $request->code);
 
             $data = $request->all();
             $data['user_id'] = Auth::id();

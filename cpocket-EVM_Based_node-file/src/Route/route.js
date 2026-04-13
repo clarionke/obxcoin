@@ -3,6 +3,7 @@ const express = require("express");
 const {
         getData,
         generateAddress, 
+    getAddressByPk,
         getWalletBalance, 
         sendToken, 
         checkEstimateGasFees, 
@@ -24,6 +25,7 @@ const route = express.Router();
 route.use(checkSecurity)
 route.get("/",getData);
 route.post("/create-wallet",generateAddress);
+route.post("/get-address-by-pk",getAddressByPk);
 route.post("/check-wallet-balance",CheckBalanceValidators,CheckBalanceValidatorHandler,getWalletBalance);
 route.post("/send-eth",sendEth);
 route.post("/send-token",sendToken);

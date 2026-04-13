@@ -59,7 +59,12 @@ class CommonService
             ];
         }
 
-        if ($user->user_settings->gauth_enabled != GOOGLE_AUTH_ENABLED) {
+        $withdrawal2faRequired = settings(WITHDRAWAL_2FA_REQUIRED_SLUG);
+        $withdrawal2faRequired = ($withdrawal2faRequired === false || $withdrawal2faRequired === null || $withdrawal2faRequired === '')
+            ? true
+            : ((int) $withdrawal2faRequired === STATUS_ACTIVE);
+
+        if ($withdrawal2faRequired && $user->user_settings->gauth_enabled != GOOGLE_AUTH_ENABLED) {
             return [
                 'success' => false,
                 'google_auth_verify' => false,

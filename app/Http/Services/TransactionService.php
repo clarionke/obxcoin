@@ -34,6 +34,16 @@ class TransactionService
 
     }
 
+    private function isWithdrawal2faRequired(): bool
+    {
+        $setting = settings(WITHDRAWAL_2FA_REQUIRED_SLUG);
+        if ($setting === false || $setting === null || $setting === '') {
+            return true;
+        }
+
+        return (int) $setting === STATUS_ACTIVE;
+    }
+
     private function generate_email_verification_key()
     {
         do {
@@ -345,7 +355,7 @@ class TransactionService
             $data['message'] = __("Please Verify your phone.");
             return response()->json($data);
         }
-        if ( !isset($user->user_settings) || ($user->user_settings->gauth_enabled == STATUS_PENDING) ) {
+        if ( $this->isWithdrawal2faRequired() && (!isset($user->user_settings) || ($user->user_settings->gauth_enabled == STATUS_PENDING)) ) {
             $data['data']['is_google_auth_enabled'] = false;
             $data['message'] = __("You need to enable google authenticator to send coin from web.");
             return response()->json($data);
@@ -766,7 +776,7 @@ class TransactionService
             ];
         }
 
-        if ( $user->user_settings->gauth_enabled != GOOGLE_AUTH_ENABLED ) {
+        if ( $this->isWithdrawal2faRequired() && $user->user_settings->gauth_enabled != GOOGLE_AUTH_ENABLED ) {
             return [
                 'success' => false,
                 'google_auth_verify' => false,
