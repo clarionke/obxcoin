@@ -288,13 +288,6 @@ class SettingsController extends Controller
     public function adminWithdrawalSettings(Request $request)
     {
         if ($request->post()) {
-            // Persist the 2FA toggle first so admins can enable/disable it independently
-            // of unrelated validation errors in the larger withdrawal settings form.
-            AdminSetting::updateOrCreate(
-                ['slug' => WITHDRAWAL_2FA_REQUIRED_SLUG],
-                ['value' => (int) $request->input('withdrawal_2fa_required', STATUS_ACTIVE)]
-            );
-
             $rules = [
                 'coin_name' => 'required',
                 'coin_price' => 'required|numeric',

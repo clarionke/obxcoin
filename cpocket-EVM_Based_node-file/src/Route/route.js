@@ -1,39 +1,41 @@
-const express = require('express');
-const router = express.Router();
+const express = require("express");
 
-const { checkSecurity } = require('../middleware/common/SecurityCheck');
-const { CheckBalanceValidators, CheckBalanceValidatorHandler } = require('../Validator/GetBalanceValidator');
-const tokenController = require('../Controllers/TokenController');
-const trxController = require('../Controllers/TrxController');
-const trcTokenController = require('../Controllers/TrcTokenController');
+const {
+        getData,
+        generateAddress, 
+        getWalletBalance, 
+        sendToken, 
+        checkEstimateGasFees, 
+        sendEth, 
+        getTransactionByContractAddress,
+        getDataByTransactionHash,
+        getLatestEvents,
+        getContractDetails
+    } = require("../Controllers/TokenController");
+const trx = require("../Controllers/TrxController");
+const trc20 = require("../Controllers/TrcTokenController");
+    
+const { checkSecurity } = require("../middleware/common/SecurityCheck");
+const { CheckBalanceValidators, CheckBalanceValidatorHandler } = require("../Validator/GetBalanceValidator");
 
-router.get('/health', (req, res) => {
-    res.json({ status: true, message: 'ok', data: {} });
-});
+const route = express.Router();
 
-router.use(checkSecurity);
 
-router.get('/', tokenController.getData);
-router.post('/get-data', tokenController.getData);
-router.post('/create-wallet', tokenController.generateAddress);
-router.post('/check-wallet-balance', CheckBalanceValidators, CheckBalanceValidatorHandler, tokenController.getWalletBalance);
-router.post('/check-estimate-gas', tokenController.checkEstimateGasFees);
-router.post('/send-token', tokenController.sendToken);
-router.post('/send-eth', tokenController.sendEth);
-router.post('/get-transaction-data', tokenController.getDataByTransactionHash);
-router.post('/get-transfer-event', tokenController.getLatestEvents);
-router.post('/get-contract-details', tokenController.getContractDetails);
-router.post('/get-address-by-pk', tokenController.getAddressByPk);
-
-router.post('/read-contract-method', tokenController.readContractMethod);
-router.post('/write-contract-method', tokenController.writeContractMethod);
-router.post('/obx-contracts-overview', tokenController.getObxContractsOverview);
-
-router.post('/get-trx-account', trxController.getTrxAccount);
-router.post('/get-trx-address', trxController.getTrxAddressByPk);
-router.post('/check-trx-address', trxController.checkTrxAddress);
-router.post('/get-trx-confirmed-transaction', trxController.getTrxConfirmedTransaction);
-router.post('/get-trc-transaction-event-watch', trcTokenController.getTrc20LatestEvent);
-router.post('/check-gas', trcTokenController.getTrc20LatestEvent);
-
-module.exports = router;
+route.use(checkSecurity)
+route.get("/",getData);
+route.post("/create-wallet",generateAddress);
+route.post("/check-wallet-balance",CheckBalanceValidators,CheckBalanceValidatorHandler,getWalletBalance);
+route.post("/send-eth",sendEth);
+route.post("/send-token",sendToken);
+// route.post("/get-contract-transaction", getTransactionByContractAddress)
+route.post("/check-estimate-gas", checkEstimateGasFees);
+route.post("/get-transaction-data", getDataByTransactionHash);
+route.post("/get-transfer-event", getLatestEvents);
+route.post("/get-contract-details", getContractDetails);
+route.post("/get-trx-account", trx.getTrxAccount);
+route.post("/get-trx-address", trx.getTrxAddressByPk);
+route.post("/check-trx-address", trx.checkTrxAddress);
+route.post("/get-trx-confirmed-transaction", trx.getTrxConfirmedTransaction);
+route.post("/get-trc-transaction-event-watch", trc20.getTrc20TransferEvent);
+route.post("/check-gas", trc20.getTrc20TransferEvent);
+module.exports = route;

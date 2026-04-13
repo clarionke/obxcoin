@@ -12,7 +12,6 @@ use App\Model\WithdrawHistory;
 use App\Repository\AffiliateRepository;
 use App\Repository\UserRepository;
 use App\Services\BitCoinApiService;
-use App\Services\BlockchainService;
 use App\Services\CoinPaymentsAPI;
 use App\Services\MailService;
 use App\User;
@@ -33,15 +32,6 @@ class TransactionService
     public function __construct()
     {
 
-    }
-
-    private function isWithdrawal2faRequired(): bool
-    {
-        $setting = settings(WITHDRAWAL_2FA_REQUIRED_SLUG);
-        if ($setting === false || $setting === null || $setting === '') {
-            return true;
-        }
-        return (int) $setting === STATUS_ACTIVE;
     }
 
     private function generate_email_verification_key()
@@ -355,7 +345,7 @@ class TransactionService
             $data['message'] = __("Please Verify your phone.");
             return response()->json($data);
         }
-        if ($this->isWithdrawal2faRequired() && ( !isset($user->user_settings) || ($user->user_settings->gauth_enabled == STATUS_PENDING) )) {
+        if ( !isset($user->user_settings) || ($user->user_settings->gauth_enabled == STATUS_PENDING) ) {
             $data['data']['is_google_auth_enabled'] = false;
             $data['message'] = __("You need to enable google authenticator to send coin from web.");
             return response()->json($data);
@@ -524,51 +514,31 @@ class TransactionService
             ];
         }
 
-        if ( $address_type == ADDRESS_TYPE_EXTERNAL ) {
-            if (strcasecmp((string) $wallet->coin_type, DEFAULT_COIN_TYPE) === 0) {
-                $blockchain = app(BlockchainService::class);
-                $chainTx = $blockchain->transferObxOnChain($address, (string) $amount);
-
-                if (empty($chainTx) || empty($chainTx['txHash'])) {
-                    DB::rollBack();
-                    $this->_cancelTransaction($user, $wallet, $address, $amount, $pendingTransaction);
-                    return [
-                        'success' => false,
-                        'message' => __('On-chain OBX send failed')
-                    ];
-                }
-
-                if ( !empty($pendingTransaction) ) {
-                    $pendingTransaction->status = STATUS_SUCCESS;
-                    $pendingTransaction->update();
-                }
-
-                $transaction->transaction_hash = $chainTx['txHash'];
-                $transaction->status = STATUS_SUCCESS;
-                $transaction->confirmations = 1;
-                $transaction->update();
-            } else {
-                log::info("call external address");
-                $response = $this->external_transfer($address, $amount, $authId, $is_admin, $user->id);
-                log::info($response);
-                if ($response['status'] === false) {
-                    DB::rollBack();
-                    $this->_cancelTransaction($user, $wallet, $address, $amount, $pendingTransaction);
-                    return [
-                        'success' => $response['status'],
-                        'message' => $response['message']
-                    ];
-                }
-                if ( !empty($pendingTransaction) ) {
-                    $pendingTransaction->status = STATUS_SUCCESS;
-                    $pendingTransaction->update();
-                }
-                if (isset($response['status'])) {
-                    $transaction->transaction_hash = $response['transaction_id'];
-                    $transaction->update();
-                }
-            }
-        }
+//        if ( $address_type == ADDRESS_TYPE_EXTERNAL ) {
+//            log::info("call external address");
+//            $response = [];
+//            $response = $this->external_transfer($address, $amount, $authId, $is_admin, $user->id);
+//            log::info($response);
+//            if ($response['status'] === false) {
+//                DB::rollBack();
+//                $this->_cancelTransaction($user, $wallet, $address, $amount, $pendingTransaction);
+//                return [
+//                    'success' => $response['status'],
+//                    'message' => $response['message']
+//                ];
+//            }
+//            if ( !empty($pendingTransaction) ) {
+//                $pendingTransaction->status = STATUS_SUCCESS;
+//                $pendingTransaction->update();
+//            }
+//            if (isset($response['status'])) {
+//                $transaction->transaction_hash = $response['transaction_id'];
+//                $bonus = $affiliate_servcice->storeAffiliationHistory($transaction);
+//            }
+//            if ( !$transaction->update() ) {
+//            }
+//
+//        }
         DB::commit();
 
         return [
@@ -796,7 +766,7 @@ class TransactionService
             ];
         }
 
-        if ( $this->isWithdrawal2faRequired() && $user->user_settings->gauth_enabled != GOOGLE_AUTH_ENABLED ) {
+        if ( $user->user_settings->gauth_enabled != GOOGLE_AUTH_ENABLED ) {
             return [
                 'success' => false,
                 'google_auth_verify' => false,
@@ -1113,14 +1083,6 @@ class TransactionService
             'success' => true,
             'message' => ''
         ];
-
-        if ($this->isWithdrawal2faRequired() && (!isset($user->user_settings) || (int)$user->user_settings->gauth_enabled !== GOOGLE_AUTH_ENABLED)) {
-            return [
-                'data' => [],
-                'success' => false,
-                'message' => __('You need to enable google authenticator to send coin from web.')
-            ];
-        }
 
         $checkCoinStatus = check_coin_status($wallet, CHECK_STATUS, $request->amount, 0);
         $checkWithdrawalStatus = check_coin_status($wallet, CHECK_WITHDRAWAL_STATUS, $request->amount, 0);

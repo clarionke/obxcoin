@@ -67,18 +67,6 @@ class WalletController extends Controller
         return view('user.pocket.index', $data);
     }
 
-    private function dispatchWithdrawalWithFallback(array $payload): void
-    {
-        try {
-            dispatch(new Withdrawal($payload))->onQueue('withdrawal');
-        } catch (\Throwable $e) {
-            Log::warning('Queue dispatch failed, running withdrawal sync fallback', [
-                'error' => $e->getMessage(),
-            ]);
-            dispatch_sync(new Withdrawal($payload));
-        }
-    }
-
     public function getCoinSwapDetails(Request $request)
     {
         if ($request->ajax()) {
@@ -282,7 +270,7 @@ class WalletController extends Controller
         $data['ac_tab'] = $request->q;
         $data['title'] = $request->q;
         $wallet = Wallet::find($id);
-        if (strcasecmp((string) $wallet->coin_type, DEFAULT_COIN_TYPE) === 0){
+        if ($wallet->coin_type == DEFAULT_COIN_TYPE){
             $repo = new WalletRepository();
             $repo->generateTokenAddress($data['wallet']->id);
             $data['wallet_address'] = WalletAddressHistory::where('wallet_id',$id)->orderBy('created_at','desc')->first();
@@ -290,14 +278,6 @@ class WalletController extends Controller
             return view('user.pocket.default_wallet_details', $data);
         }
         $data['address'] = (!empty($exists)) ? $exists->address : get_coin_payment_address($data['wallet']->coin_type);
-        if (empty($data['address'])) {
-            $repo = new WalletRepository();
-            $tokenAddressResponse = $repo->generateTokenAddress($data['wallet']->id);
-            if ($tokenAddressResponse['success'] == true) {
-                $latestAddress = WalletAddressHistory::where('wallet_id', $id)->orderBy('created_at', 'desc')->first();
-                $data['address'] = $latestAddress->address ?? null;
-            }
-        }
         if (!empty($data['address'])) {
             if (empty($exists)) {
                 $history = new \App\Services\wallet();
@@ -319,7 +299,7 @@ class WalletController extends Controller
             $myWallet = Wallet::where(['id' => $request->wallet_id, 'user_id' => Auth::id()])->first();
 
             if ($myWallet) {
-                if (strcasecmp((string) $myWallet->coin_type, DEFAULT_COIN_TYPE) === 0) {
+                if ($myWallet->coin_type == DEFAULT_COIN_TYPE) {
                     $repo = new WalletRepository();
                     $response = $repo->generateTokenAddress($myWallet->id);
                     if ($response['success'] == true) {
@@ -333,12 +313,6 @@ class WalletController extends Controller
                         $wallet->AddWalletAddressHistory($request->wallet_id, $address, $myWallet->coin_type);
                         return redirect()->back()->with(['success' => __('Address generated successfully')]);
                     } else {
-                        $repo = new WalletRepository();
-                        $response = $repo->generateTokenAddress($myWallet->id);
-                        if ($response['success'] == true) {
-                            return redirect()->back()->with(['success' => $response['message']]);
-                        }
-
                         return redirect()->back()->with(['dismiss' => __('Address not generated ')]);
                     }
                 }
@@ -412,19 +386,11 @@ class WalletController extends Controller
                 return redirect()->back()->with('dismiss', $checkKyc['message']);
             }
 
-            $withdrawal2faRequired = settings(WITHDRAWAL_2FA_REQUIRED_SLUG);
-            $withdrawal2faRequired = ($withdrawal2faRequired === false || $withdrawal2faRequired === null || $withdrawal2faRequired === '')
-                ? true
-                : ((int) $withdrawal2faRequired === STATUS_ACTIVE);
-
-            $valid = true;
-            if ($withdrawal2faRequired) {
-                $google2fa = new Google2FA();
-                if (empty($request->code)) {
-                    return redirect()->back()->with('dismiss', __('Verify code is required'));
-                }
-                $valid = $google2fa->verifyKey($user->google2fa_secret, $request->code);
+            $google2fa = new Google2FA();
+            if (empty($request->code)) {
+                return redirect()->back()->with('dismiss', __('Verify code is required'));
             }
+            $valid = $google2fa->verifyKey($user->google2fa_secret, $request->code);
 
             $data = $request->all();
             $data['user_id'] = Auth::id();
@@ -435,7 +401,7 @@ class WalletController extends Controller
                 if ($wallet->balance >= $request->amount) {
                     try {
                         if ($wallet->type == PERSONAL_WALLET) {
-                            $this->dispatchWithdrawalWithFallback($request->all());
+                            dispatch(new Withdrawal($request->all()))->onQueue('withdrawal');
                             return redirect()->back()->with('success', __('Withdrawal placed successfully'));
 
                         } else if (co_wallet_feature_active() && $wallet->type == CO_WALLET) {
@@ -925,17 +891,10 @@ class WalletController extends Controller
     private function dispatchCoWalletWithdrawal(?Wallet $wallet, array $tempWithdrawData): void
     {
         if ($wallet && strcasecmp((string) $wallet->coin_type, DEFAULT_COIN_TYPE) === 0) {
-            try {
-                dispatch(new CoWalletObxWithdrawal($tempWithdrawData))->onQueue('withdrawal');
-            } catch (\Throwable $e) {
-                Log::warning('Queue dispatch failed, running co-wallet OBX withdrawal sync fallback', [
-                    'error' => $e->getMessage(),
-                ]);
-                dispatch_sync(new CoWalletObxWithdrawal($tempWithdrawData));
-            }
+            dispatch(new CoWalletObxWithdrawal($tempWithdrawData))->onQueue('withdrawal');
             TempWithdraw::where('id', $tempWithdrawData['id'] ?? 0)->update(['status' => STATUS_SUCCESS]);
         } else {
-            $this->dispatchWithdrawalWithFallback($tempWithdrawData);
+            dispatch(new Withdrawal($tempWithdrawData))->onQueue('withdrawal');
         }
     }
 

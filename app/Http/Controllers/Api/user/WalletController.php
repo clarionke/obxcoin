@@ -14,7 +14,6 @@ use App\Model\Wallet;
 use App\Model\WalletAddressHistory;
 use App\Model\WalletCoUser;
 use App\Model\WithdrawHistory;
-use App\Repository\WalletRepository;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
@@ -29,18 +28,6 @@ class WalletController extends Controller
 {
     function __construct()
     {}
-
-    private function dispatchWithdrawalWithFallback(array $payload): void
-    {
-        try {
-            dispatch(new Withdrawal($payload))->onQueue('withdrawal');
-        } catch (\Throwable $e) {
-            Log::warning('Queue dispatch failed, running API withdrawal sync fallback', [
-                'error' => $e->getMessage(),
-            ]);
-            dispatch_sync(new Withdrawal($payload));
-        }
-    }
 
     public function myPocketList(Request $request){
         $limit = $request->limit ?? 5;
@@ -272,31 +259,8 @@ class WalletController extends Controller
                 return response()->json(['success' => true, 'data' => ['address'=>$address->address], 'message' => __('Address found successfully')]);
             } else {
                 $myWallet = Wallet::find($request->wallet_id);
-                $address = null;
-                if ($myWallet && strcasecmp((string) $myWallet->coin_type, DEFAULT_COIN_TYPE) === 0) {
-                    $repo = new WalletRepository();
-                    $response = $repo->generateTokenAddress($myWallet->id);
-                    if ($response['success'] == true) {
-                        $latestAddress = WalletAddressHistory::where('wallet_id', $myWallet->id)->orderBy('created_at', 'desc')->first();
-                        $address = $latestAddress->address ?? null;
-                    }
-                } else {
-                    $address = get_coin_payment_address($myWallet->coin_type ?? null);
-                    if (empty($address) && $myWallet) {
-                        $repo = new WalletRepository();
-                        $response = $repo->generateTokenAddress($myWallet->id);
-                        if ($response['success'] == true) {
-                            $latestAddress = WalletAddressHistory::where('wallet_id', $myWallet->id)->orderBy('created_at', 'desc')->first();
-                            $address = $latestAddress->address ?? null;
-                        }
-                    }
-                }
-
-                if (!empty($address)) {
-                    return response()->json(['success' => true, 'data' => ['address'=>$address], 'message' => __('Address generated successfully')]);
-                }
-
-                return response()->json(['success' => false, 'data' => [], 'message' => __('Address not generated')]);
+                $address = get_coin_payment_address($myWallet->coin_type);
+                return response()->json(['success' => true, 'data' => ['address'=>$address], 'message' => __('Address generated successfully')]);
             }
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'data' => [], 'message' => __($e->getMessage())]);
@@ -308,36 +272,11 @@ class WalletController extends Controller
         try {
             $wallet = new \App\Services\wallet();
             $myWallet = Wallet::find($request->wallet_id);
-            if ($myWallet && strcasecmp((string) $myWallet->coin_type, DEFAULT_COIN_TYPE) === 0) {
-                $repo = new WalletRepository();
-                $response = $repo->generateTokenAddress($myWallet->id);
-                if ($response['success'] == true) {
-                    $latestAddress = WalletAddressHistory::where('wallet_id', $myWallet->id)->orderBy('created_at', 'desc')->first();
-                    if (!empty($latestAddress->address)) {
-                        return response()->json(['success' => true, 'data' => ['address'=>$latestAddress->address], 'message' => __('Address generated successfully')]);
-                    }
-                }
-
-                return response()->json(['success' => false, 'data' => [], 'message' => __('Address not generated')]);
-            }
-
-            $address = get_coin_payment_address($myWallet->coin_type ?? null);
-            if (!empty($address) && $myWallet) {
+            $address = get_coin_payment_address($myWallet->coin_type);
+            if (!empty($address)) {
                 $wallet->AddWalletAddressHistory($request->wallet_id, $address, $myWallet->coin_type);
                 return response()->json(['success' => true, 'data' => ['address'=>$address], 'message' => __('Address generated successfully')]);
             } else {
-                if (!$myWallet) {
-                    return response()->json(['success' => false, 'data' => [], 'message' => __('Wallet missing')]);
-                }
-                $repo = new WalletRepository();
-                $response = $repo->generateTokenAddress($myWallet->id);
-                if ($response['success'] == true) {
-                    $latestAddress = WalletAddressHistory::where('wallet_id', $myWallet->id)->orderBy('created_at', 'desc')->first();
-                    if (!empty($latestAddress->address)) {
-                        return response()->json(['success' => true, 'data' => ['address'=>$latestAddress->address], 'message' => __('Address generated successfully')]);
-                    }
-                }
-
                 return response()->json(['success' => false, 'data' => [], 'message' => __('Address not generated')]);
             }
         } catch (\Exception $e) {
@@ -422,19 +361,11 @@ class WalletController extends Controller
         } else {
             return response()->json(['success' => false, 'message' => __('Wallet has no enough balance')]);
         }
-        $withdrawal2faRequired = settings(WITHDRAWAL_2FA_REQUIRED_SLUG);
-        $withdrawal2faRequired = ($withdrawal2faRequired === false || $withdrawal2faRequired === null || $withdrawal2faRequired === '')
-            ? true
-            : ((int) $withdrawal2faRequired === STATUS_ACTIVE);
-
-        $valid = true;
-        if ($withdrawal2faRequired) {
-            $google2fa = new Google2FA();
-            if (empty($request->code)) {
-                return response()->json(['success'=>false,'message'=> __('Verify code is required')]);
-            }
-            $valid = $google2fa->verifyKey($user->google2fa_secret, $request->code);
+        $google2fa = new Google2FA();
+        if (empty($request->code)) {
+            return response()->json(['success'=>false,'message'=> __('Verify code is required')]);
         }
+        $valid = $google2fa->verifyKey($user->google2fa_secret, $request->code);
         $data = $request->all();
         $data['user_id'] = Auth::id();
         $request = new Request();
@@ -442,7 +373,7 @@ class WalletController extends Controller
         if ($valid) {
             try {
                 if ($wallet->type == PERSONAL_WALLET) {
-                    $this->dispatchWithdrawalWithFallback($request->all());
+                    dispatch(new Withdrawal($request->all()))->onQueue('withdrawal');
                     return response()->json(['success'=>true,'message'=> __('Withdrawal placed successfully')]);
                 } else if (co_wallet_feature_active() && $wallet->type == CO_WALLET) {
                     DB::beginTransaction();
@@ -467,7 +398,7 @@ class WalletController extends Controller
                     ]);
                     DB::commit();
                     if ($transactionService->isAllApprovalDoneForCoWalletWithdraw($tempWithdraw)['success']) {
-                        $this->dispatchWithdrawalWithFallback($tempWithdraw->toArray());
+                        dispatch(new Withdrawal($tempWithdraw->toArray()))->onQueue('withdrawal');
                         return response()->json(['success'=>true,'message'=> __('Withdrawal placed successfully')]);
                     }
                     return response()->json(['success'=>true,'message'=> __('Process successful. Need other co users approval.')]);
@@ -587,7 +518,7 @@ class WalletController extends Controller
             DB::commit();
 
             if ($allApproved) {
-                $this->dispatchWithdrawalWithFallback($tempWithdraw->toArray());
+                dispatch(new Withdrawal($tempWithdraw->toArray()))->onQueue('withdrawal');
                 $message = __('All approval done and withdrawal placed successfully.');
                 return response()->json(['success'=>true,'data'=>[],'message'=> __($message)]);
             }

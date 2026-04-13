@@ -7,7 +7,7 @@ pragma solidity ^0.8.20;
  *
  * ✓ Compatible with: BSC (BEP-20), Ethereum (ERC-20), Polygon, Arbitrum, Optimism
  * ✓ Fully ERC-20 compatible with 18 decimals
- * ✓ Deflationary: 0.05% burn per transfer for everyone (after BURN_FLOOR: 0% fee forever)
+ * ✓ Deflationary: 0.05% burn per transfer (after BURN_FLOOR: 0% fee forever)
  * ✓ Programmed Scarcity: Burn stops at 41M OBX floor (59M total burn from 100M supply)
  *
  * ─── Tokenomics ───────────────────────────────────────────────────────────
@@ -19,17 +19,21 @@ pragma solidity ^0.8.20;
  *  • Burn Floor:          41,000,000 OBX (41% of initial supply remains)
  *  • Max Burnable:        59,000,000 OBX (59% of initial supply)
  *  • After floor reached: Burns are 0%, all transfers are fee-free forever
- *  • Fee-exempt list:    Disabled (no address exemptions)
+ *  • Fee-exempt list:    Owner, presale contract, airdrop contract, DEX router, LP pair(s)
  *
  * ─── Deployment Checklist ─────────────────────────────────────────────────
  *  1. Deploy OBXToken(100_000_000)
  *  2. Deploy OBXPresale(obxToken, usdt, treasury)
  *  3. Deploy OBXAirdrop(obxToken, usdt)
- *  4. OBXToken.transfer(presaleAddress, 20_000_000)   ← 20% presale allocation
- *  5. OBXToken.transfer(airdropAddress,  5_000_000)   ←  5% airdrop allocation
- *  6. OBXPresale.setRouter(routerAddress)             ← Enable auto-liquidity
- *  7. OBXAirdrop.createCampaign(start, end, daily)    ← Admin creates first airdrop campaign
- *  8. Verify balances via OBXToken.balanceOf()
+ *  4. OBXToken.setFeeExempt(presaleAddress, true)     ← BEFORE presale transfer
+ *  5. OBXToken.transfer(presaleAddress, 20_000_000)   ← 20% presale allocation
+ *  6. OBXToken.setFeeExempt(airdropAddress, true)     ← BEFORE airdrop transfer
+ *  7. OBXToken.transfer(airdropAddress,  5_000_000)   ←  5% airdrop allocation
+ *  8. OBXToken.setFeeExempt(routerAddress, true)      ← DEX router (PancakeSwap V2/Uniswap V2)
+ *  9. (After LP created) OBXToken.setFeeExempt(lpPairAddress, true)
+ * 10. OBXPresale.setRouter(routerAddress)             ← Enable auto-liquidity
+ * 11. OBXAirdrop.createCampaign(start, end, daily)    ← Admin creates first airdrop campaign
+ * 12. Verify balances via OBXToken.balanceOf()
  *
  * ─── Security Notes ───────────────────────────────────────────────────────
  *  • Owner can be transferred (2-step transfer via transferOwnership/acceptOwnership)
@@ -58,7 +62,7 @@ contract OBXToken {
     ///      Checked before every burn so the SLOAD is avoided when already true.
     bool public burnComplete;
 
-    /// @dev Kept for backward ABI compatibility. Exemptions are disabled.
+    /// @dev Fee-exempt addresses (presale, router, LP pair, owner).
     mapping(address => bool) public feeExempt;
 
     // ─── Ownership ───────────────────────────────────────────────────────────
@@ -99,6 +103,7 @@ contract OBXToken {
     constructor(uint256 _initialSupply) {
         require(_initialSupply > 0, "OBXToken: zero supply");
         owner                 = msg.sender;
+        feeExempt[msg.sender] = true;
         totalSupply           = _initialSupply * (10 ** decimals);
         balanceOf[msg.sender] = totalSupply;
         emit Transfer(address(0), msg.sender, totalSupply);
@@ -146,8 +151,8 @@ contract OBXToken {
         require(to   != address(0), "OBXToken: to zero");
         require(balanceOf[from] >= amount, "OBXToken: insufficient balance");
 
-        // 0.05 % burn for every transfer (no exemptions), until burn floor is reached.
-        if (!burnComplete && amount > 0) {
+        // 0.05 % burn — skipped when either address is fee-exempt OR burn is complete
+        if (!feeExempt[from] && !feeExempt[to] && !burnComplete && amount > 0) {
             uint256 burnAmount = (amount * BURN_FEE_BPS) / 10_000;
             if (burnAmount > 0) {
                 // ── Programmed Scarcity: cap burn at the floor ────────────────
@@ -188,11 +193,11 @@ contract OBXToken {
 
     // ─── Admin ───────────────────────────────────────────────────────────────
 
-    /// @notice Disabled: no address can be exempt from burn.
+    /// @notice Set or clear fee-exemption for presale, router, LP pair, etc.
     function setFeeExempt(address account, bool exempt) external onlyOwner {
-        account;
-        exempt;
-        revert("OBXToken: fee exemptions disabled");
+        require(account != address(0), "OBXToken: zero address");
+        feeExempt[account] = exempt;
+        emit FeeExemptUpdated(account, exempt);
     }
 
     function setPaused(bool _paused) external onlyOwner {
@@ -208,6 +213,8 @@ contract OBXToken {
 
     function acceptOwnership() external {
         require(msg.sender == pendingOwner, "OBXToken: not pending owner");
+        feeExempt[pendingOwner] = true;
+        feeExempt[owner]        = false;
         emit OwnershipTransferred(owner, pendingOwner);
         owner        = pendingOwner;
         pendingOwner = address(0);

@@ -335,12 +335,6 @@ class CustomTokenRepository
     {
         try {
             if ($transaction->is_admin_receive == STATUS_PENDING) {
-                if ($this->shouldKeepDepositInUserWallet($transaction)) {
-                    storeException('tokenReceiveManuallyByAdminProcess', 'OBX in-place custody enabled, skipping admin sweep transfer');
-                    $this->updateUserWalletByAdmin($transaction, $adminId);
-                    return;
-                }
-
                 $sendAmount = (float)$transaction->amount;
                 $checkAddress = $this->checkAddress($transaction->address);
                 $userPk = get_wallet_personal_add($transaction->address,$checkAddress->pk);
@@ -399,12 +393,6 @@ class CustomTokenRepository
         } catch (\Exception $e) {
             storeException('tokenReceiveManuallyByAdminProcess', $e->getMessage());
         }
-    }
-
-    private function shouldKeepDepositInUserWallet($transaction): bool
-    {
-        // Preserve holder count: do not transfer deposited OBX from user wallet to admin wallet.
-        return strtoupper((string) ($transaction->type ?? '')) === strtoupper((string) DEFAULT_COIN_TYPE);
     }
 
     // check address

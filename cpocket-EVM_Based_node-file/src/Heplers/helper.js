@@ -42,69 +42,7 @@ function customFromWei(amount,decimal)
 }
 function customToWei(amount,decimal)
 {
-    let input = String(amount ?? '0').trim();
-    if (/^-?\d+(\.\d+)?e[+-]?\d+$/i.test(input)) {
-        input = expandScientific(input);
-    }
-
-    if (!/^-?\d+(\.\d+)?$/.test(input)) {
-        throw new Error('Invalid numeric amount');
-    }
-
-    const isNegative = input.startsWith('-');
-    const unsigned = isNegative ? input.slice(1) : input;
-    const parts = unsigned.split('.');
-    const wholePart = parts[0] || '0';
-    const fractionPart = parts[1] || '';
-    const precision = Math.max(0, parseInt(decimal, 10) || 0);
-
-    const paddedFraction = (fractionPart + '0'.repeat(precision)).slice(0, precision);
-    const normalizedWhole = wholePart.replace(/^0+(?=\d)/, '');
-    const combined = (normalizedWhole + paddedFraction).replace(/^0+(?=\d)/, '') || '0';
-
-    return isNegative && combined !== '0' ? `-${combined}` : combined;
-}
-
-function expandScientific(value)
-{
-    let source = String(value).toLowerCase().trim();
-    let sign = '';
-    if (source.startsWith('-')) {
-        sign = '-';
-        source = source.slice(1);
-    } else if (source.startsWith('+')) {
-        source = source.slice(1);
-    }
-
-    const parts = source.split('e');
-    if (parts.length !== 2) {
-        return sign + source;
-    }
-
-    const coefficient = parts[0];
-    const exponent = parseInt(parts[1], 10);
-    if (!Number.isFinite(exponent)) {
-        throw new Error('Invalid numeric amount');
-    }
-
-    const coeffParts = coefficient.split('.');
-    const intPart = coeffParts[0] || '0';
-    const fracPart = coeffParts[1] || '';
-    const digits = (intPart + fracPart).replace(/^0+(?=\d)/, '') || '0';
-    const dotIndex = intPart.length;
-    const newDotIndex = dotIndex + exponent;
-
-    let plain;
-    if (newDotIndex <= 0) {
-        plain = '0.' + '0'.repeat(Math.abs(newDotIndex)) + digits;
-    } else if (newDotIndex >= digits.length) {
-        plain = digits + '0'.repeat(newDotIndex - digits.length);
-    } else {
-        plain = digits.slice(0, newDotIndex) + '.' + digits.slice(newDotIndex);
-    }
-
-    plain = plain.replace(/^0+(?=\d)/, '');
-    return sign + plain;
+    return (amount*powerOfTen(decimal)).toString()
 }
 function powerOfTen(x) {
   return Math.pow(10, x);

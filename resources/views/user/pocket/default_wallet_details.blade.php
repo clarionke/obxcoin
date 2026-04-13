@@ -104,10 +104,9 @@
     <script>
         function withDrawBalance() {
             var g2fCheck = '{{\Illuminate\Support\Facades\Auth::user()->google2fa_secret}}';
-            var withdrawal2faRequired = {{ ((settings(WITHDRAWAL_2FA_REQUIRED_SLUG) === false || settings(WITHDRAWAL_2FA_REQUIRED_SLUG) === null || settings(WITHDRAWAL_2FA_REQUIRED_SLUG) === '') ? STATUS_ACTIVE : (int)settings(WITHDRAWAL_2FA_REQUIRED_SLUG)) === STATUS_ACTIVE ? 'true' : 'false' }};
 
 
-            if (!withdrawal2faRequired || g2fCheck.length > 1) {
+            if (g2fCheck.length > 1) {
                 var frm = $('#withdrawFormData');
 
                 $.ajax({
@@ -116,11 +115,7 @@
                     data: frm.serialize(),
                     success: function (data) {
                         if (data.success == true) {
-                            if (withdrawal2faRequired) {
-                                $('#g2fcheck').modal('show');
-                            } else {
-                                frm.submit();
-                            }
+                            $('#g2fcheck').modal('show');
 
                         } else {
                             VanillaToasts.create({
