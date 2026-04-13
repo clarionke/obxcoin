@@ -209,6 +209,9 @@ async function calculateEstimateGasFees(req,type)
             const contract = new web3.eth.Contract(contractJsons, contractAddress);
             const contractDecimal = await getContractDecimal(contract);
             amount = customToWei(amount,contractDecimal);
+            if (!/^\d+$/.test(String(amount))) {
+                throw new Error('Invalid token amount format for transfer');
+            }
             if (usedGasLimit > 0) {
                 gasFees = (usedGasLimit * gasPrice);
             } else {
@@ -347,6 +350,9 @@ async function checkEstimateGasFees(req, res)
                     decimalValue = await getContractDecimal(contract);
                     
                     amount = customToWei(amount, decimalValue);
+                    if (!/^\d+$/.test(String(amount))) {
+                        throw new Error('Invalid token amount format for transfer');
+                    }
                     const dataGas = await calculateEstimateGasFees(req,1);
                     let usedGasLimit = dataGas.gasLimit;
                     
