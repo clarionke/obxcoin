@@ -14,6 +14,7 @@ use App\Model\Wallet;
 use App\Model\WalletAddressHistory;
 use App\Model\WalletCoUser;
 use App\Model\WithdrawHistory;
+use App\Repository\WalletRepository;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
@@ -259,8 +260,31 @@ class WalletController extends Controller
                 return response()->json(['success' => true, 'data' => ['address'=>$address->address], 'message' => __('Address found successfully')]);
             } else {
                 $myWallet = Wallet::find($request->wallet_id);
-                $address = get_coin_payment_address($myWallet->coin_type);
-                return response()->json(['success' => true, 'data' => ['address'=>$address], 'message' => __('Address generated successfully')]);
+                $address = null;
+                if ($myWallet && strcasecmp((string) $myWallet->coin_type, DEFAULT_COIN_TYPE) === 0) {
+                    $repo = new WalletRepository();
+                    $response = $repo->generateTokenAddress($myWallet->id);
+                    if ($response['success'] == true) {
+                        $latestAddress = WalletAddressHistory::where('wallet_id', $myWallet->id)->orderBy('created_at', 'desc')->first();
+                        $address = $latestAddress->address ?? null;
+                    }
+                } else {
+                    $address = get_coin_payment_address($myWallet->coin_type ?? null);
+                    if (empty($address) && $myWallet) {
+                        $repo = new WalletRepository();
+                        $response = $repo->generateTokenAddress($myWallet->id);
+                        if ($response['success'] == true) {
+                            $latestAddress = WalletAddressHistory::where('wallet_id', $myWallet->id)->orderBy('created_at', 'desc')->first();
+                            $address = $latestAddress->address ?? null;
+                        }
+                    }
+                }
+
+                if (!empty($address)) {
+                    return response()->json(['success' => true, 'data' => ['address'=>$address], 'message' => __('Address generated successfully')]);
+                }
+
+                return response()->json(['success' => false, 'data' => [], 'message' => __('Address not generated')]);
             }
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'data' => [], 'message' => __($e->getMessage())]);
@@ -272,11 +296,36 @@ class WalletController extends Controller
         try {
             $wallet = new \App\Services\wallet();
             $myWallet = Wallet::find($request->wallet_id);
-            $address = get_coin_payment_address($myWallet->coin_type);
-            if (!empty($address)) {
+            if ($myWallet && strcasecmp((string) $myWallet->coin_type, DEFAULT_COIN_TYPE) === 0) {
+                $repo = new WalletRepository();
+                $response = $repo->generateTokenAddress($myWallet->id);
+                if ($response['success'] == true) {
+                    $latestAddress = WalletAddressHistory::where('wallet_id', $myWallet->id)->orderBy('created_at', 'desc')->first();
+                    if (!empty($latestAddress->address)) {
+                        return response()->json(['success' => true, 'data' => ['address'=>$latestAddress->address], 'message' => __('Address generated successfully')]);
+                    }
+                }
+
+                return response()->json(['success' => false, 'data' => [], 'message' => __('Address not generated')]);
+            }
+
+            $address = get_coin_payment_address($myWallet->coin_type ?? null);
+            if (!empty($address) && $myWallet) {
                 $wallet->AddWalletAddressHistory($request->wallet_id, $address, $myWallet->coin_type);
                 return response()->json(['success' => true, 'data' => ['address'=>$address], 'message' => __('Address generated successfully')]);
             } else {
+                if (!$myWallet) {
+                    return response()->json(['success' => false, 'data' => [], 'message' => __('Wallet missing')]);
+                }
+                $repo = new WalletRepository();
+                $response = $repo->generateTokenAddress($myWallet->id);
+                if ($response['success'] == true) {
+                    $latestAddress = WalletAddressHistory::where('wallet_id', $myWallet->id)->orderBy('created_at', 'desc')->first();
+                    if (!empty($latestAddress->address)) {
+                        return response()->json(['success' => true, 'data' => ['address'=>$latestAddress->address], 'message' => __('Address generated successfully')]);
+                    }
+                }
+
                 return response()->json(['success' => false, 'data' => [], 'message' => __('Address not generated')]);
             }
         } catch (\Exception $e) {
@@ -361,11 +410,19 @@ class WalletController extends Controller
         } else {
             return response()->json(['success' => false, 'message' => __('Wallet has no enough balance')]);
         }
-        $google2fa = new Google2FA();
-        if (empty($request->code)) {
-            return response()->json(['success'=>false,'message'=> __('Verify code is required')]);
+        $withdrawal2faRequired = settings(WITHDRAWAL_2FA_REQUIRED_SLUG);
+        $withdrawal2faRequired = ($withdrawal2faRequired === false || $withdrawal2faRequired === null || $withdrawal2faRequired === '')
+            ? true
+            : ((int) $withdrawal2faRequired === STATUS_ACTIVE);
+
+        $valid = true;
+        if ($withdrawal2faRequired) {
+            $google2fa = new Google2FA();
+            if (empty($request->code)) {
+                return response()->json(['success'=>false,'message'=> __('Verify code is required')]);
+            }
+            $valid = $google2fa->verifyKey($user->google2fa_secret, $request->code);
         }
-        $valid = $google2fa->verifyKey($user->google2fa_secret, $request->code);
         $data = $request->all();
         $data['user_id'] = Auth::id();
         $request = new Request();

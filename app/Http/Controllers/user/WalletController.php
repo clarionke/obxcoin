@@ -270,7 +270,7 @@ class WalletController extends Controller
         $data['ac_tab'] = $request->q;
         $data['title'] = $request->q;
         $wallet = Wallet::find($id);
-        if ($wallet->coin_type == DEFAULT_COIN_TYPE){
+        if (strcasecmp((string) $wallet->coin_type, DEFAULT_COIN_TYPE) === 0){
             $repo = new WalletRepository();
             $repo->generateTokenAddress($data['wallet']->id);
             $data['wallet_address'] = WalletAddressHistory::where('wallet_id',$id)->orderBy('created_at','desc')->first();
@@ -278,6 +278,14 @@ class WalletController extends Controller
             return view('user.pocket.default_wallet_details', $data);
         }
         $data['address'] = (!empty($exists)) ? $exists->address : get_coin_payment_address($data['wallet']->coin_type);
+        if (empty($data['address'])) {
+            $repo = new WalletRepository();
+            $tokenAddressResponse = $repo->generateTokenAddress($data['wallet']->id);
+            if ($tokenAddressResponse['success'] == true) {
+                $latestAddress = WalletAddressHistory::where('wallet_id', $id)->orderBy('created_at', 'desc')->first();
+                $data['address'] = $latestAddress->address ?? null;
+            }
+        }
         if (!empty($data['address'])) {
             if (empty($exists)) {
                 $history = new \App\Services\wallet();
@@ -299,7 +307,7 @@ class WalletController extends Controller
             $myWallet = Wallet::where(['id' => $request->wallet_id, 'user_id' => Auth::id()])->first();
 
             if ($myWallet) {
-                if ($myWallet->coin_type == DEFAULT_COIN_TYPE) {
+                if (strcasecmp((string) $myWallet->coin_type, DEFAULT_COIN_TYPE) === 0) {
                     $repo = new WalletRepository();
                     $response = $repo->generateTokenAddress($myWallet->id);
                     if ($response['success'] == true) {
@@ -313,6 +321,12 @@ class WalletController extends Controller
                         $wallet->AddWalletAddressHistory($request->wallet_id, $address, $myWallet->coin_type);
                         return redirect()->back()->with(['success' => __('Address generated successfully')]);
                     } else {
+                        $repo = new WalletRepository();
+                        $response = $repo->generateTokenAddress($myWallet->id);
+                        if ($response['success'] == true) {
+                            return redirect()->back()->with(['success' => $response['message']]);
+                        }
+
                         return redirect()->back()->with(['dismiss' => __('Address not generated ')]);
                     }
                 }
@@ -386,11 +400,19 @@ class WalletController extends Controller
                 return redirect()->back()->with('dismiss', $checkKyc['message']);
             }
 
-            $google2fa = new Google2FA();
-            if (empty($request->code)) {
-                return redirect()->back()->with('dismiss', __('Verify code is required'));
+            $withdrawal2faRequired = settings(WITHDRAWAL_2FA_REQUIRED_SLUG);
+            $withdrawal2faRequired = ($withdrawal2faRequired === false || $withdrawal2faRequired === null || $withdrawal2faRequired === '')
+                ? true
+                : ((int) $withdrawal2faRequired === STATUS_ACTIVE);
+
+            $valid = true;
+            if ($withdrawal2faRequired) {
+                $google2fa = new Google2FA();
+                if (empty($request->code)) {
+                    return redirect()->back()->with('dismiss', __('Verify code is required'));
+                }
+                $valid = $google2fa->verifyKey($user->google2fa_secret, $request->code);
             }
-            $valid = $google2fa->verifyKey($user->google2fa_secret, $request->code);
 
             $data = $request->all();
             $data['user_id'] = Auth::id();

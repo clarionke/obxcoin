@@ -131,6 +131,19 @@
                            value="{{$settings['max_send_limit']}}">
                 </div>
             </div>
+            <div class="col-lg-6 col-12 mt-20">
+                <div class="form-group">
+                    <label for="withdrawal_2fa_required">{{__('Require Google 2FA Before Withdrawal')}}</label>
+                    @php
+                        $withdrawal2faValue = (int)($settings['withdrawal_2fa_required'] ?? STATUS_ACTIVE);
+                    @endphp
+                    <select name="withdrawal_2fa_required" id="withdrawal_2fa_required" class="form-control">
+                        <option value="{{STATUS_ACTIVE}}" @if($withdrawal2faValue === STATUS_ACTIVE) selected @endif>{{__('Enabled')}}</option>
+                        <option value="{{STATUS_DEACTIVE}}" @if($withdrawal2faValue === STATUS_DEACTIVE) selected @endif>{{__('Disabled')}}</option>
+                    </select>
+                    <small class="text-muted">{{__('If disabled, users can withdraw without enabling Google Authenticator.')}}</small>
+                </div>
+            </div>
         </div>
         <div class="row">
             <div class="col-lg-2 col-12 mt-20">
