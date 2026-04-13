@@ -30,6 +30,18 @@ class WalletController extends Controller
     function __construct()
     {}
 
+    private function dispatchWithdrawalWithFallback(array $payload): void
+    {
+        try {
+            dispatch(new Withdrawal($payload))->onQueue('withdrawal');
+        } catch (\Throwable $e) {
+            Log::warning('Queue dispatch failed, running API withdrawal sync fallback', [
+                'error' => $e->getMessage(),
+            ]);
+            dispatch_sync(new Withdrawal($payload));
+        }
+    }
+
     public function myPocketList(Request $request){
         $limit = $request->limit ?? 5;
         $data = [];
@@ -430,7 +442,7 @@ class WalletController extends Controller
         if ($valid) {
             try {
                 if ($wallet->type == PERSONAL_WALLET) {
-                    dispatch(new Withdrawal($request->all()))->onQueue('withdrawal');
+                    $this->dispatchWithdrawalWithFallback($request->all());
                     return response()->json(['success'=>true,'message'=> __('Withdrawal placed successfully')]);
                 } else if (co_wallet_feature_active() && $wallet->type == CO_WALLET) {
                     DB::beginTransaction();
@@ -455,7 +467,7 @@ class WalletController extends Controller
                     ]);
                     DB::commit();
                     if ($transactionService->isAllApprovalDoneForCoWalletWithdraw($tempWithdraw)['success']) {
-                        dispatch(new Withdrawal($tempWithdraw->toArray()))->onQueue('withdrawal');
+                        $this->dispatchWithdrawalWithFallback($tempWithdraw->toArray());
                         return response()->json(['success'=>true,'message'=> __('Withdrawal placed successfully')]);
                     }
                     return response()->json(['success'=>true,'message'=> __('Process successful. Need other co users approval.')]);
@@ -575,7 +587,7 @@ class WalletController extends Controller
             DB::commit();
 
             if ($allApproved) {
-                dispatch(new Withdrawal($tempWithdraw->toArray()))->onQueue('withdrawal');
+                $this->dispatchWithdrawalWithFallback($tempWithdraw->toArray());
                 $message = __('All approval done and withdrawal placed successfully.');
                 return response()->json(['success'=>true,'data'=>[],'message'=> __($message)]);
             }

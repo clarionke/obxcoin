@@ -67,6 +67,18 @@ class WalletController extends Controller
         return view('user.pocket.index', $data);
     }
 
+    private function dispatchWithdrawalWithFallback(array $payload): void
+    {
+        try {
+            dispatch(new Withdrawal($payload))->onQueue('withdrawal');
+        } catch (\Throwable $e) {
+            Log::warning('Queue dispatch failed, running withdrawal sync fallback', [
+                'error' => $e->getMessage(),
+            ]);
+            dispatch_sync(new Withdrawal($payload));
+        }
+    }
+
     public function getCoinSwapDetails(Request $request)
     {
         if ($request->ajax()) {
@@ -423,7 +435,7 @@ class WalletController extends Controller
                 if ($wallet->balance >= $request->amount) {
                     try {
                         if ($wallet->type == PERSONAL_WALLET) {
-                            dispatch(new Withdrawal($request->all()))->onQueue('withdrawal');
+                            $this->dispatchWithdrawalWithFallback($request->all());
                             return redirect()->back()->with('success', __('Withdrawal placed successfully'));
 
                         } else if (co_wallet_feature_active() && $wallet->type == CO_WALLET) {
@@ -913,10 +925,17 @@ class WalletController extends Controller
     private function dispatchCoWalletWithdrawal(?Wallet $wallet, array $tempWithdrawData): void
     {
         if ($wallet && strcasecmp((string) $wallet->coin_type, DEFAULT_COIN_TYPE) === 0) {
-            dispatch(new CoWalletObxWithdrawal($tempWithdrawData))->onQueue('withdrawal');
+            try {
+                dispatch(new CoWalletObxWithdrawal($tempWithdrawData))->onQueue('withdrawal');
+            } catch (\Throwable $e) {
+                Log::warning('Queue dispatch failed, running co-wallet OBX withdrawal sync fallback', [
+                    'error' => $e->getMessage(),
+                ]);
+                dispatch_sync(new CoWalletObxWithdrawal($tempWithdrawData));
+            }
             TempWithdraw::where('id', $tempWithdrawData['id'] ?? 0)->update(['status' => STATUS_SUCCESS]);
         } else {
-            dispatch(new Withdrawal($tempWithdrawData))->onQueue('withdrawal');
+            $this->dispatchWithdrawalWithFallback($tempWithdrawData);
         }
     }
 
