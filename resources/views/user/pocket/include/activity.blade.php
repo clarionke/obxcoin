@@ -57,7 +57,16 @@
                                         <tr>
                                             <td>{{$history->address}}</td>
                                             <td>{{$history->amount}}</td>
-                                            <td>{{$history->transaction_id}}</td>
+                                            <td>
+                                                @php $depositTxUrl = !empty($history->transaction_id) ? explorer_tx_url($history->transaction_id) : null; @endphp
+                                                @if($depositTxUrl)
+                                                    <a href="{{ $depositTxUrl }}" target="_blank" rel="noopener noreferrer">
+                                                        {{$history->transaction_id}}
+                                                    </a>
+                                                @else
+                                                    {{$history->transaction_id}}
+                                                @endif
+                                            </td>
                                             <td>{{deposit_status($history->status)}}</td>
                                             <td>{{$history->created_at}}</td>
                                         </tr>
@@ -93,8 +102,9 @@
                                             <td>{{$withdraw->address}}</td>
                                             <td>{{$withdraw->amount}}</td>
                                             <td>
-                                                @if(!empty($withdraw->transaction_hash) && str_starts_with($withdraw->transaction_hash, '0x'))
-                                                    <a href="https://bscscan.com/tx/{{$withdraw->transaction_hash}}" target="_blank" rel="noopener noreferrer">
+                                                @php $withdrawTxUrl = !empty($withdraw->transaction_hash) ? explorer_tx_url($withdraw->transaction_hash) : null; @endphp
+                                                @if($withdrawTxUrl)
+                                                    <a href="{{ $withdrawTxUrl }}" target="_blank" rel="noopener noreferrer">
                                                         {{$withdraw->transaction_hash}}
                                                     </a>
                                                 @else
