@@ -6,6 +6,24 @@ const { contract_decimals,customFromWei,customToWei } = require("../Heplers/help
 const trc20Token = require("./TrcTokenController");
 const trxToken = require("./TrxController");
 
+const MIN_TOKEN_TRANSFER_GAS = 120000;
+
+function normalizeTokenGasLimit(rawGasLimit, estimatedGas = 0)
+{
+    const configuredGas = parseInt(rawGasLimit, 10) || 0;
+    const estimate = parseInt(estimatedGas, 10) || 0;
+
+    if (estimate > 0) {
+        return Math.max(MIN_TOKEN_TRANSFER_GAS, estimate * 2);
+    }
+
+    if (configuredGas > 0) {
+        return Math.max(MIN_TOKEN_TRANSFER_GAS, configuredGas);
+    }
+
+    return MIN_TOKEN_TRANSFER_GAS;
+}
+
 // ERC20_TOKEN = 4
 // BEP20_TOKEN = 5
 // TRC20_TOKEN = 6
@@ -212,13 +230,13 @@ async function calculateEstimateGasFees(req,type)
             if (!/^\d+$/.test(String(amount))) {
                 throw new Error('Invalid token amount format for transfer');
             }
-            if (usedGasLimit > 0) {
+            if ((parseInt(usedGasLimit, 10) || 0) >= MIN_TOKEN_TRANSFER_GAS) {
                 gasFees = (usedGasLimit * gasPrice);
             } else {
                 const estimatedGasRes = await contract.methods.transfer(receiverAddress, amount).estimateGas({ from: fromAddress });
                 console.log('estimateGas');
                 console.log(estimatedGasRes);
-                usedGasLimit = parseInt(estimatedGasRes/2) + estimatedGasRes;
+                usedGasLimit = normalizeTokenGasLimit(usedGasLimit, estimatedGasRes);
                 console.log('usedGasLimit');
                 console.log(usedGasLimit);
                 gasFees = (usedGasLimit*gasPrice);
@@ -354,7 +372,7 @@ async function checkEstimateGasFees(req, res)
                         throw new Error('Invalid token amount format for transfer');
                     }
                     const dataGas = await calculateEstimateGasFees(req,1);
-                    let usedGasLimit = dataGas.gasLimit;
+                    let usedGasLimit = normalizeTokenGasLimit(dataGas.gasLimit);
                     
                     const tx = {
                         from: fromAddress,
