@@ -163,12 +163,9 @@ async function main() {
     console.log(`   ✔ OBXPresale deployed at: ${presaleAddress}`);
 
     // ═════════════════════════════════════════
-    // 3. Set OBXPresale fee-exempt on OBXToken
+    // 3. Fee exemptions are disabled
     // ═════════════════════════════════════════
-    console.log('\n3. Marking presale contract as fee-exempt on OBXToken …');
-    const tx3 = await obxToken.setFeeExempt(presaleAddress, true);
-    await tx3.wait();
-    console.log(`   ✔ setFeeExempt(presale) done  (tx: ${tx3.hash})`);
+    console.log('\n3. Skipping fee-exempt setup (burn applies to all addresses).');
 
     // ═════════════════════════════════════════
     // 4. Transfer presale allocation to OBXPresale
@@ -190,12 +187,9 @@ async function main() {
     console.log(`   ✔ OBXAirdrop deployed at: ${airdropAddress}`);
 
     // ═════════════════════════════════════════
-    // 6. Set OBXAirdrop fee-exempt on OBXToken
+    // 6. Fee exemptions are disabled
     // ═════════════════════════════════════════
-    console.log('\n6. Marking airdrop contract as fee-exempt on OBXToken …');
-    const tx6 = await obxToken.setFeeExempt(airdropAddress, true);
-    await tx6.wait();
-    console.log(`   ✔ setFeeExempt(airdrop) done  (tx: ${tx6.hash})`);
+    console.log('\n6. Skipping fee-exempt setup (burn applies to all addresses).');
 
     // ═════════════════════════════════════════
     // 7. Transfer airdrop allocation to OBXAirdrop
@@ -215,9 +209,7 @@ async function main() {
         await tx8a.wait();
         console.log(`   ✔ setRouter done  (tx: ${tx8a.hash})`);
 
-        const tx8b = await obxToken.setFeeExempt(routerAddress, true);
-        await tx8b.wait();
-        console.log(`   ✔ Router marked fee-exempt on OBXToken  (tx: ${tx8b.hash})`);
+        console.log('   • Router fee-exempt skipped (burn applies to all addresses).');
     } else {
         console.log('\n8. Skipped auto-liquidity router setup (no router for this network).');
     }
@@ -234,12 +226,9 @@ async function main() {
     console.log(`   ✔ burnOnStakeBps=${BURN_ON_STAKE_BPS}  burnOnUnstakeBps=${BURN_ON_UNSTAKE_BPS}`);
 
     // ═════════════════════════════════════════
-    // 10. Set OBXStaking fee-exempt on OBXToken
+    // 10. Fee exemptions are disabled
     // ═════════════════════════════════════════
-    console.log('\n10. Marking staking contract as fee-exempt on OBXToken …');
-    const tx10 = await obxToken.setFeeExempt(stakingAddress, true);
-    await tx10.wait();
-    console.log(`    ✔ setFeeExempt(staking) done  (tx: ${tx10.hash})`);
+    console.log('\n10. Skipping fee-exempt setup (burn applies to all addresses).');
 
     // ═════════════════════════════════════════
     // 11. Fund OBXStaking reward reserve
@@ -272,6 +261,8 @@ async function main() {
         await tx.wait();
         console.log(`    ✔ Pool added: ${pool.name}  APY=${pool.apyBps/100}%  duration=${pool.durationDays}d`);
     }
+
+    // 12b removed: no fee-exempt path exists.
 
     // ═════════════════════════════════════════
     // 13. Verify balances

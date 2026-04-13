@@ -22,6 +22,7 @@ const DEPLOYER_PRIVATE_KEY = process.env.OWNER_PRIVATE_KEY || '';
 const BSCSCAN_API_KEY      = process.env.BSCSCAN_API_KEY   || '';
 const ETHERSCAN_API_KEY    = process.env.ETHERSCAN_API_KEY  || '';
 const POLYGONSCAN_API_KEY  = process.env.POLYGONSCAN_API_KEY|| '';
+const EXPLORER_API_KEY_V2  = ETHERSCAN_API_KEY || BSCSCAN_API_KEY || POLYGONSCAN_API_KEY || '';
 
 if (!DEPLOYER_PRIVATE_KEY) {
     console.warn('[hardhat.config] Warning: OWNER_PRIVATE_KEY not set in .env — deployment will fail.');
@@ -90,14 +91,8 @@ module.exports = {
     },
 
     etherscan: {
-        apiKey: {
-            bsc:            BSCSCAN_API_KEY,
-            bscTestnet:     BSCSCAN_API_KEY,
-            mainnet:        ETHERSCAN_API_KEY,
-            sepolia:        ETHERSCAN_API_KEY,
-            polygon:        POLYGONSCAN_API_KEY,
-            polygonAmoy:    POLYGONSCAN_API_KEY,
-        },
+        // hardhat-verify >=2 uses Etherscan API V2 with a single API key value.
+        apiKey: EXPLORER_API_KEY_V2,
         customChains: [
             {
                 network: 'polygonAmoy',
