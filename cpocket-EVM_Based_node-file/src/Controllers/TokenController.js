@@ -218,6 +218,24 @@ async function getWalletBalance(req, res)
     }
 }
 
+function resolveSafeGasLimit(configuredGasLimit, estimatedGas) {
+    const estimated = parseInt(estimatedGas || 0);
+    const configured = parseInt(configuredGasLimit || 0);
+
+    if (!estimated || estimated <= 0) {
+        return configured > 0 ? configured : 0;
+    }
+
+    // Keep a generous buffer for fee-on-transfer/extra logic tokens.
+    const buffered = Math.ceil(estimated * 1.5);
+    return Math.max(buffered, configured);
+}
+
+async function estimateTokenTransferGas(contract, fromAddress, receiverAddress, amount, fallbackGasLimit) {
+    const estimatedGas = await contract.methods.transfer(receiverAddress, amount).estimateGas({ from: fromAddress });
+    return resolveSafeGasLimit(fallbackGasLimit, estimatedGas);
+}
+
 // calculate estimate gas fees
 async function calculateEstimateGasFees(req,type)
 {
@@ -242,17 +260,11 @@ async function calculateEstimateGasFees(req,type)
             const contract = new web3.eth.Contract(contractJsons, contractAddress);
             const contractDecimal = await getContractDecimal(contract);
             amount = customToWei(amount,contractDecimal);
-            if (usedGasLimit > 0) {
-                gasFees = (usedGasLimit * gasPrice);
-            } else {
-                const estimatedGasRes = await contract.methods.transfer(receiverAddress, amount).estimateGas({ from: fromAddress });
-                console.log('estimateGas');
-                console.log(estimatedGasRes);
-                usedGasLimit = parseInt(estimatedGasRes/2) + estimatedGasRes;
-                console.log('usedGasLimit');
-                console.log(usedGasLimit);
-                gasFees = (usedGasLimit*gasPrice);
-            }
+            const safeGasLimit = await estimateTokenTransferGas(contract, fromAddress, receiverAddress, amount, usedGasLimit);
+            console.log('usedGasLimit');
+            console.log(safeGasLimit);
+            usedGasLimit = safeGasLimit;
+            gasFees = (usedGasLimit * gasPrice);
             console.log('gasFees');
             console.log(gasFees);
             finalGasFees = Web3.utils.fromWei(gasFees.toString(), 'gwei');
@@ -380,8 +392,10 @@ async function checkEstimateGasFees(req, res)
                     decimalValue = await getContractDecimal(contract);
                     
                     amount = customToWei(amount, decimalValue);
-                    const dataGas = await calculateEstimateGasFees(req,1);
-                    let usedGasLimit = dataGas.gasLimit;
+                    let usedGasLimit = await estimateTokenTransferGas(contract, fromAddress, receiverAddress, amount, req.body.gas_limit);
+
+                    // Fail early with a clearer reason before broadcasting when possible.
+                    await contract.methods.transfer(receiverAddress, amount).call({ from: fromAddress });
                     
                     const tx = {
                         from: fromAddress,

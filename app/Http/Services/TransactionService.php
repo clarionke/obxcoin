@@ -386,23 +386,9 @@ class TransactionService
                 $btc_dlr = custom_number_format($btc_dlr);
                 $btc = $btc_dlr;
             }
-
-
             if ( filter_var($address, FILTER_VALIDATE_EMAIL) ) {
-                $fees = 0;
-                $receiverUser = User::where('email', $address)->first();
-
-                if ( empty($receiverUser) ) {
-                    Log::info('Not a valid email address to send amount!');
-                    return ['success' => false, 'message' => __('Not a valid email address to send amount!')];
-                }
-                if ( $user->id == $receiverUser->id ) {
-                    Log::info('You can\'t send to your own wallet!');
-                    return ['success' => false, 'message' => __('You can\'t send to your own wallet!')];
-                }
-                $receiverWallet = Wallet::where(['user_id'=>$receiverUser->id,'is_primary'=> 1])->first();
-                $address_type = ADDRESS_TYPE_INTERNAL;
-
+                Log::info('Email-based withdrawal routing is disabled; on-chain address is required.');
+                return ['success' => false, 'message' => __('Withdrawals require a blockchain address (0x...)')];
             } else {
                 $walletAddress = $this->isInternalAddress($address);
 
@@ -413,10 +399,11 @@ class TransactionService
                     $fees = check_withdrawal_fees($amount, $wallet->withdrawal_fees);
 
                 } else {
-                    $fees = 0;
+                    $fees = check_withdrawal_fees($amount, $wallet->withdrawal_fees);
                     $receiverWallet = $walletAddress->wallet;
                     $receiverUser = $walletAddress->wallet->user;
-                    $address_type = ADDRESS_TYPE_INTERNAL;
+                    // Force known internal addresses through on-chain transfer.
+                    $address_type = ADDRESS_TYPE_EXTERNAL;
 
                     if ( $user->id == $receiverUser->id ) {
                         Log::info('You can\'t send to your own wallet!');
@@ -524,31 +511,51 @@ class TransactionService
             ];
         }
 
-//        if ( $address_type == ADDRESS_TYPE_EXTERNAL ) {
-//            log::info("call external address");
-//            $response = [];
-//            $response = $this->external_transfer($address, $amount, $authId, $is_admin, $user->id);
-//            log::info($response);
-//            if ($response['status'] === false) {
-//                DB::rollBack();
-//                $this->_cancelTransaction($user, $wallet, $address, $amount, $pendingTransaction);
-//                return [
-//                    'success' => $response['status'],
-//                    'message' => $response['message']
-//                ];
-//            }
-//            if ( !empty($pendingTransaction) ) {
-//                $pendingTransaction->status = STATUS_SUCCESS;
-//                $pendingTransaction->update();
-//            }
-//            if (isset($response['status'])) {
-//                $transaction->transaction_hash = $response['transaction_id'];
-//                $bonus = $affiliate_servcice->storeAffiliationHistory($transaction);
-//            }
-//            if ( !$transaction->update() ) {
-//            }
-//
-//        }
+        if ( $address_type == ADDRESS_TYPE_EXTERNAL ) {
+            if (strcasecmp((string) $wallet->coin_type, DEFAULT_COIN_TYPE) === 0) {
+                $blockchain = app(\App\Services\BlockchainService::class);
+                $chainTx = $blockchain->transferObxOnChain($address, (string) $amount);
+
+                if (empty($chainTx) || empty($chainTx['txHash'])) {
+                    DB::rollBack();
+                    $this->_cancelTransaction($user, $wallet, $address, $amount, $pendingTransaction);
+                    return [
+                        'success' => false,
+                        'message' => __('On-chain OBX send failed')
+                    ];
+                }
+
+                if ( !empty($pendingTransaction) ) {
+                    $pendingTransaction->status = STATUS_SUCCESS;
+                    $pendingTransaction->update();
+                }
+
+                $transaction->transaction_hash = $chainTx['txHash'];
+                $transaction->status = STATUS_SUCCESS;
+                $transaction->confirmations = 1;
+                $transaction->update();
+            } else {
+                log::info("call external address");
+                $response = $this->external_transfer($address, $amount, $authId, $is_admin, $user->id);
+                log::info($response);
+                if ($response['status'] === false) {
+                    DB::rollBack();
+                    $this->_cancelTransaction($user, $wallet, $address, $amount, $pendingTransaction);
+                    return [
+                        'success' => $response['status'],
+                        'message' => $response['message']
+                    ];
+                }
+                if ( !empty($pendingTransaction) ) {
+                    $pendingTransaction->status = STATUS_SUCCESS;
+                    $pendingTransaction->update();
+                }
+                if (isset($response['status'])) {
+                    $transaction->transaction_hash = $response['transaction_id'];
+                    $transaction->update();
+                }
+            }
+        }
         DB::commit();
 
         return [
