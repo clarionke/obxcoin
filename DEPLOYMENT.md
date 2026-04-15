@@ -104,12 +104,18 @@ ps aux | grep "node /path/to/cpocket-EVM_Based_node-file/src/app.js"
 
 ### Step 5: Cron Jobs
 ```bash
-# Add to system crontab (crontab -e)
-# Run presale sync every minute
-* * * * * curl -X POST https://your-site.com/api/presale/sync-events -H "X-Api-Key: YOUR_PRESALE_SYNC_API_KEY" >> /var/log/obxcoin-cron.log 2>&1
+# Add ONE system cron entry (crontab -e)
+# Laravel scheduler will run all service jobs configured in App\Console\Kernel
+* * * * * cd /path/to/obxcoin && /usr/bin/php artisan schedule:run >> /var/log/obxcoin-scheduler.log 2>&1
 
-# Fetch CMC price every 30 minutes
-*/30 * * * * cd /path/to/obxcoin && /usr/bin/php artisan fees:fetch-cmc-price >> /var/log/obxcoin-price.log 2>&1
+# Included jobs:
+# - command:membershipbonus (daily)
+# - custom-token-deposit (every 5 minutes)
+# - adjust-token-deposit (every 30 minutes)
+# - cmc:fetch-price (every 5 minutes)
+# - cmc:report-supply (daily)
+# - co-wallet:cancel-expired-withdrawals (every minute)
+# - presale:sync-events (every minute)
 ```
 
 ### Step 6: Verify Services
@@ -148,7 +154,7 @@ top
 php artisan queue:work --daemon --verbose
 
 # Check cron execution (monitor cron logs)
-tail -f /var/log/obxcoin-cron.log
+tail -f /var/log/obxcoin-scheduler.log
 ```
 
 ### Health Checks

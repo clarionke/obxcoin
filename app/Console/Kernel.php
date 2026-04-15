@@ -19,6 +19,7 @@ class Kernel extends ConsoleKernel
         Commands\FetchCMCPrice::class,
         Commands\ReportCMCSupply::class,
         Commands\CancelExpiredCoWalletWithdrawals::class,
+        Commands\PresaleSyncEvents::class,
     ];
 
     /**
@@ -52,6 +53,12 @@ class Kernel extends ConsoleKernel
         $schedule->command('co-wallet:cancel-expired-withdrawals')
             ->everyMinute()
             ->withoutOverlapping();
+
+        // Finalize pending WalletConnect buys from on-chain TokensPurchased events
+        $schedule->command('presale:sync-events')
+            ->everyMinute()
+            ->withoutOverlapping()
+            ->runInBackground();
     }
 
     /**
