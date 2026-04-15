@@ -3,15 +3,56 @@
 namespace App;
 
 use App\Model\AffiliationCode;
+use App\Model\Coin;
+use App\Model\Wallet;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Laravel\Passport\HasApiTokens;
+use Illuminate\Support\Facades\Log;
 
 class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable;
+
+    protected static function booted()
+    {
+        static::created(function (self $user) {
+            try {
+                $defaultType = DEFAULT_COIN_TYPE;
+                $defaultCoin = Coin::where('type', $defaultType)->first();
+
+                $wallet = Wallet::where([
+                    'user_id'   => $user->id,
+                    'coin_type' => $defaultType,
+                ])->orderByDesc('is_primary')->first();
+
+                if ($wallet) {
+                    if ((int) $wallet->is_primary !== 1) {
+                        $wallet->is_primary = 1;
+                        if (!$wallet->coin_id && $defaultCoin) {
+                            $wallet->coin_id = $defaultCoin->id;
+                        }
+                        $wallet->save();
+                    }
+                    return;
+                }
+
+                Wallet::create([
+                    'user_id'    => $user->id,
+                    'name'       => 'OBX Wallet',
+                    'status'     => STATUS_SUCCESS,
+                    'is_primary' => STATUS_SUCCESS,
+                    'balance'    => 0,
+                    'coin_id'    => $defaultCoin?->id,
+                    'coin_type'  => $defaultType,
+                ]);
+            } catch (\Throwable $e) {
+                Log::warning('User wallet auto-create failed for user #' . $user->id . ': ' . $e->getMessage());
+            }
+        });
+    }
 
     /**
      * The attributes that are mass assignable.

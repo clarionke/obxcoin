@@ -152,7 +152,8 @@ class WalletService
             2 => ['pipe', 'w'],
         ];
 
-        $cmd  = 'node ' . escapeshellarg($signerPath);
+        $nodeBinary = config('blockchain.node_binary', 'node');
+        $cmd  = escapeshellarg($nodeBinary) . ' ' . escapeshellarg($signerPath);
         $proc = proc_open($cmd, $descriptors, $pipes, base_path());
 
         if (!is_resource($proc)) {

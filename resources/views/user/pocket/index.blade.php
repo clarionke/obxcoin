@@ -128,22 +128,11 @@
                                                 <tr>
                                                     <td>{{ $wallet->name }}</td>
                                                     <td>{{ check_default_coin_type($wallet->coin_type) }}</td>
-                                                    <td>{{ $wallet->balance }}</td>
+                                                    <td>{{ number_format((float)$wallet->balance, 2, '.', '') }}</td>
 {{--                                                    <td>{{ $wallet->referral_balance }}</td>--}}
                                                     <td>{{ $wallet->updated_at }}</td>
                                                     <td>
                                                         <ul class="d-flex justify-content-center align-items-center">
-                                                            @if(is_primary_wallet($wallet->id, $wallet->coin_type) == 0)
-                                                                <li>
-                                                                    <a title="{{__('Make primary')}}"
-                                                                       href="{{route('makeDefaultAccount',[$wallet->id, $wallet->coin_type])}}">
-                                                                        <img
-                                                                            src="{{asset('assets/user/images/wallet-table-icons/Key.svg')}}"
-                                                                            class="img-fluid" alt="">
-                                                                    </a>
-                                                                </li>
-                                                            @endif
-
                                                             <li>
                                                                 <a title="{{__('Deposit')}}"
                                                                    href="{{route('walletDetails',$wallet->id)}}?q=deposit">
@@ -217,7 +206,7 @@
                                                     <td>{{ $wallet->team_wallet_uid ?? __('N/A') }}</td>
                                                     <td>{{ $wallet->key }}</td>
                                                     <td>{{ check_default_coin_type($wallet->coin_type) }}</td>
-                                                    <td>{{ $wallet->balance }}</td>
+                                                    <td>{{ number_format((float)$wallet->balance, 2, '.', '') }}</td>
 {{--                                                    <td>{{ $wallet->referral_balance }}</td>--}}
                                                     <td>{{ $wallet->updated_at }}</td>
                                                     <td>

@@ -126,6 +126,43 @@ function resolveRpcUrl(payload) {
     return RPC_URLS[chainId] || RPC_URLS[56];
 }
 
+function resolveChainId(payload) {
+    return Number(payload.chainId || process.env.PRESALE_CHAIN_ID || 56);
+}
+
+function resolveChainName(chainId) {
+    switch (Number(chainId)) {
+        case 56:
+            return 'bnb';
+        case 97:
+            return 'bnbt';
+        case 1:
+            return 'homestead';
+        case 137:
+            return 'matic';
+        default:
+            return 'unknown';
+    }
+}
+
+function createProvider(rpcUrl, chainId) {
+    return new ethers.providers.StaticJsonRpcProvider(rpcUrl, {
+        chainId: Number(chainId),
+        name: resolveChainName(chainId),
+    });
+}
+
+async function resolveWorkingProvider(payload, chainId) {
+    const rpcUrl = resolveRpcUrl(payload);
+    if (!rpcUrl) {
+        throw new Error('RPC unavailable: no rpcUrl provided');
+    }
+
+    const provider = createProvider(rpcUrl, chainId);
+    await provider.getBlockNumber();
+    return { provider, rpcUrl };
+}
+
 function inferContractType(action) {
     switch (action) {
         case 'fundPresale':
@@ -184,20 +221,20 @@ async function main() {
         const signerKey = normalizePrivateKey(process.env.SIGNER_PRIVATE_KEY);
         if (!signerKey) { out({ error: 'SIGNER_PRIVATE_KEY not set for transferObx' }); process.exit(1); }
         const p = payload.params || {};
-        const rpcUrl = resolveRpcUrl(payload);
+        const chainId = resolveChainId(payload);
         const obxTokenAddress = p.obxTokenAddress ? normalizeAddress(p.obxTokenAddress) : resolveContractAddress({ ...payload, contractType: 'token' });
 
-        if (!rpcUrl || !obxTokenAddress || !p.to || !p.amount) {
+        if (!obxTokenAddress || !p.to || !p.amount) {
             out({ error: 'transferObx requires rpcUrl, token address, params.to, params.amount' });
             process.exit(1);
         }
         try {
-            const provider   = new ethers.providers.JsonRpcProvider(rpcUrl);
+            const { provider, rpcUrl } = await resolveWorkingProvider(payload, chainId);
             const userWallet = new ethers.Wallet(signerKey, provider);
             const obxToken   = new ethers.Contract(obxTokenAddress, OBX_TOKEN_ABI, userWallet);
             const tx         = await obxToken.transfer(normalizeAddress(p.to), ethers.BigNumber.from(p.amount));
             const receipt    = await tx.wait(1);
-            out({ txHash: tx.hash, blockNumber: receipt.blockNumber, gasUsed: receipt.gasUsed.toString(), success: true });
+            out({ txHash: tx.hash, blockNumber: receipt.blockNumber, gasUsed: receipt.gasUsed.toString(), rpcUrl, success: true });
         } catch (e) {
             out({ error: e.reason || (e.error && e.error.message) || e.message });
             process.exit(1);
@@ -232,15 +269,15 @@ async function main() {
         process.exit(1);
     }
 
-    const rpcUrl = resolveRpcUrl(payload);
+    const chainId = resolveChainId(payload);
     const contractAddress = resolveContractAddress(payload);
 
-    if (!rpcUrl || !contractAddress) {
+    if (!contractAddress) {
         out({ error: 'Could not resolve rpcUrl or contractAddress for write action' });
         process.exit(1);
     }
 
-    const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
+    const { provider, rpcUrl } = await resolveWorkingProvider(payload, chainId);
     const wallet   = new ethers.Wallet(privateKey, provider);
     const contract = new ethers.Contract(contractAddress, PRESALE_ABI, wallet);
     const p        = payload.params || {};
@@ -356,6 +393,7 @@ async function main() {
             txHash:      tx.hash,
             blockNumber: receipt.blockNumber,
             gasUsed:     receipt.gasUsed.toString(),
+            rpcUrl,
             success:     true,
         });
 

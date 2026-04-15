@@ -61,8 +61,8 @@
                 {"data": "type","orderable": false},
                 {"data": "tx_hash","orderable": false, "render": function(data) {
                     if (!data) return '&mdash;';
-                    if (typeof data === 'string' && data.startsWith('0x')) {
-                        return '<a href="{{ explorer_tx_base() }}'+data+'" target="_blank" rel="noopener noreferrer" title="'+data+'">'+data.substring(0,16)+'&#8230;</a>';
+                    if (typeof data === 'string' && /^0x/i.test(data)) {
+                        return '<a href="https://bscscan.com/tx/'+data+'" target="_blank" rel="noopener noreferrer" title="'+data+'">'+data.substring(0,16)+'&#8230;</a>';
                     }
                     return data;
                 }},

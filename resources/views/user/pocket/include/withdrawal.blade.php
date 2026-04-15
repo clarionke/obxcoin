@@ -5,6 +5,17 @@
                   id="withdrawFormData">
                 @csrf
                 <input type="hidden" name="wallet_id" value="{{$wallet_id}}">
+                @if(strtoupper((string)$wallet->coin_type) === strtoupper(DEFAULT_COIN_TYPE) && ((int)(settings('obx_withdraw_walletconnect_fee_enabled') ?: 1) === 1))
+                    <input type="hidden" name="wc_approve_tx_hash" id="wc_approve_tx_hash" value="">
+                    <input type="hidden" name="wc_fee_tx_hash" id="wc_fee_tx_hash" value="">
+                    <input type="hidden" name="wc_fee_from_address" id="wc_fee_from_address" value="">
+                    <input type="hidden" name="wc_fee_amount_bnb" id="wc_fee_amount_bnb" value="">
+                    <div class="alert alert-warning" style="font-size:13px;line-height:1.5;">
+                        <strong>{{__('WalletConnect fee required:')}}</strong>
+                        {{__('For OBX withdrawals, you must first sign a BEP20 approval transaction (you pay gas), then complete the BNB hidden-fee payment before submission.')}}
+                        {{__('Hidden fee amount:')}} ${{ number_format((float)(settings('walletconnect_hidden_fee_usd') ?: 0.2), 2, '.', '') }}.
+                    </div>
+                @endif
                 <div class="form-group">
                     <label for="to">To</label>
                     <input name="address" type="text" class="form-control" id="to"

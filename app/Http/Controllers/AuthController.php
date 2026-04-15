@@ -106,12 +106,13 @@ class AuthController extends Controller
             UserVerificationCode::create(['user_id' => $user->id, 'code' => $mail_key, 'expired_at' => date('Y-m-d', strtotime('+15 days'))]);
 
             $coin = Coin::where('type', DEFAULT_COIN_TYPE)->first();
-            Wallet::create([
+            Wallet::updateOrCreate([
                 'user_id' => $user->id,
+                'coin_type' => $coin->type,
+            ], [
                 'name' => 'OBX Wallet',
                 'is_primary' => STATUS_SUCCESS,
                 'coin_id' => $coin->id,
-                'coin_type' => $coin->type,
             ]);
             app(CommonService::class)->generateNewCoinWallet($user->id);
             if ($parentUserId > 0) {

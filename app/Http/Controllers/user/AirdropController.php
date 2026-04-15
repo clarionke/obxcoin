@@ -9,6 +9,7 @@ use App\Model\AirdropUnlock;
 use App\Model\Wallet;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -280,33 +281,137 @@ class AirdropController extends Controller
     public function confirmUnlock(Request $request)
     {
         $request->validate([
-            'user_id'     => 'required|integer|exists:users,id',
             'campaign_id' => 'required|integer|exists:airdrop_campaigns,id',
-            'tx_hash'     => 'required|string|size:66',
-            'obx_amount'  => 'required|string',
+            'tx_hash'     => 'required|string|size:66|regex:/^0x[0-9a-fA-F]{64}$/',
+            'wallet_address' => 'required|string|size:42|regex:/^0x[0-9a-fA-F]{40}$/',
         ]);
 
-        $unlock = AirdropUnlock::where('user_id', $request->user_id)
-            ->where('campaign_id', $request->campaign_id)
-            ->firstOrFail();
+        $userId = Auth::id();
+        $campaign = AirdropCampaign::findOrFail($request->campaign_id);
+
+        if (empty($campaign->contract_address)) {
+            return response()->json([
+                'success' => false,
+                'message' => __('Airdrop contract is not configured for this campaign.'),
+            ], 422);
+        }
+
+        $unlock = AirdropUnlock::where('user_id', $userId)
+            ->where('campaign_id', $campaign->id)
+            ->first();
+
+        $claimedAmount = (string) AirdropClaim::where('user_id', $userId)
+            ->where('campaign_id', $campaign->id)
+            ->sum('amount_obx');
+
+        $totalLockedObx = $unlock ? (string)$unlock->obx_released : $claimedAmount;
+        if (bccomp($totalLockedObx, '0', 18) <= 0) {
+            $totalLockedObx = $claimedAmount;
+        }
+
+        if (bccomp($totalLockedObx, '0', 18) <= 0) {
+            return response()->json([
+                'success' => false,
+                'message' => __('No locked airdrop balance found for this campaign.'),
+            ], 422);
+        }
+
+        if (!$unlock) {
+            $unlock = AirdropUnlock::create([
+                'user_id' => $userId,
+                'campaign_id' => $campaign->id,
+                'usdt_paid' => $campaign->unlock_fee_usdt,
+                'obx_released' => $totalLockedObx,
+                'status' => 'pending',
+            ]);
+        }
+
+        if ($unlock->status === 'confirmed') {
+            return response()->json([
+                'success' => true,
+                'message' => __('Unlock already confirmed.'),
+            ]);
+        }
+
+        $verification = $this->verifyOnchainUnlock(
+            strtolower($request->tx_hash),
+            strtolower($request->wallet_address),
+            strtolower($campaign->contract_address)
+        );
+
+        if (!$verification['ok']) {
+            return response()->json([
+                'success' => false,
+                'message' => $verification['message'],
+            ], 422);
+        }
 
         $unlock->update([
             'tx_hash'      => $request->tx_hash,
-            'obx_released' => $request->obx_amount,
+            'obx_released' => $totalLockedObx,
             'unlocked_at'  => now(),
             'status'       => 'confirmed',
         ]);
 
         // Credit user's internal OBX wallet balance
-        $wallet = Wallet::where('user_id', $request->user_id)
-            ->where('coin_type', DEFAULT_COIN_TYPE)
-            ->first();
+        $wallet = get_primary_wallet($userId, DEFAULT_COIN_TYPE);
 
         if ($wallet) {
-            $wallet->increment('balance', (float) $request->obx_amount);
+            $wallet->increment('balance', (float) $totalLockedObx);
         }
 
         return response()->json(['success' => true]);
+    }
+
+    private function verifyOnchainUnlock(string $txHash, string $walletAddress, string $contractAddress): array
+    {
+        try {
+            $rpcUrl = trim((string)(settings('chain_link') ?: config('blockchain.bsc_rpc_url', 'https://bsc-dataseed.binance.org/')));
+            if ($rpcUrl === '') {
+                return ['ok' => false, 'message' => __('RPC endpoint is not configured.')];
+            }
+
+            $receiptRes = Http::timeout(20)->post($rpcUrl, [
+                'jsonrpc' => '2.0',
+                'method' => 'eth_getTransactionReceipt',
+                'params' => [$txHash],
+                'id' => 1,
+            ])->json();
+            $txRes = Http::timeout(20)->post($rpcUrl, [
+                'jsonrpc' => '2.0',
+                'method' => 'eth_getTransactionByHash',
+                'params' => [$txHash],
+                'id' => 2,
+            ])->json();
+
+            $receipt = $receiptRes['result'] ?? null;
+            $tx = $txRes['result'] ?? null;
+            if (!$receipt || !$tx) {
+                return ['ok' => false, 'message' => __('Transaction not found on-chain yet. Please wait and retry.')];
+            }
+
+            if (strtolower((string)($receipt['status'] ?? '0x0')) !== '0x1') {
+                return ['ok' => false, 'message' => __('Transaction failed on-chain.')];
+            }
+
+            if (strtolower((string)($receipt['to'] ?? '')) !== $contractAddress) {
+                return ['ok' => false, 'message' => __('Transaction target contract mismatch.')];
+            }
+
+            if (strtolower((string)($tx['from'] ?? '')) !== $walletAddress) {
+                return ['ok' => false, 'message' => __('Wallet address does not match transaction sender.')];
+            }
+
+            $input = strtolower((string)($tx['input'] ?? ''));
+            if (!str_starts_with($input, '0xa69df4b5')) {
+                return ['ok' => false, 'message' => __('Transaction is not an airdrop unlock call.')];
+            }
+
+            return ['ok' => true, 'message' => __('Verified')];
+        } catch (\Throwable $e) {
+            Log::warning('Airdrop unlock verification failed: ' . $e->getMessage(), ['tx_hash' => $txHash]);
+            return ['ok' => false, 'message' => __('Unable to verify on-chain transaction right now.')];
+        }
     }
 
     // ─── Streak helper ────────────────────────────────────────────────────────

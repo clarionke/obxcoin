@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Model\BuyCoinHistory;
-use App\Model\Wallet;
 use App\Services\NowPaymentsService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -50,6 +49,8 @@ class NowPaymentsWebhookController extends Controller
         $paymentId     = $data['payment_id']     ?? null;
         $paymentStatus = $data['payment_status'] ?? null;
         $orderId       = $data['order_id']       ?? null;
+        $onChainHash   = $data['payin_hash'] ?? $data['tx_hash'] ?? $data['withdrawal_hash'] ?? null;
+        $buyerWallet   = $data['pay_address'] ?? null;
 
         Log::info("NowPaymentsIPN: payment_id=$paymentId status=$paymentStatus order=$orderId");
 
@@ -68,6 +69,19 @@ class NowPaymentsWebhookController extends Controller
         if (!$purchase) {
             Log::warning("NowPaymentsIPN: no BuyCoinHistory for payment_id=$paymentId order=$orderId");
             return response('OK', 200);
+        }
+
+        // Keep on-chain visibility fields updated whenever IPN includes them.
+        $purchaseUpdates = [];
+        if (!empty($onChainHash) && is_string($onChainHash) && str_starts_with(strtolower($onChainHash), '0x')) {
+            $purchaseUpdates['tx_hash'] = $onChainHash;
+        }
+        if (!empty($buyerWallet) && is_string($buyerWallet)) {
+            $purchaseUpdates['buyer_wallet'] = strtolower($buyerWallet);
+        }
+        if (!empty($purchaseUpdates)) {
+            $purchase->update($purchaseUpdates);
+            $purchase->refresh();
         }
 
         // ── 5. Handle status transitions ──────────────────────────────────
@@ -97,11 +111,8 @@ class NowPaymentsWebhookController extends Controller
         try {
             $purchase->update(['status' => STATUS_SUCCESS]);
 
-            $wallet = Wallet::where([
-                'user_id'    => $purchase->user_id,
-                'coin_type'  => DEFAULT_COIN_TYPE,
-                'is_primary' => 1,
-            ])->first();
+            // Always credit to the user's system OBX wallet (default coin wallet).
+            $wallet = get_primary_wallet($purchase->user_id, DEFAULT_COIN_TYPE);
 
             if ($wallet) {
                 $wallet->increment('balance', (float) $purchase->requested_amount);

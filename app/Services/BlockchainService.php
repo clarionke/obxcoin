@@ -63,8 +63,13 @@ class BlockchainService
         $presaleContracts = (array) config('blockchain.presale_contracts', []);
         $tokenContracts   = (array) config('blockchain.obx_token_addresses', []);
 
-        $this->rpcUrl = (string) ($rpcUrls[$this->chainId]
+        $configuredRpc = (string) ($rpcUrls[$this->chainId]
             ?? config('blockchain.bsc_rpc_url', 'https://bsc-dataseed.binance.org/'));
+
+        // Protect against empty env/config values which otherwise break signer network detection.
+        $this->rpcUrl = trim($configuredRpc) !== ''
+            ? trim($configuredRpc)
+            : 'https://bsc-dataseed.binance.org/';
 
         $this->contractAddress = (string) ($presaleContracts[$this->chainId]
             ?? config('blockchain.presale_contract', ''));
@@ -302,18 +307,39 @@ class BlockchainService
      */
     public function transferObxOnChain(string $toAddress, string $amountHuman): ?array
     {
-        if (!$this->obxTokenAddress) {
-            Log::error('BlockchainService::transferObxOnChain: OBX_TOKEN_CONTRACT not configured');
+        $settings = [];
+        try {
+            $settings = allsetting();
+        } catch (\Throwable $e) {
+            // Fallback to constructor config if settings are unavailable.
+        }
+
+        $runtimeRpcUrl = trim((string) ($settings['chain_link'] ?? $this->rpcUrl));
+        $runtimeChainId = (int) ($settings['chain_id'] ?? $this->chainId);
+        $runtimeTokenAddress = trim((string) ($settings['contract_address'] ?? $this->obxTokenAddress));
+
+        if ($runtimeRpcUrl === '') {
+            $runtimeRpcUrl = $this->rpcUrl;
+        }
+
+        if ($runtimeChainId <= 0) {
+            $runtimeChainId = $this->chainId;
+        }
+
+        if ($runtimeTokenAddress === '') {
+            Log::error('BlockchainService::transferObxOnChain: contract_address not configured in settings');
             return null;
         }
+
         // Convert human amount to wei (18 decimals)
         $amountWei = bcmul($amountHuman, '1000000000000000000', 0);
 
         $payload = [
             'action' => 'transferObx',
-            'rpcUrl' => $this->rpcUrl,
+            'chainId' => $runtimeChainId,
+            'rpcUrl' => $runtimeRpcUrl,
             'params' => [
-                'obxTokenAddress' => $this->obxTokenAddress,
+                'obxTokenAddress' => $runtimeTokenAddress,
                 'to'              => $toAddress,
                 'amount'          => $amountWei,
             ],
@@ -474,7 +500,8 @@ class BlockchainService
             return null;
         }
 
-        $cmd = 'node ' . escapeshellarg($signerPath);
+        $nodeBinary = config('blockchain.node_binary', 'node');
+        $cmd = escapeshellarg($nodeBinary) . ' ' . escapeshellarg($signerPath);
 
         $descriptors = [
             0 => ['pipe', 'r'],

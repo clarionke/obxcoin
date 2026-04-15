@@ -7,9 +7,9 @@ use Illuminate\Foundation\Testing\DatabaseTransactions;
 use App\Model\AirdropCampaign;
 use App\Model\AirdropClaim;
 use App\Model\AirdropUnlock;
-use App\Model\Wallet;
 use App\User;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Http;
 
 /**
  * Airdrop Feature Tests
@@ -74,6 +74,8 @@ class AirdropTest extends TestCase
             'daily_claim_amount'  => '100000000000000000000',
             'streak_days'         => 5,
             'streak_bonus_amount' => '500000000000000000000',
+            'contract_address'    => '0x1111111111111111111111111111111111111111',
+            'chain_id'            => 56,
             'is_active'           => true,
             'fee_revealed'        => $feeRevealed,
             'unlock_fee_usdt'     => $feeRevealed ? $fee : null,
@@ -580,12 +582,26 @@ class AirdropTest extends TestCase
     {
         $user     = $this->makeUser();
         $campaign = $this->endedCampaign(true, 5.0);
+        $walletAddress = '0x2222222222222222222222222222222222222222';
 
-        // Create wallet for user
-        $wallet = Wallet::create([
-            'user_id'   => $user->id,
-            'coin_type' => DEFAULT_COIN_TYPE,
-            'balance'   => 0,
+        Http::fake([
+            '*' => Http::sequence()
+                ->push([
+                    'jsonrpc' => '2.0',
+                    'id' => 1,
+                    'result' => [
+                        'status' => '0x1',
+                        'to' => strtolower($campaign->contract_address),
+                    ],
+                ], 200)
+                ->push([
+                    'jsonrpc' => '2.0',
+                    'id' => 2,
+                    'result' => [
+                        'from' => strtolower($walletAddress),
+                        'input' => '0xa69df4b5',
+                    ],
+                ], 200),
         ]);
 
         // Create pending unlock
@@ -599,18 +615,17 @@ class AirdropTest extends TestCase
 
         // Simulate confirmUnlock callback (route requires auth as regular user)
         $response = $this->actingAs($user)->post(route('user.airdrop.confirmUnlock'), [
-            'user_id'     => $user->id,
             'campaign_id' => $campaign->id,
             'tx_hash'     => '0x' . str_repeat('a', 64),
-            'obx_amount'  => '100',
+            'wallet_address' => $walletAddress,
         ]);
 
         $response->assertStatus(200);
         $response->assertJson(['success' => true]);
 
         // Wallet balance should now be 100
-        $wallet->refresh();
-        $this->assertEquals(100.0, (float) $wallet->balance);
+    $primaryWallet = get_primary_wallet($user->id, DEFAULT_COIN_TYPE);
+    $this->assertEquals(100.0, (float) $primaryWallet->balance);
 
         // Unlock record should be confirmed
         $this->assertDatabaseHas('airdrop_unlocks', [

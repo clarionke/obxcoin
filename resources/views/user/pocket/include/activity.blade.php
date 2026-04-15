@@ -56,7 +56,7 @@
                                     @foreach($histories as $history)
                                         <tr>
                                             <td>{{$history->address}}</td>
-                                            <td>{{$history->amount}}</td>
+                                            <td>{{ number_format((float)$history->amount, 2, '.', '') }}</td>
                                             <td>{{$history->transaction_id}}</td>
                                             <td>{{deposit_status($history->status)}}</td>
                                             <td>{{$history->created_at}}</td>
@@ -91,7 +91,7 @@
                                     @foreach($withdraws as $withdraw)
                                         <tr>
                                             <td>{{$withdraw->address}}</td>
-                                            <td>{{$withdraw->amount}}</td>
+                                            <td>{{ number_format((float)$withdraw->amount, 2, '.', '') }}</td>
                                             <td>
                                                 @if(!empty($withdraw->transaction_hash) && str_starts_with($withdraw->transaction_hash, '0x'))
                                                     <a href="https://bscscan.com/tx/{{$withdraw->transaction_hash}}" target="_blank" rel="noopener noreferrer">
@@ -135,7 +135,7 @@
                                         @foreach($tempWithdraws as $withdraw)
                                             <tr>
                                                 <td>{{$withdraw->address}}</td>
-                                                <td>{{$withdraw->amount}}</td>
+                                                <td>{{ number_format((float)$withdraw->amount, 2, '.', '') }}</td>
                                                 <td>{{__('Need co users approval')}}</td>
                                                 <td>{{$withdraw->created_at}}</td>
                                                 <td>

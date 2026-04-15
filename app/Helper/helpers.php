@@ -1815,9 +1815,25 @@ function check_coin_type($type)
 // find primary wallet
 function get_primary_wallet($user_id, $coin_type)
 {
-    $primaryWallet = Wallet::where(['user_id' => $user_id, 'coin_type' => $coin_type, 'is_primary' => 1])->first();
-    $wallets = Wallet::where(['user_id' => $user_id, 'coin_type' => $coin_type])->first();
+    $primaryWallet = Wallet::where([
+        'user_id' => $user_id,
+        'coin_type' => $coin_type,
+        'is_primary' => 1,
+    ])->orderBy('id', 'desc')->first();
+
+    $wallets = Wallet::where([
+        'user_id' => $user_id,
+        'coin_type' => $coin_type,
+    ])->orderBy('id', 'desc')->first();
+
     if (isset($primaryWallet)) {
+        // Normalize duplicates: keep only this wallet as primary.
+        Wallet::where([
+            'user_id' => $user_id,
+            'coin_type' => $coin_type,
+            'is_primary' => 1,
+        ])->where('id', '!=', $primaryWallet->id)->update(['is_primary' => 0]);
+
         return $primaryWallet;
     } elseif (isset($wallets)) {
         $wallets->update(['is_primary' =>1]);

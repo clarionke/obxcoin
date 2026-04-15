@@ -37,7 +37,6 @@ Route::group(['prefix'=>'user','namespace'=>'user','middleware'=> ['auth','user'
 
     Route::get('/generate/new-address', 'WalletController@generateNewAddress')->name('generateNewAddress');
     Route::get('/qrcode/generate', 'WalletController@qrCodeGenerate')->name('qrCodeGenerate');
-    Route::get('/make-account-default-{account_id}-{ctype}', 'WalletController@makeDefaultAccount')->name('makeDefaultAccount');
     Route::any('/Wallet-create', 'WalletController@createWallet')->name('createWallet');
     Route::get('/wallet-details-{id}', 'WalletController@walletDetails')->name('walletDetails');
     Route::post('/Withdraw/balance', 'WalletController@WithdrawBalance')->name('WithdrawBalance');

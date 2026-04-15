@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Model\BuyCoinHistory;
 use App\Model\IcoPhase;
-use App\Model\Wallet;
 use App\Services\BlockchainService;
 use App\User;
 use Illuminate\Http\Request;
@@ -119,8 +118,10 @@ class PresaleWebhookController extends Controller
         $txHash = $event['tx_hash'] ?? null;
         if (!$txHash) return false;
 
-        // Idempotency: skip if already processed
-        if (BuyCoinHistory::where('tx_hash', $txHash)->exists()) {
+        // Idempotency: skip only if this tx was already finalized successfully.
+        // If a pending WalletConnect row exists with this tx_hash, reuse it.
+        $existingPurchase = BuyCoinHistory::where('tx_hash', $txHash)->first();
+        if ($existingPurchase && (int)$existingPurchase->status === STATUS_SUCCESS) {
             return false;
         }
 
@@ -146,18 +147,24 @@ class PresaleWebhookController extends Controller
             return false;
         }
 
-        // Find the user by their registered wallet address
-        // Users must link their BSC wallet in their profile (buyer_wallet column on users table)
-        $user = User::whereRaw('LOWER(bsc_wallet) = ?', [$buyerAddress])->first();
+        // Prefer user from an existing pending buy row (WalletConnect flow),
+        // then fallback to linked profile wallet address.
+        $user = null;
+        if ($existingPurchase && (int)$existingPurchase->user_id > 0) {
+            $user = User::find($existingPurchase->user_id);
+        }
+        if (!$user) {
+            $user = User::whereRaw('LOWER(bsc_wallet) = ?', [$buyerAddress])->first();
+        }
 
         DB::beginTransaction();
         try {
             // Get phase
             $phase = IcoPhase::find($dbPhaseId);
 
-            // Record purchase history
-            $history                  = new BuyCoinHistory();
-            $history->type            = ONCHAIN_USDT;
+            // Record purchase history (or finalize an existing pending one)
+            $history                  = $existingPurchase ?: new BuyCoinHistory();
+            $history->type            = $history->type ?: ONCHAIN_USDT;
             $history->address         = $buyerAddress;
             $history->user_id         = $user?->id ?? 0;
             $history->phase_id        = $dbPhaseId;
@@ -196,11 +203,8 @@ class PresaleWebhookController extends Controller
 
             // Credit OBX to user's default wallet (if user found)
             if ($user) {
-                $wallet = Wallet::where([
-                    'user_id'    => $user->id,
-                    'coin_type'  => DEFAULT_COIN_TYPE,
-                    'is_primary' => 1,
-                ])->first();
+                // Always credit to the user's system OBX wallet (default coin wallet).
+                $wallet = get_primary_wallet($user->id, DEFAULT_COIN_TYPE);
 
                 if ($wallet) {
                     $wallet->increment('balance', $obxAmount);

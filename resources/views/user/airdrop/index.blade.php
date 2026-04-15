@@ -255,15 +255,20 @@
                     {{ __('locked. Pay') }} <b style="color:#fbbf24;">{{ number_format($campaign->unlock_fee_usdt, 2) }} USDT</b>
                     {{ __('to unlock and transfer them to your wallet.') }}
                 </p>
-                <form action="{{ route('user.airdrop.unlock') }}" method="POST">
+                <form action="{{ route('user.airdrop.unlock') }}" method="POST" class="js-airdrop-unlock-form"
+                      data-campaign-id="{{ $campaign->id }}"
+                      data-contract="{{ strtolower((string)($campaign->contract_address ?? '')) }}"
+                      data-chain-id="{{ (int)($campaign->chain_id ?: (settings('walletconnect_chain_id') ?: 56)) }}"
+                      data-fee="{{ number_format($campaign->unlock_fee_usdt, 2, '.', '') }}"
+                      data-obx="{{ number_format((float)$totalLockedObx, 4, '.', '') }}">
                     @csrf
                     <input type="hidden" name="campaign_id" value="{{ $campaign->id }}">
-                    <button type="submit" class="unlock-btn"
-                            onclick="return confirm('{{ __('Pay :fee USDT to unlock :obx OBX?', ['fee' => number_format($campaign->unlock_fee_usdt, 2), 'obx' => number_format((float)$totalLockedObx, 4)]) }}')">
+                    <button type="submit" class="unlock-btn">
                         <i class="fa fa-unlock"></i>
                         {{ __('Unlock :obx OBX for :fee USDT', ['obx' => number_format((float)$totalLockedObx, 4), 'fee' => number_format($campaign->unlock_fee_usdt, 2)]) }}
                     </button>
                 </form>
+                <div id="airdrop-unlock-status" style="margin-top:8px;font-size:12px;color:var(--muted);"></div>
             </div>
         @endif
     @elseif($campaign->hasEnded() && !$campaign->fee_revealed && bccomp($totalLockedObx, '0', 18) > 0)
@@ -314,7 +319,13 @@
                             @if($pcUnlock)
                                 <span style="color:#fbbf24;font-size:12.5px;"><i class="fa fa-clock-o"></i> {{ __('Pending') }}</span>
                             @else
-                                <form action="{{ route('user.airdrop.unlock') }}" method="POST" style="display:inline;">
+                                @php $pcChain = (int)($pc->chain_id ?: (settings('walletconnect_chain_id') ?: 56)); @endphp
+                                <form action="{{ route('user.airdrop.unlock') }}" method="POST" style="display:inline;" class="js-airdrop-unlock-form"
+                                      data-campaign-id="{{ $pc->id }}"
+                                      data-contract="{{ strtolower((string)($pc->contract_address ?? '')) }}"
+                                      data-chain-id="{{ $pcChain }}"
+                                      data-fee="{{ number_format($pc->unlock_fee_usdt, 2, '.', '') }}"
+                                      data-obx="{{ number_format((float)$pcBalance, 4, '.', '') }}">
                                     @csrf
                                     <input type="hidden" name="campaign_id" value="{{ $pc->id }}">
                                     <button class="unlock-btn" style="padding:8px 18px;font-size:12.5px;width:auto;margin:0;">
@@ -333,4 +344,150 @@
     @endif
 
 </div>
+@endsection
+
+@section('script')
+<script>
+const AIRDROP_WC_PROJECT_ID = @json(settings('walletconnect_project_id') ?: '');
+const AIRDROP_CHAIN_DEFAULT = {{ (int)(settings('walletconnect_chain_id') ?: 56) }};
+const AIRDROP_EXPLORER_BASE = @json(explorer_tx_base());
+const AIRDROP_ABI = [
+    {"inputs":[],"name":"unlock","outputs":[],"stateMutability":"nonpayable","type":"function"}
+];
+
+let airdropProvider = null;
+let airdropSigner = null;
+let airdropAddress = null;
+
+function setAirdropStatus(message, isError = false) {
+    const el = document.getElementById('airdrop-unlock-status');
+    if (!el) return;
+    el.style.color = isError ? '#f87171' : 'var(--muted)';
+    el.innerHTML = message;
+}
+
+function loadAirdropScript(src) {
+    return new Promise((resolve, reject) => {
+        if (document.querySelector(`script[src="${src}"]`)) {
+            resolve();
+            return;
+        }
+        const s = document.createElement('script');
+        s.src = src;
+        s.onload = resolve;
+        s.onerror = reject;
+        document.head.appendChild(s);
+    });
+}
+
+async function ensureAirdropWalletConnected(expectedChainId) {
+    if (!AIRDROP_WC_PROJECT_ID) {
+        throw new Error('{{ __('WalletConnect is not configured.') }}');
+    }
+
+    if (!window.ethers) {
+        await loadAirdropScript('{{ asset("js/vendor/ethers-5.7.2.umd.min.js") }}');
+    }
+    if (!window.WalletConnectProvider) {
+        await loadAirdropScript('{{ asset("js/vendor/walletconnect-web3-provider-1.8.0.min.js") }}');
+    }
+
+    if (!airdropProvider) {
+        const chain = Number(expectedChainId || AIRDROP_CHAIN_DEFAULT);
+        const rpc = {};
+        rpc[chain] = chain === 56
+            ? 'https://bsc-dataseed.binance.org/'
+            : chain === 97
+                ? 'https://data-seed-prebsc-1-s1.binance.org:8545/'
+                : 'https://bsc-dataseed.binance.org/';
+
+        airdropProvider = new WalletConnectProvider.default({ projectId: AIRDROP_WC_PROJECT_ID, rpc });
+        await airdropProvider.enable();
+    }
+
+    const web3Provider = new ethers.providers.Web3Provider(airdropProvider);
+    const network = await web3Provider.getNetwork();
+    const expected = Number(expectedChainId || AIRDROP_CHAIN_DEFAULT);
+    if (network.chainId !== expected) {
+        throw new Error('{{ __('Wrong wallet network selected.') }}' + ` Chain ${network.chainId} != ${expected}`);
+    }
+
+    airdropSigner = web3Provider.getSigner();
+    airdropAddress = await airdropSigner.getAddress();
+    return { signer: airdropSigner, address: airdropAddress };
+}
+
+async function finalizeAirdropUnlock(campaignId, txHash, walletAddress) {
+    const res = await fetch('{{ route('user.airdrop.confirmUnlock') }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify({
+            campaign_id: campaignId,
+            tx_hash: txHash,
+            wallet_address: walletAddress
+        })
+    });
+
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || !json.success) {
+        throw new Error(json.message || '{{ __('Unable to finalize unlock.') }}');
+    }
+}
+
+async function handleAirdropUnlockSubmit(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const campaignId = Number(form.dataset.campaignId || 0);
+    const contractAddress = String(form.dataset.contract || '').toLowerCase();
+    const chainId = Number(form.dataset.chainId || AIRDROP_CHAIN_DEFAULT);
+    const fee = form.dataset.fee || '0.00';
+    const obx = form.dataset.obx || '0.0000';
+
+    if (!campaignId) {
+        setAirdropStatus('{{ __('Invalid campaign selection.') }}', true);
+        return;
+    }
+    if (!/^0x[0-9a-f]{40}$/.test(contractAddress)) {
+        setAirdropStatus('{{ __('Airdrop contract address is missing or invalid.') }}', true);
+        return;
+    }
+
+    if (!confirm(`{{ __('Pay :fee USDT to unlock :obx OBX?', ['fee' => '__FEE__', 'obx' => '__OBX__']) }}`.replace('__FEE__', fee).replace('__OBX__', obx))) {
+        return;
+    }
+
+    try {
+        setAirdropStatus('{{ __('Connecting wallet...') }}');
+        const wc = await ensureAirdropWalletConnected(chainId);
+
+        setAirdropStatus('{{ __('Submitting on-chain unlock transaction...') }}');
+        const contract = new ethers.Contract(contractAddress, AIRDROP_ABI, wc.signer);
+        const tx = await contract.unlock();
+
+        setAirdropStatus('{{ __('Waiting for transaction confirmation...') }}');
+        await tx.wait(1);
+
+        setAirdropStatus('{{ __('Finalizing unlock on server...') }}');
+        await finalizeAirdropUnlock(campaignId, tx.hash, wc.address);
+
+        setAirdropStatus(
+            '{{ __('Unlock confirmed on-chain.') }} ' +
+            `<a href="${AIRDROP_EXPLORER_BASE}${tx.hash}" target="_blank" rel="noopener">${tx.hash.substring(0, 20)}...</a>`
+        );
+        setTimeout(() => window.location.reload(), 1800);
+    } catch (err) {
+        setAirdropStatus((err && err.message) ? err.message : '{{ __('Unlock failed.') }}', true);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('form.js-airdrop-unlock-form').forEach((form) => {
+        form.addEventListener('submit', handleAirdropUnlockSubmit);
+    });
+});
+</script>
 @endsection

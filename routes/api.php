@@ -105,7 +105,6 @@ Route::group(['namespace' => 'Api', 'middleware' => ['auth:api','two_step']], fu
     Route::post('import-wallet-by-key','user\WalletController@importWalletByKey');
     Route::get('wallet-details-by-id/{id}', 'user\WalletController@walletDetailsByid');
     Route::get('co-user-list/{id}', 'user\WalletController@coUserList');
-    Route::post('make-primary-account','user\WalletController@makePrimaryAccount');
     Route::get('goto-address-app','user\WalletController@gotoAddressApp');
     Route::post('generate-new-address-app','user\WalletController@generateNewAddressApp');
     Route::get('show-pass-address','user\WalletController@showPassAddress');

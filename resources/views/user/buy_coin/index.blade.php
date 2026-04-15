@@ -15,8 +15,8 @@
     .payment-card .pm-icon    { font-size: 22px; margin-right: 10px; }
     .payment-card .pm-label   { font-weight: 600; }
     .payment-card .pm-desc    { font-size: 12px; color: #888; }
-    #wc-panel, #np-panel      { display: none; margin-top: 16px; }
-    #wc-panel.show, #np-panel.show { display: block; }
+    #np-panel                 { display: none; margin-top: 16px; }
+    #np-panel.show            { display: block; }
     .price-preview            { background: rgba(255,255,255,.04); border-radius: 8px; padding: 12px 16px; list-style:none; }
     .price-preview li         { padding: 4px 0; }
     #wc-status                { font-size: 13px; margin-top: 8px; }
@@ -94,15 +94,7 @@
                         </div>
                         @endif
 
-                        @if($walletconnect_enabled)
-                        <div class="payment-card dark-bg2" id="pm_walletconnect" onclick="selectPayment('walletconnect')">
-                            <span class="pm-icon">🔗</span>
-                            <span class="pm-label">WalletConnect</span>
-                            <span class="pm-desc d-block mt-1">{{__('Connect MetaMask / Trust Wallet — pay USDT directly on-chain')}}</span>
-                        </div>
-                        @endif
-
-                        @if(!$nowpayments_enabled && !$walletconnect_enabled)
+                        @if(!$nowpayments_enabled)
                         <p class="text-warning">{{__('No payment methods are currently active. Please contact the administrator.')}}</p>
                         @endif
                     </div>
@@ -127,30 +119,6 @@
                         <button type="submit" class="btn theme-btn">
                             <i class="fa fa-credit-card mr-1"></i> {{__('Pay with NOWPayments')}}
                         </button>
-                    </div>
-
-                    {{-- WalletConnect panel --}}
-                    <div id="wc-panel">
-                        <div class="alert alert-info py-2 mb-3" style="font-size:13px;">
-                            <strong>{{__('How it works')}}:</strong>
-                            {{__('Connect your wallet → approve USDT → tokens are sent automatically on-chain.')}}
-                        </div>
-                        <button type="button" class="btn theme-btn mb-2" id="wc_connect_btn" onclick="wcConnect()">
-                            <i class="fa fa-link mr-1"></i> {{__('Connect Wallet')}}
-                        </button>
-                        <div id="wc_connected" style="display:none;">
-                            <p class="text-success" id="wc_address_display"></p>
-                            <div class="mb-2">
-                                <button type="button" class="btn btn-sm btn-outline-info mr-2" onclick="addOBXToWallet()">
-                                    <i class="fa fa-plus-circle mr-1"></i> {{__('Add OBX to Wallet')}}
-                                </button>
-                                <small class="text-muted">{{__('Import OBX token into MetaMask / Trust Wallet')}}</small>
-                            </div>
-                            <button type="button" class="btn theme-btn" id="wc_buy_btn" onclick="wcBuyTokens()">
-                                <i class="fa fa-exchange mr-1"></i> {{__('Approve & Buy')}} {{ settings('coin_name') }}
-                            </button>
-                        </div>
-                        <div id="wc-status"></div>
                     </div>
 
                 </form>
@@ -270,7 +238,6 @@ function updatePreview() {
 function selectPayment(method) {
     document.querySelectorAll('.payment-card').forEach(el => el.classList.remove('selected'));
     document.getElementById('np-panel').classList.remove('show');
-    document.getElementById('wc-panel').classList.remove('show');
     document.getElementById('payment_type_input').value = '';
 
     if (method === 'nowpayments') {
@@ -278,11 +245,6 @@ function selectPayment(method) {
         if (el) el.classList.add('selected');
         document.getElementById('np-panel').classList.add('show');
         document.getElementById('payment_type_input').value = '{{ NOWPAYMENTS }}';
-    } else if (method === 'walletconnect') {
-        const el = document.getElementById('pm_walletconnect');
-        if (el) el.classList.add('selected');
-        document.getElementById('wc-panel').classList.add('show');
-        document.getElementById('payment_type_input').value = '{{ WALLETCONNECT }}';
     }
 }
 
@@ -357,204 +319,6 @@ document.addEventListener('DOMContentLoaded', function() {
 })();
 @endif
 
-// ── WalletConnect ────────────────────────────────────────────────────────────
-const WC_PROJECT_ID      = @json($wc_project_id);
-const WC_CHAIN_ID        = {{ $wc_chain_id }};
-const PRESALE_ADDRESS    = @json($presale_contract);
-const USDT_ADDRESS       = @json($usdt_address);
-const OBX_TOKEN_ADDRESS  = @json($obx_token_contract);
-const OBX_TOKEN_SYMBOL   = @json($obx_token_symbol);
-const OBX_TOKEN_DECIMALS = {{ (int)$obx_token_decimals }};
-const OBX_TOKEN_LOGO     = @json($obx_token_logo_url);
-// Block explorer base per chain
-const EXPLORER_TX_BASE = WC_CHAIN_ID === 56  ? 'https://bscscan.com/tx/'
-                       : WC_CHAIN_ID === 97  ? 'https://testnet.bscscan.com/tx/'
-                       : WC_CHAIN_ID === 1   ? 'https://etherscan.io/tx/'
-                       : WC_CHAIN_ID === 137 ? 'https://polygonscan.com/tx/'
-                       : 'https://bscscan.com/tx/';
-
-const ERC20_ABI = [
-    {"inputs":[{"name":"spender","type":"address"},{"name":"amount","type":"uint256"}],"name":"approve","outputs":[{"name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},
-    {"inputs":[{"name":"owner","type":"address"}],"name":"balanceOf","outputs":[{"name":"","type":"uint256"}],"stateMutability":"view","type":"function"}
-];
-const PRESALE_ABI = [
-    {"inputs":[{"name":"contractPhaseIndex","type":"uint256"},{"name":"usdtAmount","type":"uint256"}],"name":"buyTokens","outputs":[],"stateMutability":"nonpayable","type":"function"},
-    {"inputs":[],"name":"activePhaseIndex","outputs":[{"name":"","type":"uint256"}],"stateMutability":"view","type":"function"}
-];
-
-let wcProvider = null, wcSigner = null, wcAddress = null;
-
-function loadScript(src) {
-    return new Promise((res, rej) => {
-        if (document.querySelector(`script[src="${src}"]`)) { res(); return; }
-        const s = document.createElement('script');
-        s.src = src; s.onload = res; s.onerror = rej;
-        document.head.appendChild(s);
-    });
-}
-
-async function wcConnect() {
-    if (!WC_PROJECT_ID) {
-        setStatus('<span class="text-danger">WalletConnect Project ID not configured. Contact admin.</span>');
-        return;
-    }
-    try {
-        setStatus('⏳ Loading libraries…');
-        if (!window.ethers)
-            await loadScript('{{ asset("js/vendor/ethers-5.7.2.umd.min.js") }}');
-        if (!window.WalletConnectProvider)
-            await loadScript('{{ asset("js/vendor/walletconnect-web3-provider-1.8.0.min.js") }}');
-
-        const rpcMap = {};
-        rpcMap[WC_CHAIN_ID] = WC_CHAIN_ID === 56
-            ? 'https://bsc-dataseed.binance.org/'
-            : 'https://data-seed-prebsc-1-s1.binance.org:8545/';
-
-        wcProvider = new WalletConnectProvider.default({ projectId: WC_PROJECT_ID, rpc: rpcMap });
-        await wcProvider.enable();
-
-        const web3Provider = new ethers.providers.Web3Provider(wcProvider);
-        const network = await web3Provider.getNetwork();
-        if (network.chainId !== WC_CHAIN_ID) {
-            setStatus(`<span class="text-danger">Wrong network (chain ${network.chainId}). Switch to chain ID ${WC_CHAIN_ID} in your wallet.</span>`);
-            return;
-        }
-
-        wcSigner  = web3Provider.getSigner();
-        wcAddress = await wcSigner.getAddress();
-
-        document.getElementById('wc_connect_btn').style.display = 'none';
-        document.getElementById('wc_connected').style.display   = 'block';
-        document.getElementById('wc_address_display').innerText =
-            '✅ Connected: ' + wcAddress.substring(0,6) + '…' + wcAddress.substring(38);
-        setStatus('');
-
-        // Automatically offer to add OBX token to the connected wallet
-        if (OBX_TOKEN_ADDRESS) {
-            await addOBXToWallet(true);
-        }
-    } catch (e) {
-        setStatus('<span class="text-danger">Connection failed: ' + e.message + '</span>');
-    }
-}
-
-/**
- * Prompt the wallet to import/watch the OBX token via EIP-747 (wallet_watchAsset).
- * Works with MetaMask, Trust Wallet (WalletConnect), and any EIP-1193 provider.
- *
- * @param {boolean} silent  When true, suppresses the status message on success
- *                          (called automatically on connect; user also has a button).
- */
-async function addOBXToWallet(silent = false) {
-    if (!OBX_TOKEN_ADDRESS) {
-        setStatus('<span class="text-danger">OBX token contract not configured. Contact admin.</span>');
-        return;
-    }
-    try {
-        const provider = wcProvider
-            ? new ethers.providers.Web3Provider(wcProvider)
-            : window.ethereum
-                ? new ethers.providers.Web3Provider(window.ethereum)
-                : null;
-
-        if (!provider) {
-            setStatus('<span class="text-danger">No wallet connected. Click Connect Wallet first.</span>');
-            return;
-        }
-
-        const wasAdded = await provider.provider.request({
-            method: 'wallet_watchAsset',
-            params: {
-                type:    'ERC20',
-                options: {
-                    address:  OBX_TOKEN_ADDRESS,
-                    symbol:   OBX_TOKEN_SYMBOL,
-                    decimals: OBX_TOKEN_DECIMALS,
-                    image:    OBX_TOKEN_LOGO || undefined,
-                },
-            },
-        });
-
-        if (!silent) {
-            setStatus(wasAdded
-                ? '<span class="text-success">✅ ' + OBX_TOKEN_SYMBOL + ' added to your wallet!</span>'
-                : '<span class="text-warning">Token add was dismissed.</span>'
-            );
-        }
-    } catch (e) {
-        if (!silent) {
-            setStatus('<span class="text-danger">Could not add token: ' + e.message + '</span>');
-        }
-    }
-}
-
-async function wcBuyTokens() {
-    const coinAmt = parseFloat(document.getElementById('coin_amount').value);
-    if (!coinAmt || coinAmt <= 0) { setStatus('<span class="text-danger">Enter a valid amount first.</span>'); return; }
-    if (!wcSigner)                { setStatus('<span class="text-danger">Connect your wallet first.</span>'); return; }
-    if (!PRESALE_ADDRESS)         { setStatus('<span class="text-danger">Presale contract not configured. Contact admin.</span>'); return; }
-
-    try {
-        setStatus('⏳ Calculating USDT cost…');
-        const netCoins  = coinAmt - (coinAmt * PHASE_BONUS_PCT / 100);
-        const usdtCost  = netCoins * COIN_PRICE;
-        // USDT-BEP20 uses 18 decimals
-        const usdtWei   = ethers.utils.parseUnits(Math.max(usdtCost, 0.000001).toFixed(6), 18);
-
-        const usdtContract    = new ethers.Contract(USDT_ADDRESS, ERC20_ABI, wcSigner);
-        const presaleContract = new ethers.Contract(PRESALE_ADDRESS, PRESALE_ABI, wcSigner);
-
-        const balance = await usdtContract.balanceOf(wcAddress);
-        if (balance.lt(usdtWei)) {
-            setStatus(`<span class="text-danger">Insufficient USDT balance. Need ≈ ${usdtCost.toFixed(4)} USDT.</span>`);
-            return;
-        }
-
-        let phaseIndex;
-        try   { phaseIndex = await presaleContract.activePhaseIndex(); }
-        catch (_) { phaseIndex = ethers.BigNumber.from(0); }
-
-        // Step 1: Approve
-        setStatus('⏳ Step 1/2: Approving USDT spend… (confirm in wallet)');
-        const approveTx = await usdtContract.approve(PRESALE_ADDRESS, usdtWei);
-        setStatus('⏳ Waiting for approval…');
-        await approveTx.wait(1);
-
-        // Step 2: Buy
-        setStatus('⏳ Step 2/2: Buying tokens… (confirm in wallet)');
-        const buyTx = await presaleContract.buyTokens(phaseIndex, usdtWei);
-        setStatus('⏳ Waiting for confirmation…');
-        await buyTx.wait(1);
-
-        // Notify backend (fire & forget — presale webhook also picks up on-chain event)
-        const phaseIdInput = document.querySelector('input[name="phase_id"]');
-        fetch('{{ route("buyCoinProcess") }}', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
-            body: JSON.stringify({
-                coin:             coinAmt,
-                payment_type:     {{ WALLETCONNECT }},
-                phase_id:         phaseIdInput ? phaseIdInput.value : '',
-                tx_hash:          buyTx.hash,
-                wc_buyer_address: wcAddress
-            })
-        }).catch(() => {});
-
-        setStatus(
-            `<span class="text-success">✅ Purchase confirmed!<br>` +
-            `Tx: <a href="${EXPLORER_TX_BASE}${buyTx.hash}" target="_blank" rel="noopener">${buyTx.hash.substring(0,20)}…</a><br>` +
-            `Your OBX tokens will appear in your wallet shortly.</span>`
-        );
-        document.getElementById('wc_buy_btn').disabled = true;
-
-    } catch (e) {
-        setStatus('<span class="text-danger">Transaction failed: ' + (e.reason || e.message) + '</span>');
-    }
-}
-
-function setStatus(html) {
-    const el = document.getElementById('wc-status');
-    if (el) el.innerHTML = html;
-}
+// NOWPayments-only buy flow.
 </script>
 @endsection

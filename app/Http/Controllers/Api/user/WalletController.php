@@ -214,21 +214,7 @@ class WalletController extends Controller
         return response()->json(['success' => true, 'data' => $data, 'message' => __('Wallet details')]);
     }
 
-    public function makePrimaryAccount(Request $request)
-    {
-        if($request->wallet_id){
-            $wallet = Wallet::where(['id'=>$request->wallet_id])->first();
-            if (!empty($wallet) && $wallet->type == CO_WALLET){
-                return response()->json(['success' => false, 'data' => [], 'message' => __('Something went wrong')]);
-            }
-            Wallet::where(['user_id' => Auth::id(), 'type' => PERSONAL_WALLET])->update(['is_primary' => 0]);
-            Wallet::where(['id' => $request->wallet_id])->update(['is_primary' => 1]);
-            return response()->json(['success' => true, 'data' => [], 'message' => __('Default set successfully')]);
-        }
-        else{
-            return response()->json(['success' => false, 'data' => [], 'message' => __('Wallet details')]);
-        }
-    }
+    
 
     public function coUserList($id)
     {

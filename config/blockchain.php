@@ -16,6 +16,7 @@ return [
     */
 
     'bsc_rpc_url'          => env('BSC_RPC_URL', 'https://bsc-dataseed.binance.org/'),
+    'node_binary'          => env('NODE_BINARY', 'node'),
     'rpc_urls' => [
         56  => env('BSC_RPC_URL', 'https://bsc-dataseed.binance.org/'),
         97  => env('BSC_TESTNET_RPC_URL', 'https://data-seed-prebsc-1-s1.bnbchain.org:8545/'),

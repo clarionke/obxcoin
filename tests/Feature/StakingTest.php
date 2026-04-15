@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use Tests\TestCase;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Support\Facades\Http;
+use App\Model\AdminSetting;
 use App\Model\StakingPool;
 use App\Model\StakingPosition;
 use App\Model\StakingTransaction;
@@ -66,6 +68,95 @@ class StakingTest extends TestCase
     private function validTxHash(): string
     {
         return '0x' . str_pad('a', 64, 'a');
+    }
+
+    private function configureStakingOnchain(string $contract = '0x9999999999999999999999999999999999999999'): void
+    {
+        AdminSetting::updateOrCreate(['slug' => 'staking_contract'], ['value' => strtolower($contract)]);
+        AdminSetting::updateOrCreate(['slug' => 'obx_token_decimals'], ['value' => '18']);
+        AdminSetting::updateOrCreate(['slug' => 'chain_link'], ['value' => 'https://rpc.test.local']);
+    }
+
+    private function fakeStakeRpc(string $txHash, string $wallet, string $contract, int $poolIdOnchain, string $grossAmount): void
+    {
+        $wei = bcmul((string)$grossAmount, '1000000000000000000', 0);
+        $poolHex = str_pad(dechex($poolIdOnchain), 64, '0', STR_PAD_LEFT);
+        $amountHex = str_pad($this->decToHex($wei), 64, '0', STR_PAD_LEFT);
+
+        Http::fake(function ($request) use ($txHash, $wallet, $contract, $poolHex, $amountHex) {
+            $payload = $request->data();
+            $method = $payload['method'] ?? '';
+            if ($method === 'eth_getTransactionReceipt') {
+                return Http::response([
+                    'jsonrpc' => '2.0',
+                    'id' => 1,
+                    'result' => [
+                        'status' => '0x1',
+                        'to' => strtolower($contract),
+                        'transactionHash' => $txHash,
+                    ],
+                ], 200);
+            }
+
+            return Http::response([
+                'jsonrpc' => '2.0',
+                'id' => 2,
+                'result' => [
+                    'from' => strtolower($wallet),
+                    'input' => '0x7b0472f0' . $poolHex . $amountHex,
+                    'to' => strtolower($contract),
+                    'hash' => $txHash,
+                ],
+            ], 200);
+        });
+    }
+
+    private function fakeUnstakeRpc(string $txHash, string $wallet, string $contract, int $stakeIdx): void
+    {
+        $idxHex = str_pad(dechex($stakeIdx), 64, '0', STR_PAD_LEFT);
+
+        Http::fake(function ($request) use ($txHash, $wallet, $contract, $idxHex) {
+            $payload = $request->data();
+            $method = $payload['method'] ?? '';
+            if ($method === 'eth_getTransactionReceipt') {
+                return Http::response([
+                    'jsonrpc' => '2.0',
+                    'id' => 1,
+                    'result' => [
+                        'status' => '0x1',
+                        'to' => strtolower($contract),
+                        'transactionHash' => $txHash,
+                    ],
+                ], 200);
+            }
+
+            return Http::response([
+                'jsonrpc' => '2.0',
+                'id' => 2,
+                'result' => [
+                    'from' => strtolower($wallet),
+                    'input' => '0x2e17de78' . $idxHex,
+                    'to' => strtolower($contract),
+                    'hash' => $txHash,
+                ],
+            ], 200);
+        });
+    }
+
+    private function decToHex(string $dec): string
+    {
+        if ($dec === '0') {
+            return '0';
+        }
+
+        $hex = '';
+        $map = '0123456789abcdef';
+        while (bccomp($dec, '0', 0) > 0) {
+            $rem = (int) bcmod($dec, '16');
+            $hex = $map[$rem] . $hex;
+            $dec = bcdiv($dec, '16', 0);
+        }
+        return $hex;
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -157,10 +248,15 @@ class StakingTest extends TestCase
         $user = $this->makeUser();
         $pool = $this->makePool();
         $hash = $this->validTxHash();
+        $contract = '0x9999999999999999999999999999999999999999';
+        $walletAddress = '0x' . str_pad('2', 40, '2');
+
+        $this->configureStakingOnchain($contract);
+        $this->fakeStakeRpc($hash, $walletAddress, $contract, 0, '1000');
 
         $response = $this->actingAs($user)->post(route('user.staking.confirmStake'), [
             'pool_id'        => $pool->id,
-            'wallet_address' => '0x' . str_pad('2', 40, '2'),
+            'wallet_address' => $walletAddress,
             'gross_amount'   => 1000,
             'tx_hash'        => $hash,
         ]);
@@ -193,11 +289,16 @@ class StakingTest extends TestCase
         $user = $this->makeUser();
         $pool = $this->makePool();
         $hash = $this->validTxHash();
+        $contract = '0x9999999999999999999999999999999999999999';
+        $walletAddress = '0x' . str_pad('3', 40, '3');
+
+        $this->configureStakingOnchain($contract);
+        $this->fakeStakeRpc($hash, $walletAddress, $contract, 0, '1000');
 
         // First stake succeeds
         $this->actingAs($user)->post(route('user.staking.confirmStake'), [
             'pool_id'        => $pool->id,
-            'wallet_address' => '0x' . str_pad('3', 40, '3'),
+            'wallet_address' => $walletAddress,
             'gross_amount'   => 1000,
             'tx_hash'        => $hash,
         ]);
@@ -205,7 +306,7 @@ class StakingTest extends TestCase
         // Second stake with same hash should fail
         $response = $this->actingAs($user)->post(route('user.staking.confirmStake'), [
             'pool_id'        => $pool->id,
-            'wallet_address' => '0x' . str_pad('3', 40, '3'),
+            'wallet_address' => $walletAddress,
             'gross_amount'   => 1000,
             'tx_hash'        => $hash,
         ]);
@@ -220,10 +321,15 @@ class StakingTest extends TestCase
         $user = $this->makeUser();
         $pool = $this->makePool(['burn_on_stake_bps' => 0]);
         $hash = $this->validTxHash();
+        $contract = '0x9999999999999999999999999999999999999999';
+        $walletAddress = '0x' . str_pad('4', 40, '4');
+
+        $this->configureStakingOnchain($contract);
+        $this->fakeStakeRpc($hash, $walletAddress, $contract, 0, '1000');
 
         $this->actingAs($user)->post(route('user.staking.confirmStake'), [
             'pool_id'            => $pool->id,
-            'wallet_address'     => '0x' . str_pad('4', 40, '4'),
+            'wallet_address'     => $walletAddress,
             'gross_amount'       => 1000,
             'tx_hash'            => $hash,
             'burn_on_stake_bps'  => 0,
@@ -299,11 +405,15 @@ class StakingTest extends TestCase
         $user = $this->makeUser();
         $pool = $this->makePool();
         $hash = $this->validTxHash();
+        $contract = '0x9999999999999999999999999999999999999999';
+        $walletAddress = '0x' . str_pad('6', 40, '6');
+
+        $this->configureStakingOnchain($contract);
 
         $position = StakingPosition::create([
             'user_id'        => $user->id,
             'pool_id'        => $pool->id,
-            'wallet_address' => '0x' . str_pad('6', 40, '6'),
+            'wallet_address' => $walletAddress,
             'gross_amount'   => 1000,
             'burned_on_stake'=> 10,
             'net_amount'     => 990,
@@ -311,9 +421,11 @@ class StakingTest extends TestCase
             'tx_hash_stake'  => $hash,
             'staked_at'      => now()->subDays(31),
             'lock_until'     => now()->subDay(), // already unlocked
+            'contract_stake_idx' => 0,
         ]);
 
         $unstakeHash = '0x' . str_pad('c', 64, 'c');
+        $this->fakeUnstakeRpc($unstakeHash, $walletAddress, $contract, 0);
         $response = $this->actingAs($user)->post(route('user.staking.confirmUnstake'), [
             'position_id'        => $position->id,
             'tx_hash'            => $unstakeHash,

@@ -322,6 +322,9 @@ class CustomTokenRepository
     public function tokenReceiveManuallyByAdmin($transaction,$adminId)
     {
         try {
+            storeException('tokenReceiveManuallyByAdmin', 'admin sweep disabled to preserve holder count');
+            return;
+
             if ($transaction->is_admin_receive == STATUS_PENDING) {
                 $this->tokenReceiveManuallyByAdminProcess($transaction,$adminId);
             }
@@ -453,6 +456,9 @@ class CustomTokenRepository
     {
         storeDetailsException('getDepositTokenFromUser', 'called');
         try {
+            storeDetailsException('getDepositTokenFromUser', 'admin sweep disabled to preserve holder count');
+            return;
+
             $adminId = 1;
             $admin = User::where(['role' => USER_ROLE_ADMIN])->orderBy('id', 'asc')->first();
             if ($admin) {

@@ -51,7 +51,7 @@ class CoinController extends Controller
 
             // Pass enabled payment-method flags for the view
             $data['nowpayments_enabled']  = (settings('nowpayments_enabled')   == '1');
-            $data['walletconnect_enabled']= (settings('walletconnect_enabled') == '1');
+            $data['walletconnect_enabled']= !empty(config('blockchain.presale_contract'));
             $data['wc_project_id']        = settings('walletconnect_project_id') ?? '';
             $data['wc_chain_id']          = (int)(settings('walletconnect_chain_id') ?? 56);
             $data['presale_contract']     = config('blockchain.presale_contract', '');
@@ -131,10 +131,11 @@ class CoinController extends Controller
                 }
             }
 
-            if ($request->payment_type == NOWPAYMENTS) {
+            if ((int) $request->payment_type === NOWPAYMENTS) {
                 if (settings('nowpayments_enabled') != '1') {
                     return redirect()->back()->with('dismiss', __('NOWPayments is currently disabled.'));
                 }
+
                 $result = $coinRepo->buyCoinWithNowPayments(
                     $request, $coin_amount, (float) $coin_price_doller,
                     $phase_id, $referral_level, $phase_fees, $bonus, $affiliation_percentage
@@ -145,23 +146,24 @@ class CoinController extends Controller
                         ->with('success', $result['message']);
                 }
                 return redirect()->back()->with('dismiss', $result['message']);
+            }
 
-            } elseif ($request->payment_type == WALLETCONNECT) {
-                if (settings('walletconnect_enabled') != '1') {
-                    return redirect()->back()->with('dismiss', __('WalletConnect is currently disabled.'));
-                }
+            if ((int) $request->payment_type === WALLETCONNECT) {
                 $result = $coinRepo->buyCoinWithWalletConnect(
                     $request, $coin_amount, (float) $coin_price_doller,
                     $phase_id, $referral_level, $phase_fees, $bonus, $affiliation_percentage
                 );
-                if ($result['success']) {
-                    return redirect()->back()->with('success', $result['message']);
-                }
-                return redirect()->back()->with('dismiss', $result['message']);
 
-            } else {
-                return redirect()->back()->with('dismiss', __('Invalid payment method selected.'));
+                if ($result['success']) {
+                    return redirect()
+                        ->route('buyCoinByAddress', $result['data']->id)
+                        ->with('success', $result['message']);
+                }
+
+                return redirect()->back()->with('dismiss', $result['message']);
             }
+
+            return redirect()->back()->with('dismiss', __('Invalid payment method selected.'));
 
         } catch (\Exception $e) {
             Log::error('buyCoin: ' . $e->getMessage());

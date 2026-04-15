@@ -9,7 +9,7 @@
                 <div class="card-body">
                     <div class="cp-user-card-header-area">
                         <div class="cp-user-title">
-                            <h4>{{__('Withdrawal Approvals for ')}}({{$tempWithdraw->amount}} {{$tempWithdraw->wallet->coin_type}} to {{$tempWithdraw->address}})</h4>
+                            <h4>{{__('Withdrawal Approvals for ')}}({{ number_format((float)$tempWithdraw->amount, 2, '.', '') }} {{$tempWithdraw->wallet->coin_type}} to {{$tempWithdraw->address}})</h4>
                             <p style="color: #B4B8D7"><b>{{__('Need')}} {{max(0, $total_required_approval - $approved_count)}} {{('more approval')}}</b></p>
                         </div>
                     </div>

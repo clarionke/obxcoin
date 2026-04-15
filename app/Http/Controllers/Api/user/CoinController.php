@@ -175,9 +175,10 @@ class CoinController extends Controller
             if(isset($data['settings']['nowpayments_enabled']) && ($data['settings']['nowpayments_enabled'] == 1)){
                 $data['payment_methods'][NOWPAYMENTS] = 'NOWPayments';
             }
-            if(isset($data['settings']['walletconnect_enabled']) && ($data['settings']['walletconnect_enabled'] == 1)){
+            if (!empty(config('blockchain.presale_contract'))) {
                 $data['payment_methods'][WALLETCONNECT] = 'WalletConnect';
-            }unset($data['settings']);
+            }
+            unset($data['settings']);
             $response = ['success' => true, 'data'=>$data, 'message' => __('Buy coin and phase information')];
         } catch(\Exception $e) {
             $response = ['success' => false, 'message' => __($e->getMessage())];
@@ -215,7 +216,7 @@ class CoinController extends Controller
                 }
             }
 
-            if ($request->payment_type == NOWPAYMENTS) {
+            if ((int) $request->payment_type === NOWPAYMENTS) {
                 if (settings('nowpayments_enabled') != '1') {
                     $response = ['success' => false, 'message' => __('NOWPayments is currently disabled.')];
                 } else {
@@ -231,16 +232,16 @@ class CoinController extends Controller
                         $response = ['success' => false, 'message' => __($result['message'])];
                     }
                 }
-            } elseif ($request->payment_type == WALLETCONNECT) {
-                if (settings('walletconnect_enabled') != '1') {
-                    $response = ['success' => false, 'message' => __('WalletConnect is currently disabled.')];
+            } elseif ((int) $request->payment_type === WALLETCONNECT) {
+                $result = $coinRepo->buyCoinWithWalletConnect($request, $coin_amount, $coin_price_doller, $phase_id, $referral_level, $phase_fees, $bonus, $affiliation_percentage);
+                if ($result['success']) {
+                    $response = ['success' => true, 'data' => [
+                        'id'       => $result['data']->id,
+                        'tx_hash'  => $result['data']->tx_hash,
+                        'status'   => $result['data']->status,
+                    ], 'message' => __($result['message'])];
                 } else {
-                    $result = $coinRepo->buyCoinWithWalletConnect($request, $coin_amount, $coin_price_doller, $phase_id, $referral_level, $phase_fees, $bonus, $affiliation_percentage);
-                    if ($result['success']) {
-                        $response = ['success' => true, 'message' => __($result['message'])];
-                    } else {
-                        $response = ['success' => false, 'message' => __($result['message'])];
-                    }
+                    $response = ['success' => false, 'message' => __($result['message'])];
                 }
             } else {
                 $response = ['success' => false, 'message' => __('Invalid payment method selected.')];
@@ -266,6 +267,9 @@ class CoinController extends Controller
             foreach($histories as $index=>&$history){
                 $history->type = byCoinType($history->type);
                 $history->status = deposit_status($history->status);
+                $history->tx_url = (!empty($history->tx_hash) && str_starts_with(strtolower((string)$history->tx_hash), '0x'))
+                    ? 'https://bscscan.com/tx/' . $history->tx_hash
+                    : null;
             }
             $response = ['success' => true, 'data'=>$histories, 'message' => __('Buy Coin History Here')];
         } catch (\Exception $e) {

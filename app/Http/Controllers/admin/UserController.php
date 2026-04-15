@@ -87,14 +87,15 @@ class UserController extends Controller
             ]);
 
             $coin = Coin::where('type', DEFAULT_COIN_TYPE)->first();
-            Wallet::create([
+            Wallet::updateOrCreate([
                 'user_id' => $user->id,
+                'coin_type' => $coin->type,
+            ], [
                 'name' => 'OBX Wallet',
                 'status' => STATUS_SUCCESS,
                 'is_primary' => STATUS_SUCCESS,
                 'balance' => 0.0000000,
                 'coin_id' => $coin->id,
-                'coin_type' => $coin->type,
             ]);
 
             app(CommonService::class)->generateNewCoinWallet($user->id);
