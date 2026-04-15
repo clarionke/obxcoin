@@ -111,6 +111,7 @@ Route::group(['prefix'=>'admin','namespace'=>'admin','middleware'=> ['auth','adm
     Route::get('phase-edit-{id}', 'PhaseController@phaseEdit')->name('phaseEdit');
     Route::get('phase-delete-{id}', 'PhaseController@phaseDelete')->name('phaseDelete');
     Route::get('phase-change-{id}', 'PhaseController@phaseStatusChange')->name('phaseStatusChange');
+    Route::get('phase-push-onchain-{id}', 'PhaseController@phasePushOnchain')->name('phasePushOnchain');
     Route::post('ico-phase-add-process', 'PhaseController@adminPhaseAddProcess')->name('adminPhaseAddProcess');
 
     Route::get('custom-page-list', 'LandingController@adminCustomPageList')->name('adminCustomPageList');

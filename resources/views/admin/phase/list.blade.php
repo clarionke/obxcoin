@@ -68,6 +68,11 @@
                                                                             @if($phase->status == STATUS_SUCCESS) {{__('Inactive')}} @else {{__('Active')}} @endif
                                                                         </button>
                                                                     </a>
+                                                                    @if(config('blockchain.presale_contract'))
+                                                                        <a href="{{route('phasePushOnchain',encrypt($phase->id))}}">
+                                                                            <button class="dropdown-item" type="button">{{__('Push to Blockchain')}}</button>
+                                                                        </a>
+                                                                    @endif
                                                                     <a href="{{route('phaseEdit',encrypt($phase->id))}}">
                                                                         <button class="dropdown-item"
                                                                                 type="button">{{__('Update')}}</button>
@@ -167,6 +172,13 @@
                                                         <span class="badge badge-warning" title="Phase not yet confirmed on-chain">
                                                             <i class="fa fa-clock-o"></i> {{__('Pending on-chain')}}
                                                         </span>
+                                                        @if(config('blockchain.presale_contract'))
+                                                            <a href="{{route('phasePushOnchain',encrypt($phase->id))}}"
+                                                               class="btn btn-sm btn-outline-warning ml-2"
+                                                               style="font-size:10px;padding:2px 8px;">
+                                                                <i class="fa fa-upload"></i> {{__('Push to Blockchain')}}
+                                                            </a>
+                                                        @endif
                                                     @endif
                                                 </div>
                                             </div>

@@ -4,9 +4,11 @@ namespace App\Http\Controllers\admin;
 
 use App\Http\Requests\Admin\PhaseCreateRequest;
 use App\Repository\PhaseRepository;
+use App\Services\BlockchainService;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use App\Model\IcoPhase;
+use Illuminate\Support\Facades\Log;
 
 class PhaseController extends Controller
 {
@@ -114,6 +116,54 @@ class PhaseController extends Controller
 
         } catch (\Exception $exception) {
             return redirect()->back()->with(['dismiss' => __('Something went wrong.')]);
+        }
+    }
+
+    public function phasePushOnchain($id)
+    {
+        $id = decrypt($id);
+
+        try {
+            $phase = IcoPhase::find($id);
+            if (empty($phase) || (int)$phase->status === STATUS_DELETED) {
+                return redirect()->back()->with(['dismiss' => __('Invalid phase')]);
+            }
+
+            if (!config('blockchain.presale_contract')) {
+                return redirect()->back()->with(['dismiss' => __('Presale contract is not configured.')]);
+            }
+
+            if (!empty($phase->pending_onchain_tx)) {
+                return redirect()->back()->with([
+                    'dismiss' => __('This phase already has a pending on-chain transaction: ') . $phase->pending_onchain_tx
+                ]);
+            }
+
+            $blockchain = new BlockchainService();
+
+            // If phase already has an on-chain index, send update tx; otherwise push as new phase.
+            if ($phase->contract_phase_index !== null) {
+                $result = $blockchain->updatePhaseOnContract(array_merge($phase->toArray(), [
+                    'active' => (int)$phase->status === STATUS_SUCCESS,
+                ]));
+            } else {
+                $result = $blockchain->pushPhaseToContract($phase->toArray());
+            }
+
+            if (!$result || !isset($result['txHash'])) {
+                return redirect()->back()->with(['dismiss' => __('Unable to broadcast transaction. Please check blockchain settings and try again.')]);
+            }
+
+            $phase->pending_onchain_tx = $result['txHash'];
+            $phase->contract_synced = false;
+            $phase->save();
+
+            return redirect()->back()->with([
+                'success' => __('Phase pushed to blockchain. Pending tx: ') . $result['txHash']
+            ]);
+        } catch (\Exception $e) {
+            Log::error('phasePushOnchain failed: ' . $e->getMessage());
+            return redirect()->back()->with(['dismiss' => __('Something went wrong while pushing phase on-chain.')]);
         }
     }
 }
