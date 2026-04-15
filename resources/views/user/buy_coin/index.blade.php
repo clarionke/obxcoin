@@ -63,6 +63,8 @@
                         <input type="hidden" name="phase_id" value="{{$activePhase['pahse_info']->id}}">
                     @endif
                     <input type="hidden" name="payment_type" id="payment_type_input" value="">
+                    <input type="hidden" name="wc_buyer_address" id="wc_buyer_address" value="">
+                    <input type="hidden" name="tx_hash" id="wc_tx_hash" value="">
 
                     {{-- Amount --}}
                     <div class="form-group mt-3">
@@ -86,6 +88,10 @@
                     <div class="cp-user-payment-type">
                         <h5 class="mb-2">{{__('Choose Payment Method')}}</h5>
 
+                        @php
+                            $has_payment_methods = ($nowpayments_enabled || $walletconnect_enabled);
+                        @endphp
+
                         @if($nowpayments_enabled)
                         <div class="payment-card dark-bg2" id="pm_nowpayments" onclick="selectPayment('nowpayments')">
                             <span class="pm-icon">💳</span>
@@ -94,7 +100,15 @@
                         </div>
                         @endif
 
-                        @if(!$nowpayments_enabled)
+                        @if($walletconnect_enabled)
+                        <div class="payment-card dark-bg2" id="pm_walletconnect" onclick="selectPayment('walletconnect')">
+                            <span class="pm-icon">🔗</span>
+                            <span class="pm-label">WalletConnect</span>
+                            <span class="pm-desc d-block mt-1">{{__('Pay on-chain with USDT from your connected wallet')}}</span>
+                        </div>
+                        @endif
+
+                        @if(!$has_payment_methods)
                         <p class="text-warning">{{__('No payment methods are currently active. Please contact the administrator.')}}</p>
                         @endif
                     </div>
@@ -119,6 +133,15 @@
                         <button type="submit" class="btn theme-btn">
                             <i class="fa fa-credit-card mr-1"></i> {{__('Pay with NOWPayments')}}
                         </button>
+                    </div>
+
+                    {{-- WalletConnect panel --}}
+                    <div id="wc-panel" style="display:none; margin-top:16px;">
+                        <p class="mb-2 text-muted">{{__('You will approve USDT and then confirm the on-chain purchase transaction in your wallet.')}}</p>
+                        <button type="button" class="btn theme-btn" id="wc-buy-btn" onclick="startWalletConnectPurchase()">
+                            <i class="fa fa-link mr-1"></i> {{__('Pay with WalletConnect')}}
+                        </button>
+                        <div id="wc-status" class="mt-2"></div>
                     </div>
 
                 </form>
@@ -217,6 +240,22 @@
 
 @section('script')
 <script>
+const WC_ENABLED          = {{ $walletconnect_enabled ? 'true' : 'false' }};
+const WC_PROJECT_ID       = @json($wc_project_id ?? '');
+const WC_CHAIN_ID         = {{ (int)($wc_chain_id ?? 56) }};
+const PRESALE_CONTRACT    = @json($presale_contract ?? '');
+const USDT_ADDRESS        = @json($usdt_address ?? '');
+const CONTRACT_PHASE_IDX  = {{ (!$no_phase && !$activePhase['futurePhase'] && isset($activePhase['pahse_info']) && $activePhase['pahse_info']->contract_phase_index !== null) ? (int)$activePhase['pahse_info']->contract_phase_index : 'null' }};
+const BUY_RATE_URL        = @json(route('buyCoinRate'));
+
+const ERC20_ABI = [
+    'function approve(address spender, uint256 amount) returns (bool)'
+];
+
+const PRESALE_ABI = [
+    'function buyTokens(uint256 contractPhaseIndex, uint256 usdtAmount)'
+];
+
 // ── Price preview ────────────────────────────────────────────────────────────
 let COIN_PRICE = {{ (float) $coin_price }};
 @if(!$no_phase && !$activePhase['futurePhase'] && isset($activePhase['pahse_info']))
@@ -238,6 +277,8 @@ function updatePreview() {
 function selectPayment(method) {
     document.querySelectorAll('.payment-card').forEach(el => el.classList.remove('selected'));
     document.getElementById('np-panel').classList.remove('show');
+    const wcPanel = document.getElementById('wc-panel');
+    if (wcPanel) wcPanel.style.display = 'none';
     document.getElementById('payment_type_input').value = '';
 
     if (method === 'nowpayments') {
@@ -245,6 +286,113 @@ function selectPayment(method) {
         if (el) el.classList.add('selected');
         document.getElementById('np-panel').classList.add('show');
         document.getElementById('payment_type_input').value = '{{ NOWPAYMENTS }}';
+    } else if (method === 'walletconnect') {
+        const el = document.getElementById('pm_walletconnect');
+        if (el) el.classList.add('selected');
+        if (wcPanel) wcPanel.style.display = 'block';
+        document.getElementById('payment_type_input').value = '{{ WALLETCONNECT }}';
+    }
+}
+
+function setWcStatus(message, isError = false) {
+    const el = document.getElementById('wc-status');
+    if (!el) return;
+    el.innerHTML = isError ? '<span class="text-danger">' + message + '</span>' : message;
+}
+
+function loadScript(src) {
+    return new Promise((resolve, reject) => {
+        if (document.querySelector('script[src="' + src + '"]')) { resolve(); return; }
+        const s = document.createElement('script');
+        s.src = src;
+        s.onload = resolve;
+        s.onerror = reject;
+        document.head.appendChild(s);
+    });
+}
+
+async function fetchQuoteFromServer(amount) {
+    const formData = new URLSearchParams();
+    formData.append('_token', '{{ csrf_token() }}');
+    formData.append('amount', String(amount));
+
+    const r = await fetch(BUY_RATE_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+        body: formData.toString(),
+    });
+
+    if (!r.ok) throw new Error('{{ __('Unable to fetch price quote.') }}');
+    const data = await r.json();
+    const totalUsd = parseFloat(data.coin_price || 0);
+    if (!totalUsd || totalUsd <= 0) {
+        throw new Error('{{ __('Invalid quote amount returned by server.') }}');
+    }
+    return totalUsd;
+}
+
+async function startWalletConnectPurchase() {
+    const buyBtn = document.getElementById('wc-buy-btn');
+    const form = document.getElementById('buy_coin_form');
+    const amount = parseFloat(document.getElementById('coin_amount').value || 0);
+
+    try {
+        if (!WC_ENABLED) throw new Error('{{ __('WalletConnect is not enabled.') }}');
+        if (!amount || amount <= 0) throw new Error('{{ __('Enter a valid coin amount first.') }}');
+        if (!PRESALE_CONTRACT) throw new Error('{{ __('Presale contract is not configured.') }}');
+        if (!USDT_ADDRESS) throw new Error('{{ __('USDT address is not configured for this chain.') }}');
+        if (CONTRACT_PHASE_IDX === null) throw new Error('{{ __('Active phase is not synced on-chain yet. Contact admin.') }}');
+        if (!WC_PROJECT_ID) throw new Error('{{ __('WalletConnect project ID is not configured.') }}');
+
+        if (buyBtn) buyBtn.disabled = true;
+        setWcStatus('⏳ {{ __('Preparing transaction...') }}');
+
+        const totalUsd = await fetchQuoteFromServer(amount);
+
+        if (!window.ethers) {
+            await loadScript('{{ asset("js/vendor/ethers-5.7.2.umd.min.js") }}');
+        }
+        if (!window.WalletConnectProvider) {
+            await loadScript('{{ asset("js/vendor/walletconnect-web3-provider-1.8.0.min.js") }}');
+        }
+
+        const rpcMap = {};
+        rpcMap[56] = 'https://bsc-dataseed.binance.org/';
+        rpcMap[97] = 'https://bsc-testnet-rpc.publicnode.com';
+
+        const wcProvider = new WalletConnectProvider.default({ projectId: WC_PROJECT_ID, rpc: rpcMap });
+        await wcProvider.enable();
+
+        const web3Provider = new ethers.providers.Web3Provider(wcProvider);
+        const network = await web3Provider.getNetwork();
+        if (Number(network.chainId) !== Number(WC_CHAIN_ID)) {
+            throw new Error('{{ __('Wrong network. Please switch wallet network to chain ID') }} ' + WC_CHAIN_ID + '.');
+        }
+
+        const signer = web3Provider.getSigner();
+        const buyerAddress = await signer.getAddress();
+        const usdtAmount = ethers.utils.parseUnits(Number(totalUsd).toFixed(6), 6);
+
+        const usdt = new ethers.Contract(USDT_ADDRESS, ERC20_ABI, signer);
+        const presale = new ethers.Contract(PRESALE_CONTRACT, PRESALE_ABI, signer);
+
+        setWcStatus('⏳ {{ __('Step 1/2: Approve USDT in wallet...') }}');
+        const approveTx = await usdt.approve(PRESALE_CONTRACT, usdtAmount);
+        await approveTx.wait(1);
+
+        setWcStatus('⏳ {{ __('Step 2/2: Confirm purchase in wallet...') }}');
+        const buyTx = await presale.buyTokens(CONTRACT_PHASE_IDX, usdtAmount);
+        await buyTx.wait(1);
+
+        document.getElementById('payment_type_input').value = '{{ WALLETCONNECT }}';
+        document.getElementById('wc_buyer_address').value = buyerAddress;
+        document.getElementById('wc_tx_hash').value = buyTx.hash;
+
+        setWcStatus('<span class="text-success">{{ __('On-chain purchase confirmed. Finalizing...') }}</span>');
+        form.submit();
+    } catch (e) {
+        setWcStatus((e && e.message) ? e.message : '{{ __('WalletConnect transaction failed.') }}', true);
+        if (buyBtn) buyBtn.disabled = false;
     }
 }
 
@@ -294,9 +442,21 @@ document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('buy_coin_form');
     if (form) {
         form.addEventListener('submit', function(e) {
-            if (!document.getElementById('payment_type_input').value) {
+            const paymentType = document.getElementById('payment_type_input').value;
+            if (!paymentType) {
                 e.preventDefault();
                 alert('{{ __("Please select a payment method first.") }}');
+                return;
+            }
+
+            if (paymentType === '{{ WALLETCONNECT }}') {
+                const buyer = document.getElementById('wc_buyer_address').value;
+                const tx = document.getElementById('wc_tx_hash').value;
+                if (!buyer || !tx) {
+                    e.preventDefault();
+                    alert('{{ __("Complete the WalletConnect transaction first.") }}');
+                    return;
+                }
             }
         });
     }

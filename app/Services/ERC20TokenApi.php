@@ -20,7 +20,7 @@ class ERC20TokenApi {
         $this->logger = new Logger();
         $this->settings = allsetting();
         $this->chainNetwork = $this->settings['chain_link'] ?? '';
-        $this->headerKey = env('HEADER_API_KEY') ?? '32c412e1f281fea2c93fd972a212040b692b9bdd';
+        $this->headerKey = env('HEADER_API_KEY', '');
         $this->nodeUrl = env('ERC20_NODE_URL') ?? 'http://localhost:4000/';
         $this->contractAddress = $this->settings['contract_address'] ?? '';
         $this->decimalValue = isset($this->settings['contract_decimal']) ? intval($this->settings['contract_decimal']) : 18;
