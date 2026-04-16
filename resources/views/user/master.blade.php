@@ -322,8 +322,9 @@
         display:none;position:fixed;
         top:0;left:0;right:0;bottom:0;
         background:rgba(0,0,0,.65);z-index:1038;
+        pointer-events:none;
     }
-    .sidebar-overlay.active{display:block;}
+    .sidebar-overlay.active{display:block;pointer-events:all;}
     /* ---- CARDS ---- */
     .card{
         border:1px solid var(--border)!important;border-radius:var(--r)!important;
@@ -988,6 +989,28 @@
 
 <script src="{{asset('assets/user/js/main.js')}}"></script>
 
+<script>
+// Defensive reset for stale overlay states that can block the full app UI.
+window.addEventListener('load', function () {
+    try {
+        var $body = $('body');
+        $body.removeClass('_toggle modal-open');
+        $('#sidebarOverlay').removeClass('active');
+
+        // Leftover Bootstrap backdrops from interrupted navigation can block clicks.
+        $('.modal-backdrop').remove();
+
+        // Ensure swipe overlay containers are not intercepting clicks unless explicitly opened.
+        $('.swipe-area-overlay').css('pointer-events', 'none');
+        if (!$body.hasClass('_toggle')) {
+            $('.swipe-area-overlay').css('pointer-events', '');
+        }
+    } catch (e) {
+        // no-op
+    }
+});
+</script>
+
 <script src="https://js.pusher.com/3.0/pusher.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/laravel-echo/1.8.1/echo.iife.min.js"></script>
 <script>
@@ -1148,6 +1171,18 @@
     // Read initial state (theme may have collapsed it on load)
     setSidebarState($('.cp-user-sidebar').hasClass('cp-user-sidebar-hide'));
 
+    function syncOverlayState() {
+        var isMobile = $(window).width() <= 991;
+        var sidebarHidden = $('.cp-user-sidebar').hasClass('cp-user-sidebar-hide');
+
+        // Overlay is only valid on mobile while sidebar is visible.
+        if (isMobile && !sidebarHidden) {
+            $('#sidebarOverlay').addClass('active');
+        } else {
+            $('#sidebarOverlay').removeClass('active');
+        }
+    }
+
     // Sidebar overlay for mobile
     $('.menu-bars').on('click', function(){
         var sidebarHidden = $('.cp-user-sidebar').hasClass('cp-user-sidebar-hide');
@@ -1161,6 +1196,7 @@
         // Small timeout to let theme JS toggle the class first, then sync
         setTimeout(function(){
             setSidebarState($('.cp-user-sidebar').hasClass('cp-user-sidebar-hide'));
+            syncOverlayState();
         }, 50);
     });
     $('#sidebarOverlay').on('click', function(){
@@ -1187,13 +1223,19 @@
             setSidebarState(true);
         }
     });
+
+    // Clear any stale overlay when switching viewport or after script init.
+    $(window).on('resize orientationchange', function(){
+        syncOverlayState();
+    });
+    syncOverlayState();
 })(jQuery);
 </script>
 
 <script>
 (function(){
     function fetchTopbarPrice(){
-        fetch('/obxcoin/public/api/obx-price')
+        fetch('{{ url('/api/obx-price') }}')
             .then(function(r){ return r.json(); })
             .then(function(d){
                 if(!d || !d.price) return;
