@@ -246,6 +246,7 @@ const WC_CHAIN_ID         = {{ (int)($wc_chain_id ?? 56) }};
 const PRESALE_CONTRACT    = @json($presale_contract ?? '');
 const USDT_ADDRESS        = @json($usdt_address ?? '');
 const CONTRACT_PHASE_IDX  = {{ (!$no_phase && !$activePhase['futurePhase'] && isset($activePhase['pahse_info']) && $activePhase['pahse_info']->contract_phase_index !== null) ? (int)$activePhase['pahse_info']->contract_phase_index : 'null' }};
+const PHASE_INFO_URL      = @json(url('/api/presale/phase-info/0'));
 const BUY_RATE_URL        = @json(route('buyCoinRate'));
 
 const ERC20_ABI = [
@@ -331,6 +332,30 @@ async function fetchQuoteFromServer(amount) {
     return totalUsd;
 }
 
+async function resolveContractPhaseIndex() {
+    if (CONTRACT_PHASE_IDX !== null && Number(CONTRACT_PHASE_IDX) >= 0) {
+        return Number(CONTRACT_PHASE_IDX);
+    }
+
+    try {
+        const r = await fetch(PHASE_INFO_URL, {
+            method: 'GET',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        if (!r.ok) return null;
+
+        const data = await r.json();
+        const idx = Number(data.active_phase);
+        if (Number.isFinite(idx) && idx >= 0) {
+            return idx;
+        }
+    } catch (e) {
+        // fall through to null return
+    }
+
+    return null;
+}
+
 async function startWalletConnectPurchase() {
     const buyBtn = document.getElementById('wc-buy-btn');
     const form = document.getElementById('buy_coin_form');
@@ -341,11 +366,15 @@ async function startWalletConnectPurchase() {
         if (!amount || amount <= 0) throw new Error('{{ __('Enter a valid coin amount first.') }}');
         if (!PRESALE_CONTRACT) throw new Error('{{ __('Presale contract is not configured.') }}');
         if (!USDT_ADDRESS) throw new Error('{{ __('USDT address is not configured for this chain.') }}');
-        if (CONTRACT_PHASE_IDX === null) throw new Error('{{ __('Active phase is not synced on-chain yet. Contact admin.') }}');
         if (!WC_PROJECT_ID) throw new Error('{{ __('WalletConnect project ID is not configured.') }}');
 
         if (buyBtn) buyBtn.disabled = true;
         setWcStatus('⏳ {{ __('Preparing transaction...') }}');
+
+        const phaseIdx = await resolveContractPhaseIndex();
+        if (phaseIdx === null) {
+            throw new Error('{{ __('Unable to resolve active on-chain phase right now. Please retry shortly.') }}');
+        }
 
         const totalUsd = await fetchQuoteFromServer(amount);
 
@@ -381,7 +410,7 @@ async function startWalletConnectPurchase() {
         await approveTx.wait(1);
 
         setWcStatus('⏳ {{ __('Step 2/2: Confirm purchase in wallet...') }}');
-        const buyTx = await presale.buyTokens(CONTRACT_PHASE_IDX, usdtAmount);
+        const buyTx = await presale.buyTokens(phaseIdx, usdtAmount);
         await buyTx.wait(1);
 
         document.getElementById('payment_type_input').value = '{{ WALLETCONNECT }}';

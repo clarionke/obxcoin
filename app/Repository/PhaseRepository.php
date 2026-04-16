@@ -20,6 +20,11 @@ class PhaseRepository
     public function phaseAddProcess($request)
     {
         $response = ['success' => false, 'message' => __('Invalid request')];
+
+        if ($this->resolvedPresaleContract() === '') {
+            return ['success' => false, 'message' => __('Presale contract is not configured. Configure blockchain settings first.')];
+        }
+
         try {
             $st_date = date('Y-m-d H:i:s', strtotime($request->start_date));
             $end_date = date('Y-m-d H:i:s', strtotime($request->end_date));
@@ -61,60 +66,56 @@ class PhaseRepository
             $isEdit = !empty($request->edit_id);
 
             if ($isEdit) {
-                $phase = IcoPhase::updateOrCreate(['id' => decrypt($request->edit_id)], $data);
-                $response = ['success' => true, 'message' => __('Phase updated successfully')];
+                $phase = IcoPhase::find(decrypt($request->edit_id));
+                if (!$phase) {
+                    DB::rollBack();
+                    return ['success' => false, 'message' => __('Invalid phase selected')];
+                }
+
+                if (!empty($phase->pending_onchain_tx)) {
+                    DB::rollBack();
+                    return ['success' => false, 'message' => __('This phase has a pending on-chain transaction: ') . $phase->pending_onchain_tx];
+                }
+
+                $phase->fill($data);
+                $phase->save();
             } else {
                 $phase = IcoPhase::create($data);
-                $response = ['success' => true, 'message' => __('New phase created successfully')];
             }
+
+            // ── On-chain sync ──────────────────────────────────────────────────
+            $blockchain = new BlockchainService();
+            $phaseData  = $phase->toArray();
+
+            if ($isEdit && $phase->contract_phase_index !== null) {
+                $result = $blockchain->updatePhaseOnContract(array_merge($phaseData, [
+                    'active' => (int)$phase->status === STATUS_ACTIVE,
+                ]));
+            } else {
+                $result = $blockchain->pushPhaseToContract($phaseData);
+            }
+
+            if (!$result || !isset($result['txHash'])) {
+                throw new \RuntimeException(__('Failed to broadcast phase transaction to blockchain.'));
+            }
+
+            $phase->contract_synced = false;
+            $phase->pending_onchain_tx = $result['txHash'];
+            $phase->save();
 
             DB::commit();
 
-            // ── On-chain sync ──────────────────────────────────────────────────
-            if ($this->resolvedPresaleContract() !== '') {
-                try {
-                    $blockchain = new BlockchainService();
-                    $phaseData  = $phase->toArray();
-
-                    if ($isEdit && $phase->contract_synced && $phase->contract_phase_index !== null) {
-                        // Guard: skip if another admin action is already broadcasting
-                        if ($phase->pending_onchain_tx) {
-                            Log::warning("Phase #{$phase->id} update skipped: pending tx {$phase->pending_onchain_tx} not yet confirmed");
-                        } else {
-                            // Update existing phase on chain
-                            $result = $blockchain->updatePhaseOnContract(array_merge($phaseData, [
-                                'active' => $phase->status == STATUS_ACTIVE,
-                            ]));
-                            if ($result && isset($result['txHash'])) {
-                                $phase->update(['pending_onchain_tx' => $result['txHash']]);
-                                Log::info("Phase #{$phase->id} update broadcast: {$result['txHash']}");
-                            }
-                        }
-                    } else {
-                        // Guard: prevent double-push if a pending tx already exists
-                        if ($phase->pending_onchain_tx) {
-                            Log::warning("Phase #{$phase->id} push skipped: pending tx {$phase->pending_onchain_tx} not yet confirmed");
-                        } else {
-                            // Push new phase to contract
-                            $result = $blockchain->pushPhaseToContract($phaseData);
-                            if ($result && isset($result['txHash'])) {
-                                $phase->update([
-                                    'contract_synced'   => false,
-                                    'pending_onchain_tx'=> $result['txHash'],
-                                ]);
-                                Log::info("Phase #{$phase->id} pushed on-chain (pending): {$result['txHash']}");
-                            }
-                        }
-                    }
-                } catch (\Exception $chainEx) {
-                    // On-chain failure does NOT rollback the DB record — admin can retry
-                    Log::error("On-chain phase sync failed for phase #{$phase->id}: " . $chainEx->getMessage());
-                }
-            }
+            $response = [
+                'success' => true,
+                'message' => $isEdit
+                    ? __('Phase updated and broadcast on-chain. Pending tx: :tx', ['tx' => $result['txHash']])
+                    : __('New phase created and broadcast on-chain. Pending tx: :tx', ['tx' => $result['txHash']]),
+            ];
 
         } catch (\Exception $exception) {
             DB::rollback();
-            $response = ['success' => false, 'message' => __('Something went wrong')];
+            Log::error('PhaseRepository::phaseAddProcess failed: ' . $exception->getMessage());
+            $response = ['success' => false, 'message' => $exception->getMessage() ?: __('Something went wrong')];
             return $response;
         }
 

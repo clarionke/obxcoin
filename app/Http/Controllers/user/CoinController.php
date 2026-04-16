@@ -54,8 +54,8 @@ class CoinController extends Controller
             }
             $data['activePhase'] = $activePhases;
 
-            // Pass enabled payment-method flags for the view
-            $data['nowpayments_enabled']  = (settings('nowpayments_enabled')   == '1');
+            // OBX buy is on-chain only in production: WalletConnect is the only allowed buy method.
+            $data['nowpayments_enabled']  = false;
             $data['walletconnect_enabled']= $this->resolvedPresaleContract() !== '';
             $data['wc_project_id']        = settings('walletconnect_project_id') ?? '';
             $data['wc_chain_id']          = (int)(settings('walletconnect_chain_id') ?? 56);
@@ -137,20 +137,7 @@ class CoinController extends Controller
             }
 
             if ((int) $request->payment_type === NOWPAYMENTS) {
-                if (settings('nowpayments_enabled') != '1') {
-                    return redirect()->back()->with('dismiss', __('NOWPayments is currently disabled.'));
-                }
-
-                $result = $coinRepo->buyCoinWithNowPayments(
-                    $request, $coin_amount, (float) $coin_price_doller,
-                    $phase_id, $referral_level, $phase_fees, $bonus, $affiliation_percentage
-                );
-                if ($result['success']) {
-                    return redirect()
-                        ->route('buyCoinByAddress', $result['data']->nowpayments_payment_id)
-                        ->with('success', $result['message']);
-                }
-                return redirect()->back()->with('dismiss', $result['message']);
+                return redirect()->back()->with('dismiss', __('OBX purchase is on-chain only. Please use WalletConnect.'));
             }
 
             if ((int) $request->payment_type === WALLETCONNECT) {
