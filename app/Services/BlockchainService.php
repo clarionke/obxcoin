@@ -34,6 +34,7 @@ class BlockchainService
     private string $obxTokenAddress;
     private string $bscscanKey;
     private int    $chainId;
+    private ?string $lastSignerError = null;
 
     // â”€â”€â”€ Verified function selectors â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     // Computed via: ethers.utils.id("funcName(types)").slice(0,10)
@@ -415,6 +416,14 @@ class BlockchainService
         return $this->callSignerScript($payload);
     }
 
+    /**
+     * Get the most recent signer-side error from callSignerScript().
+     */
+    public function getLastSignerError(): ?string
+    {
+        return $this->lastSignerError;
+    }
+
 
     /**
      * Fetch TokensPurchased events from BSCScan API.
@@ -426,14 +435,15 @@ class BlockchainService
     public function getPurchaseEvents(int $fromBlock = 0): array
     {
         if (!$this->contractAddress || !$this->bscscanKey) {
-            Log::warning('BlockchainService::getPurchaseEvents: contract or API key not configured');
+            Log::warning('BlockchainService::getPurchaseEvents: contract or explorer API key not configured');
             return [];
         }
 
-        // Determine explorer API base by chain
+        // Etherscan V2: single base URL + chainid for multichain support.
         $apiBase = $this->resolveExplorerApiBase();
 
         $url = $apiBase . '?' . http_build_query([
+            'chainid'   => $this->chainId,
             'module'    => 'logs',
             'action'    => 'getLogs',
             'address'   => $this->contractAddress,
@@ -448,8 +458,8 @@ class BlockchainService
             $data = $response->json();
 
             if (($data['status'] ?? '0') !== '1') {
-                // status=0 with message=No records is not an error
-                if (($data['message'] ?? '') !== 'No records found') {
+                // status=0 with "No records" is normal when there are no matching events.
+                if (!$this->isExplorerNoRecordResponse($data)) {
                     Log::warning('BlockchainService::getPurchaseEvents bad status', ['response' => $data]);
                 }
                 return [];
@@ -553,9 +563,12 @@ class BlockchainService
      */
     private function callSignerScript(array $payload): ?array
     {
+        $this->lastSignerError = null;
+
         $signerPath = base_path('contracts/signer.js');
         if (!file_exists($signerPath)) {
-            Log::error('BlockchainService: signer.js not found at ' . $signerPath);
+            $this->lastSignerError = 'signer.js not found at ' . $signerPath;
+            Log::error('BlockchainService: ' . $this->lastSignerError);
             return null;
         }
 
@@ -573,7 +586,8 @@ class BlockchainService
         $isSignerOnlyAction = in_array($action, $signerOnlyActions, true);
 
         if (!$isSignerOnlyAction && !$privKey) {
-            Log::error('BlockchainService: OWNER_PRIVATE_KEY not configured');
+            $this->lastSignerError = 'OWNER_PRIVATE_KEY not configured';
+            Log::error('BlockchainService: ' . $this->lastSignerError);
             return null;
         }
 
@@ -608,7 +622,8 @@ class BlockchainService
         $proc = proc_open($cmd, $descriptors, $pipes, base_path(), $env);
 
         if (!is_resource($proc)) {
-            Log::error('BlockchainService: could not open signer process');
+            $this->lastSignerError = 'could not open signer process';
+            Log::error('BlockchainService: ' . $this->lastSignerError);
             return null;
         }
 
@@ -619,7 +634,7 @@ class BlockchainService
         $stderr = stream_get_contents($pipes[2]);
         fclose($pipes[1]);
         fclose($pipes[2]);
-        proc_close($proc);
+        $exitCode = proc_close($proc);
 
         if ($stderr) {
             Log::warning('BlockchainService signer stderr: ' . $stderr);
@@ -627,13 +642,27 @@ class BlockchainService
 
         $result = json_decode($stdout, true);
 
+        if ($result === null && json_last_error() !== JSON_ERROR_NONE) {
+            $this->lastSignerError = 'Invalid signer JSON output' . ($stderr ? (': ' . trim($stderr)) : '');
+            Log::error('BlockchainService: ' . $this->lastSignerError . ' | stdout=' . $stdout);
+            return null;
+        }
+
         if (isset($result['error'])) {
-            Log::error('BlockchainService signer error: ' . $result['error']);
+            $this->lastSignerError = (string) $result['error'];
+            if ($stderr) {
+                $this->lastSignerError .= ' | ' . trim($stderr);
+            }
+            Log::error('BlockchainService signer error: ' . $this->lastSignerError);
             return null;
         }
 
         if (!isset($result['txHash'])) {
-            Log::error('BlockchainService: signer returned no txHash. stdout=' . $stdout);
+            $this->lastSignerError = 'Signer returned no txHash (exit=' . $exitCode . ')';
+            if ($stderr) {
+                $this->lastSignerError .= ' | ' . trim($stderr);
+            }
+            Log::error('BlockchainService: ' . $this->lastSignerError . '. stdout=' . $stdout);
             return null;
         }
 
@@ -728,20 +757,22 @@ class BlockchainService
 
     /**
      * Resolve the block explorer API base URL by chain ID.
-     * Centralises multi-chain support.
+     * Etherscan V2 uses one base URL and chainid query parameter.
      */
     private function resolveExplorerApiBase(): string
     {
-        return match ($this->chainId) {
-            56      => 'https://api.bscscan.com/api',
-            97      => 'https://api-testnet.bscscan.com/api',
-            1       => 'https://api.etherscan.io/api',
-            137     => 'https://api.polygonscan.com/api',
-            43114   => 'https://api.snowtrace.io/api',
-            42161   => 'https://api.arbiscan.io/api',
-            10      => 'https://api-optimistic.etherscan.io/api',
-            default => 'https://api.bscscan.com/api',
-        };
+        return 'https://api.etherscan.io/v2/api';
+    }
+
+    /**
+     * Etherscan can return status=0 for "No records found"; treat this as non-failure.
+     */
+    private function isExplorerNoRecordResponse(array $data): bool
+    {
+        $message = strtolower((string)($data['message'] ?? ''));
+        $result = strtolower((string)($data['result'] ?? ''));
+
+        return str_contains($message, 'no records') || str_contains($result, 'no records');
     }
 }
 

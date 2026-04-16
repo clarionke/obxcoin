@@ -16,6 +16,56 @@ class PhaseRepository
         return trim((string) (settings('presale_contract') ?: config('blockchain.presale_contract', '')));
     }
 
+    private function broadcastPhaseWithRetry(BlockchainService $blockchain, bool $isEdit, IcoPhase $phase): ?array
+    {
+        $attempts = 2;
+        $lastError = null;
+
+        for ($attempt = 1; $attempt <= $attempts; $attempt++) {
+            $phaseData = $phase->toArray();
+
+            if ($isEdit && $phase->contract_phase_index !== null) {
+                $result = $blockchain->updatePhaseOnContract(array_merge($phaseData, [
+                    'active' => (int)$phase->status === STATUS_ACTIVE,
+                ]));
+            } else {
+                $result = $blockchain->pushPhaseToContract($phaseData);
+            }
+
+            if (!empty($result['txHash'])) {
+                return $result;
+            }
+
+            $lastError = $blockchain->getLastSignerError();
+            Log::warning('PhaseRepository broadcast attempt failed', [
+                'attempt' => $attempt,
+                'phase_id' => $phase->id,
+                'is_edit' => $isEdit,
+                'error' => $lastError,
+            ]);
+
+            if ($attempt < $attempts) {
+                usleep(500000);
+            }
+        }
+
+        return ['error' => $lastError];
+    }
+
+    private function buildBroadcastErrorMessage(?string $error): string
+    {
+        $base = __('Failed to broadcast phase transaction to blockchain.');
+        $hint = __('Please verify RPC URL, chain ID, contract address, signer private key, and server SSL certificates.');
+
+        if (empty($error)) {
+            return $base . ' ' . $hint;
+        }
+
+        // Trim very long raw stderr to keep admin flash message readable.
+        $safe = mb_substr(trim($error), 0, 280);
+        return $base . ' ' . $safe . ' ' . $hint;
+    }
+
 // phase  save process
     public function phaseAddProcess($request)
     {
@@ -85,18 +135,11 @@ class PhaseRepository
 
             // ── On-chain sync ──────────────────────────────────────────────────
             $blockchain = new BlockchainService();
-            $phaseData  = $phase->toArray();
-
-            if ($isEdit && $phase->contract_phase_index !== null) {
-                $result = $blockchain->updatePhaseOnContract(array_merge($phaseData, [
-                    'active' => (int)$phase->status === STATUS_ACTIVE,
-                ]));
-            } else {
-                $result = $blockchain->pushPhaseToContract($phaseData);
-            }
+            $result = $this->broadcastPhaseWithRetry($blockchain, $isEdit, $phase);
 
             if (!$result || !isset($result['txHash'])) {
-                throw new \RuntimeException(__('Failed to broadcast phase transaction to blockchain.'));
+                $err = is_array($result) ? ($result['error'] ?? null) : null;
+                throw new \RuntimeException($this->buildBroadcastErrorMessage($err));
             }
 
             $phase->contract_synced = false;

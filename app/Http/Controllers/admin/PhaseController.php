@@ -168,7 +168,12 @@ class PhaseController extends Controller
             }
 
             if (!$result || !isset($result['txHash'])) {
-                return redirect()->back()->with(['dismiss' => __('Unable to broadcast transaction. Please check blockchain settings and try again.')]);
+                $detail = method_exists($blockchain, 'getLastSignerError') ? $blockchain->getLastSignerError() : null;
+                $message = __('Unable to broadcast transaction. Please check blockchain settings and try again.');
+                if (!empty($detail)) {
+                    $message .= ' ' . mb_substr($detail, 0, 220);
+                }
+                return redirect()->back()->with(['dismiss' => $message]);
             }
 
             $phase->pending_onchain_tx = $result['txHash'];
