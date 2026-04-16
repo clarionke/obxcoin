@@ -19,6 +19,8 @@ use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use App\Model\IcoPhase;
+use App\Services\BlockchainService;
+use App\Services\NowPaymentsService;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Validator;
@@ -215,33 +217,218 @@ class CoinController extends Controller
     {
         $data['title'] = __('Payment Details');
 
-        // Always check NOWPayments payment_id first (it can be numeric as well).
-        $coinAddress = BuyCoinHistory::where([
-            'user_id' => Auth::id(),
-            'nowpayments_payment_id' => (string) $address,
-        ])->first();
-
-        // Fallback to local DB id only if the route param is numeric.
-        if (!$coinAddress && is_numeric($address)) {
-            $coinAddress = BuyCoinHistory::where([
-                'user_id' => Auth::id(),
-                'id' => (int) $address,
-            ])->first();
-        }
-
-        // Final fallback: plain address.
-        if (!$coinAddress) {
-            $coinAddress = BuyCoinHistory::where([
-                'user_id' => Auth::id(),
-                'address' => $address,
-            ])->first();
-        }
+        $coinAddress = $this->resolvePurchaseForCurrentUser($address);
 
         if (isset($coinAddress)) {
             $data['coinAddress'] = $coinAddress;
             return view('user.buy_coin.payment_success', $data);
         }
         return redirect()->back()->with('dismiss', __('Payment record not found'));
+    }
+
+    public function buyCoinPaymentStatus($address)
+    {
+        try {
+            $purchase = $this->resolvePurchaseForCurrentUser($address);
+            if (!$purchase) {
+                return response()->json([
+                    'success' => false,
+                    'message' => __('Payment record not found'),
+                ], 404);
+            }
+
+            if ((int) $purchase->type !== NOWPAYMENTS) {
+                return response()->json([
+                    'success' => true,
+                    'status_code' => (int) $purchase->status,
+                    'status_label' => deposit_status($purchase->status),
+                    'obx_delivery_status' => (string) ($purchase->obx_delivery_status ?? 'pending'),
+                    'obx_delivery_tx_hash' => (string) ($purchase->obx_delivery_tx_hash ?? ''),
+                ]);
+            }
+
+            $syncError = null;
+            $remoteStatus = null;
+
+            if (!empty($purchase->nowpayments_payment_id)) {
+                try {
+                    $npResponse = app(NowPaymentsService::class)->getPaymentStatus((string) $purchase->nowpayments_payment_id);
+                    $remoteStatus = strtolower((string) ($npResponse['payment_status'] ?? ''));
+                    $onChainHash = $npResponse['payin_hash'] ?? $npResponse['tx_hash'] ?? $npResponse['withdrawal_hash'] ?? null;
+
+                    if (!empty($onChainHash) && is_string($onChainHash) && preg_match('/^0x[a-fA-F0-9]{64}$/', $onChainHash)) {
+                        if (empty($purchase->tx_hash)) {
+                            $purchase->update(['tx_hash' => $onChainHash]);
+                            $purchase->refresh();
+                        }
+                    }
+
+                    if ($remoteStatus !== '') {
+                        $this->applyNowPaymentsStatus($purchase, $remoteStatus, $onChainHash);
+                        $purchase->refresh();
+                    }
+                } catch (\Throwable $e) {
+                    Log::warning('buyCoinPaymentStatus sync failed for order #' . $purchase->id . ': ' . $e->getMessage());
+                    $syncError = __('Unable to refresh payment status right now.');
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'status_code' => (int) $purchase->status,
+                'status_label' => deposit_status($purchase->status),
+                'obx_delivery_status' => (string) ($purchase->obx_delivery_status ?? 'pending'),
+                'obx_delivery_tx_hash' => (string) ($purchase->obx_delivery_tx_hash ?? ''),
+                'requested_amount' => (float) ($purchase->requested_amount ?? 0),
+                'credited' => ((int) $purchase->status === STATUS_SUCCESS),
+                'remote_status' => $remoteStatus,
+                'sync_error' => $syncError,
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('buyCoinPaymentStatus error: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => __('Unable to load payment status.'),
+            ], 500);
+        }
+    }
+
+    private function resolvePurchaseForCurrentUser($address): ?BuyCoinHistory
+    {
+        $purchase = BuyCoinHistory::where([
+            'user_id' => Auth::id(),
+            'nowpayments_payment_id' => (string) $address,
+        ])->first();
+
+        if (!$purchase && is_numeric($address)) {
+            $purchase = BuyCoinHistory::where([
+                'user_id' => Auth::id(),
+                'id' => (int) $address,
+            ])->first();
+        }
+
+        if (!$purchase) {
+            $purchase = BuyCoinHistory::where([
+                'user_id' => Auth::id(),
+                'address' => $address,
+            ])->first();
+        }
+
+        return $purchase;
+    }
+
+    private function applyNowPaymentsStatus(BuyCoinHistory $purchase, string $paymentStatus, $onChainHash = null): void
+    {
+        if (in_array($paymentStatus, ['failed', 'expired', 'refunded'], true)) {
+            if ((int) $purchase->status !== STATUS_REJECTED) {
+                $purchase->update(['status' => STATUS_REJECTED]);
+            }
+            return;
+        }
+
+        if ($paymentStatus !== 'finished') {
+            return;
+        }
+
+        $isDelivered = (($purchase->obx_delivery_status ?? 'pending') === 'success');
+        if (!$isDelivered) {
+            $targetWallet = $this->resolveTargetWallet($purchase);
+
+            if (!$targetWallet) {
+                $purchase->update([
+                    'obx_delivery_status' => 'failed',
+                    'obx_delivery_error' => 'No valid EVM wallet configured for delivery',
+                ]);
+                return;
+            }
+
+            try {
+                $blockchain = app(BlockchainService::class);
+                $tx = $blockchain->transferObxOnChain($targetWallet, (string) $purchase->requested_amount);
+
+                if ($tx && !empty($tx['txHash'])) {
+                    $updates = [
+                        'obx_delivery_status' => 'success',
+                        'obx_delivery_tx_hash' => $tx['txHash'],
+                        'obx_delivery_error' => null,
+                    ];
+
+                    if (empty($purchase->tx_hash)) {
+                        $updates['tx_hash'] = $tx['txHash'];
+                    }
+
+                    $purchase->update($updates);
+                    $purchase->refresh();
+                } else {
+                    $err = $blockchain->getLastSignerError() ?: 'OBX delivery failed';
+                    $purchase->update([
+                        'obx_delivery_status' => 'failed',
+                        'obx_delivery_error' => mb_substr($err, 0, 500),
+                    ]);
+                    return;
+                }
+            } catch (\Throwable $e) {
+                $purchase->update([
+                    'obx_delivery_status' => 'failed',
+                    'obx_delivery_error' => mb_substr($e->getMessage(), 0, 500),
+                ]);
+                return;
+            }
+        }
+
+        DB::transaction(function () use ($purchase) {
+            $purchase->refresh();
+            if ((int) $purchase->status === STATUS_SUCCESS) {
+                return;
+            }
+
+            $purchase->update(['status' => STATUS_SUCCESS]);
+
+            $wallet = $this->resolveOrCreatePrimaryObxWallet((int) $purchase->user_id);
+            if ($wallet) {
+                $wallet->increment('balance', (float) $purchase->requested_amount);
+            }
+        });
+    }
+
+    private function resolveTargetWallet(BuyCoinHistory $purchase): ?string
+    {
+        $purchase->loadMissing('user');
+
+        $candidates = [
+            strtolower(trim((string) ($purchase->buyer_wallet ?? ''))),
+            strtolower(trim((string) ($purchase->wc_buyer_address ?? ''))),
+            strtolower(trim((string) ($purchase->user->bsc_wallet ?? ''))),
+        ];
+
+        foreach ($candidates as $candidate) {
+            if (preg_match('/^0x[a-f0-9]{40}$/', $candidate)) {
+                return $candidate;
+            }
+        }
+
+        return null;
+    }
+
+    private function resolveOrCreatePrimaryObxWallet(int $userId): ?Wallet
+    {
+        $wallet = get_primary_wallet($userId, DEFAULT_COIN_TYPE);
+        if ($wallet) {
+            return $wallet;
+        }
+
+        return Wallet::firstOrCreate(
+            [
+                'user_id' => $userId,
+                'coin_type' => DEFAULT_COIN_TYPE,
+                'is_primary' => 1,
+            ],
+            [
+                'name' => 'OBX Wallet',
+                'balance' => 0,
+            ]
+        );
     }
 
     // buy coin history

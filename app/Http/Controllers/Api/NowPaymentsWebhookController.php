@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Model\BuyCoinHistory;
+use App\Model\Wallet;
 use App\Services\BlockchainService;
 use App\Services\NowPaymentsService;
 use Illuminate\Http\Request;
@@ -162,7 +163,7 @@ class NowPaymentsWebhookController extends Controller
             }
 
             // Mirror the finalized on-chain delivery into the internal OBX wallet ledger.
-            $wallet = get_primary_wallet((int) $purchase->user_id, DEFAULT_COIN_TYPE);
+            $wallet = $this->resolveOrCreatePrimaryObxWallet((int) $purchase->user_id);
 
             if ($wallet && !$wasAlreadyCredited) {
                 $wallet->increment('balance', (float) $purchase->requested_amount);
@@ -197,5 +198,25 @@ class NowPaymentsWebhookController extends Controller
         }
 
         return null;
+    }
+
+    private function resolveOrCreatePrimaryObxWallet(int $userId): ?Wallet
+    {
+        $wallet = get_primary_wallet($userId, DEFAULT_COIN_TYPE);
+        if ($wallet) {
+            return $wallet;
+        }
+
+        return Wallet::firstOrCreate(
+            [
+                'user_id' => $userId,
+                'coin_type' => DEFAULT_COIN_TYPE,
+                'is_primary' => 1,
+            ],
+            [
+                'name' => 'OBX Wallet',
+                'balance' => 0,
+            ]
+        );
     }
 }
