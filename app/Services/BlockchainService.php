@@ -132,13 +132,14 @@ class BlockchainService
         $hex = substr($result, 2); // strip 0x prefix ONLY (not ltrim mask)
         if (strlen($hex) !== 64) return -1;
 
-        // int256 two's complement: if high bit set  negative (=-1 means none)
-        $value = gmp_intval(gmp_init($hex, 16));
+        // int256 two's complement: if high bit set, value is negative.
+        $unsigned = $this->hexToDecimal($hex);
         if (hexdec(substr($hex, 0, 2)) >= 128) {
-            // negative: subtract 2^256
-            $value = gmp_intval(gmp_sub(gmp_init($hex, 16), gmp_pow('2', 256)));
+            $signed = bcsub($unsigned, bcpow('2', '256', 0), 0);
+            return (int) $signed;
         }
-        return (int) $value;
+
+        return (int) $unsigned;
     }
 
     /**
@@ -164,7 +165,7 @@ class BlockchainService
         $usdtRaw = bcmul($usdtHuman, '1000000', 0);
         $data    = self::SEL_PREVIEW
             . str_pad(dechex($phaseIndex), 64, '0', STR_PAD_LEFT)
-            . str_pad(gmp_strval(gmp_init($usdtRaw, 10), 16), 64, '0', STR_PAD_LEFT);
+            . str_pad($this->decimalToHex($usdtRaw), 64, '0', STR_PAD_LEFT);
 
         $result = $this->ethCall($data);
         if (!$result) return ['baseObx' => '0', 'bonusObx' => '0', 'totalObx' => '0'];
@@ -443,9 +444,14 @@ class BlockchainService
      */
     public function getPurchaseEvents(int $fromBlock = 0): array
     {
-        if (!$this->contractAddress || !$this->bscscanKey) {
-            Log::warning('BlockchainService::getPurchaseEvents: contract or explorer API key not configured');
+        if (!$this->contractAddress) {
+            Log::warning('BlockchainService::getPurchaseEvents: contract address not configured');
             return [];
+        }
+
+        if (!$this->bscscanKey) {
+            Log::warning('BlockchainService::getPurchaseEvents: explorer API key not configured, using RPC fallback');
+            return $this->getPurchaseEventsViaRpc($fromBlock);
         }
 
         if (!$this->isEtherscanV2SupportedChainId($this->chainId)) {
@@ -478,6 +484,7 @@ class BlockchainService
                 // status=0 with "No records" is normal when there are no matching events.
                 if (!$this->isExplorerNoRecordResponse($data)) {
                     Log::warning('BlockchainService::getPurchaseEvents bad status', ['response' => $data]);
+                    return $this->getPurchaseEventsViaRpc($fromBlock);
                 }
                 return [];
             }
@@ -494,6 +501,83 @@ class BlockchainService
 
         } catch (\Exception $e) {
             Log::error('BlockchainService::getPurchaseEvents failed: ' . $e->getMessage());
+            return $this->getPurchaseEventsViaRpc($fromBlock);
+        }
+    }
+
+    /**
+     * Fetch TokensPurchased events via eth_getLogs from RPC.
+     * This is used as a fallback when explorer APIs are unavailable/restricted.
+     */
+    private function getPurchaseEventsViaRpc(int $fromBlock = 0): array
+    {
+        if (!$this->rpcUrl || !$this->contractAddress) {
+            return [];
+        }
+
+        $chunkSize = max(100, (int) (settings('presale_rpc_log_chunk') ?: 2000));
+        $maxChunks = max(1, (int) (settings('presale_rpc_max_chunks') ?: 30));
+
+        try {
+            $latestResp = Http::timeout(20)->post($this->rpcUrl, [
+                'jsonrpc' => '2.0',
+                'method' => 'eth_blockNumber',
+                'params' => [],
+                'id' => 1,
+            ])->json();
+
+            $latestHex = (string)($latestResp['result'] ?? '0x0');
+            $latestBlock = hexdec(substr($latestHex, 2) ?: '0');
+            if ($latestBlock <= 0) {
+                return [];
+            }
+
+            $start = max(0, $fromBlock);
+            $events = [];
+            $chunks = 0;
+
+            while ($start <= $latestBlock && $chunks < $maxChunks) {
+                $end = min($start + $chunkSize - 1, $latestBlock);
+
+                $resp = Http::timeout(25)->post($this->rpcUrl, [
+                    'jsonrpc' => '2.0',
+                    'method' => 'eth_getLogs',
+                    'params' => [[
+                        'fromBlock' => '0x' . dechex($start),
+                        'toBlock' => '0x' . dechex($end),
+                        'address' => $this->contractAddress,
+                        'topics' => [self::TOPIC_TOKENS_PURCHASED],
+                    ]],
+                    'id' => 1,
+                ])->json();
+
+                $logs = $resp['result'] ?? [];
+                if (is_array($logs)) {
+                    foreach ($logs as $log) {
+                        try {
+                            $events[] = $this->decodeTokensPurchasedLog($log);
+                        } catch (\Throwable $e) {
+                            Log::error('BlockchainService RPC fallback failed to decode log: ' . $e->getMessage(), ['log' => $log]);
+                        }
+                    }
+                }
+
+                $start = $end + 1;
+                $chunks++;
+            }
+
+            if ($chunks >= $maxChunks && $start <= $latestBlock) {
+                Log::warning('BlockchainService::getPurchaseEventsViaRpc reached max chunks for one run', [
+                    'next_from_block' => $start,
+                    'latest_block' => $latestBlock,
+                    'chunk_size' => $chunkSize,
+                    'max_chunks' => $maxChunks,
+                ]);
+            }
+
+            return $events;
+        } catch (\Throwable $e) {
+            Log::error('BlockchainService::getPurchaseEventsViaRpc failed: ' . $e->getMessage());
             return [];
         }
     }
@@ -714,7 +798,49 @@ class BlockchainService
             $hex = substr($hex, 2); // strip prefix with substr, NOT ltrim
         }
         if ($hex === '') return '0';
-        return gmp_strval(gmp_init($hex, 16), 10);
+
+        if (extension_loaded('gmp')) {
+            return gmp_strval(gmp_init($hex, 16), 10);
+        }
+
+        $hex = strtolower($hex);
+        $dec = '0';
+        $len = strlen($hex);
+
+        for ($i = 0; $i < $len; $i++) {
+            $digit = strpos('0123456789abcdef', $hex[$i]);
+            if ($digit === false) {
+                throw new \InvalidArgumentException('Invalid hex value provided');
+            }
+            $dec = bcadd(bcmul($dec, '16', 0), (string)$digit, 0);
+        }
+
+        return $dec;
+    }
+
+    /**
+     * Convert a base-10 decimal string to a lowercase hex string (without 0x).
+     */
+    private function decimalToHex(string $decimal): string
+    {
+        $decimal = trim($decimal);
+        if ($decimal === '' || bccomp($decimal, '0', 0) <= 0) {
+            return '0';
+        }
+
+        if (extension_loaded('gmp')) {
+            return gmp_strval(gmp_init($decimal, 10), 16);
+        }
+
+        $hex = '';
+        while (bccomp($decimal, '0', 0) > 0) {
+            $quot = bcdiv($decimal, '16', 0);
+            $rem = bcsub($decimal, bcmul($quot, '16', 0), 0);
+            $hex = dechex((int)$rem) . $hex;
+            $decimal = $quot;
+        }
+
+        return $hex === '' ? '0' : $hex;
     }
 
     /**
