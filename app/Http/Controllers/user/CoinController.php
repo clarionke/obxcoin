@@ -273,12 +273,22 @@ class CoinController extends Controller
                 }
             }
 
+            // If a finished order previously failed delivery, keep retrying from this endpoint too.
+            if (
+                (int) $purchase->status !== STATUS_SUCCESS &&
+                (string) ($purchase->obx_delivery_status ?? '') === 'failed'
+            ) {
+                $this->applyNowPaymentsStatus($purchase, 'finished');
+                $purchase->refresh();
+            }
+
             return response()->json([
                 'success' => true,
                 'status_code' => (int) $purchase->status,
                 'status_label' => deposit_status($purchase->status),
                 'obx_delivery_status' => (string) ($purchase->obx_delivery_status ?? 'pending'),
                 'obx_delivery_tx_hash' => (string) ($purchase->obx_delivery_tx_hash ?? ''),
+                'obx_delivery_error' => (string) ($purchase->obx_delivery_error ?? ''),
                 'requested_amount' => (float) ($purchase->requested_amount ?? 0),
                 'credited' => ((int) $purchase->status === STATUS_SUCCESS),
                 'remote_status' => $remoteStatus,

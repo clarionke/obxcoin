@@ -271,7 +271,12 @@
                     return;
                 }
                 if (String(d.obx_delivery_status || '') === 'failed') {
-                    setNote('{{__('Payment seen, but on-chain OBX delivery failed. Auto-retry will continue.')}}');
+                    var err = String(d.obx_delivery_error || '').trim();
+                    if (err !== '') {
+                        setNote('{{__('Payment seen, but on-chain OBX delivery failed. Auto-retry will continue.')}} ' + err);
+                    } else {
+                        setNote('{{__('Payment seen, but on-chain OBX delivery failed. Auto-retry will continue.')}}');
+                    }
                     return;
                 }
                 if (String(d.remote_status || '') !== '') {
