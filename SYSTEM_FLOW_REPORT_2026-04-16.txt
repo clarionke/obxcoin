@@ -1,0 +1,261 @@
+OBXCOIN SYSTEM FLOW REPORT
+Date: 2026-04-16
+Scope: End-to-end inspection of Buying Tokens, Withdrawals, Staking, and Airdrops.
+Method: Static code review of Laravel backend, Solidity contracts, signer service, and related jobs/commands.
+
+====================================================================
+1) SYSTEM OVERVIEW
+====================================================================
+
+The platform is a hybrid architecture:
+- Off-chain ledger and workflow management in Laravel/MySQL.
+- On-chain execution and verification on EVM networks (mainly BSC) via smart contracts and RPC calls.
+- A Node signer bridge (contracts/signer.js) used by backend for privileged on-chain writes.
+
+Key components:
+- Smart contracts:
+  - contracts/OBXToken.sol
+  - contracts/OBXPresale.sol
+  - contracts/OBXStaking.sol
+  - contracts/OBXAirdrop.sol
+- Backend orchestration and verification:
+  - app/Services/BlockchainService.php
+  - app/Http/Controllers/Api/PresaleWebhookController.php
+  - app/Http/Controllers/user/CoinController.php
+  - app/Http/Controllers/user/WalletController.php
+  - app/Http/Controllers/user/StakingController.php
+  - app/Http/Controllers/user/AirdropController.php
+  - app/Repository/CoinRepository.php
+  - app/Repository/StakingRepository.php
+- Async execution:
+  - app/Jobs/Withdrawal.php
+- Event syncing:
+  - app/Console/Commands/PresaleSyncEvents.php
+
+====================================================================
+2) BUYING TOKENS FLOW (PRESALE)
+====================================================================
+
+2.1 Entry and mode selection
+- User opens buy page and sees active phase + payment options.
+- Controller: user CoinController::buyCoinPage() and buyCoin().
+- Payment modes:
+  1) NOWPayments (off-chain payment gateway)
+  2) WalletConnect (on-chain USDT + presale contract purchase)
+
+2.2 NOWPayments path (mostly off-chain until confirmed)
+- Repository method buyCoinWithNowPayments() creates pending BuyCoinHistory.
+- Calls NowPayments API, stores payment address/id/currency/amount.
+- User pays external invoice address.
+- Finalization depends on payment gateway callback flow (outside smart contracts).
+
+2.3 WalletConnect presale path (on-chain purchase, off-chain finalization)
+- Repository method buyCoinWithWalletConnect() stores pending buy with tx hash and buyer wallet.
+- Real purchase is expected on-chain via OBXPresale.buyTokens(...).
+- Finalization occurs through PresaleWebhookController:
+  - Verifies transaction from chain receipt/logs using BlockchainService::verifyPurchaseTransaction().
+  - Uses on-chain decoded values (buyer, phase id, USDT, OBX, bonus).
+  - Marks BuyCoinHistory as SUCCESS.
+  - Credits user internal wallet balance (platform ledger).
+
+2.4 On-chain state and visibility
+- On-chain source of truth for purchase event: TokensPurchased event in OBXPresale.
+- Off-chain sync methods:
+  - Webhook endpoint (HMAC protected)
+  - Polling endpoint + artisan command presale:sync-events (API-key protected)
+
+2.5 Important implementation note
+- The code credits internal wallet balance after on-chain presale success.
+- Depending on your business model, this may duplicate user value if user also directly receives OBX on-chain in their own wallet and can still withdraw equivalent platform balance later.
+- This should be validated as intentional design (custodial mirror ledger) vs accidental double-credit risk.
+
+====================================================================
+3) WITHDRAWAL FLOW
+====================================================================
+
+3.1 User request and validations
+- User submits withdrawal from wallet details screen.
+- Controller: WalletController::WithdrawBalance().
+- Validations include:
+  - Wallet exists and belongs to user/co-wallet member.
+  - WalletConnect service-fee validation (for OBX default coin type).
+  - Amount, KYC checks, optional 2FA, co-wallet approvals.
+
+3.2 Gas topup logic (recently implemented)
+- Endpoint: walletConnectGasTopup() in WalletController.
+- Behavior:
+  - Checks wallet address format and profile wallet match guard.
+  - Rate-limits by cache cooldown.
+  - Reads on-chain BNB balance via eth_getBalance.
+  - If low gas: sends native BNB top-up split (user/admin) using BlockchainService::transferNativeForGasTopup().
+  - Amount split configured by admin settings (USD-denominated split converted by live BNB/USD).
+
+3.3 Async execution
+- Personal wallet withdrawal dispatches app/Jobs/Withdrawal.
+- Job calls TransactionService::send().
+
+3.4 TransactionService::send() behavior
+- Deducts internal wallet balance and creates WithdrawHistory (pending).
+- For OBX default coin type:
+  - Calls BlockchainService::transferObxOnChain() -> signer.js -> on-chain transfer tx.
+  - On success sets WithdrawHistory success and stores tx hash.
+- For non-default coin types:
+  - Uses CoinPaymentsAPI CreateWithdrawal (external provider).
+
+3.5 On-chain vs off-chain
+- On-chain:
+  - OBX transfers are executed by platform signer wallet (not user private key).
+  - Gas top-up native transfers also done by signer wallet.
+- Off-chain:
+  - User balance management is in database tables (Wallet, WithdrawHistory).
+  - Queue/job workflow and validation logic are backend-managed.
+
+====================================================================
+4) STAKING FLOW
+====================================================================
+
+4.1 Contract model
+- OBXStaking.sol is a full on-chain staking contract with:
+  - Multiple pools
+  - Burn-on-stake and burn-on-unstake bps
+  - Reward reserve
+  - Stake/unstake events and lock durations
+
+4.2 App flow
+- Frontend initiates WalletConnect on-chain call.
+- Backend endpoint confirmStake() is called after tx submission/mining.
+- Backend verifies the tx by RPC:
+  - eth_getTransactionReceipt + eth_getTransactionByHash
+  - Checks receipt status == success
+  - Checks contract address target
+  - Checks sender wallet address
+  - Checks function selector and decoded params (pool id, amount)
+- If valid, repository saveStake() persists local position and audit transactions.
+
+4.3 Unstake flow
+- Similar verification in confirmUnstake().
+- verifyUnstakeTransaction() checks selector and (if present) contract stake index.
+- saveUnstake() marks position unstaked and stores reward/returned/burned values in DB logs.
+
+4.4 On-chain vs off-chain split
+- On-chain source of truth: stake/unstake operations and token movement.
+- Off-chain: reporting/history/UI projections in staking_positions and staking_transactions.
+- This is a good pattern: verify chain first, then persist app state.
+
+====================================================================
+5) AIRDROP FLOW
+====================================================================
+
+5.1 Daily claim (current app implementation)
+- User AirdropController::claim() records daily claim in DB (AirdropClaim).
+- Includes streak bonus logic (every N days).
+- This step is off-chain in current Laravel flow.
+
+5.2 Unlock request and confirmation
+- requestUnlock():
+  - Requires campaign ended + fee revealed.
+  - Computes locked OBX from DB claims.
+  - Creates pending AirdropUnlock record.
+  - Instructs user to pay unlock fee on-chain.
+- confirmUnlock():
+  - Verifies tx via RPC + receipt + sender + contract target.
+  - Checks function selector for unlock call.
+  - Marks unlock confirmed and credits internal OBX wallet balance.
+
+5.3 Contract vs backend model observation
+- OBXAirdrop.sol is designed for on-chain claim-and-lock accounting.
+- Laravel controller currently handles claim accumulation off-chain in DB, then only verifies unlock call on-chain.
+- This is a hybrid model; confirm that product intention is:
+  - Off-chain claim bookkeeping + on-chain fee payment verification,
+  OR
+  - Full on-chain airdrop state (if full on-chain is desired, claim integration may be incomplete).
+
+====================================================================
+6) ON-CHAIN VS OFF-CHAIN MATRIX
+====================================================================
+
+Buying (WalletConnect presale)
+- On-chain: USDT approval + buyTokens tx + TokensPurchased event.
+- Off-chain: pending order row, event sync/finalize, internal wallet credit.
+
+Buying (NOWPayments)
+- On-chain: not required by app contracts for invoice creation flow.
+- Off-chain: payment provider API and callback-driven settlement.
+
+Withdrawals
+- On-chain: OBX transfer tx (signer wallet), native gas topups.
+- Off-chain: user balances, validations, queues, logs.
+
+Staking
+- On-chain: stake/unstake token actions and staking state.
+- Off-chain: mirrored positions/transactions for app UX and reporting, only after on-chain verification.
+
+Airdrops
+- Current app path: claim ledger off-chain, unlock tx verified on-chain, then DB credit.
+- Contract capability: full on-chain claim/lock/unlock available.
+
+====================================================================
+7) LOGIC QUALITY ASSESSMENT
+====================================================================
+
+Strengths
+- Clear transaction verification in staking and presale finalization.
+- Idempotency patterns present in presale tx handling.
+- Use of HMAC/API-key guards for webhook/sync endpoints.
+- Queue-based withdrawal improves responsiveness and retries.
+- Recent gas-topup and anti-abuse controls are production-oriented (cooldown, profile wallet checks, silent fallback handling).
+
+Medium-risk areas to review
+1) Potential double-credit economics in presale + internal wallet crediting.
+2) Airdrop model consistency: contract is full on-chain, app path is hybrid/off-chain claim.
+3) Signer key custody/rotation and monitoring should be strict because signer executes real on-chain value transfers.
+
+Operational controls recommended
+- Reconcile DB balances against chain events daily.
+- Add anomaly alerts for repeated top-up requests, failed signer txs, and duplicate finalize attempts.
+- Add explicit ledger policy docs: whether internal balance is custodial mirror or separate economy.
+
+====================================================================
+8) IMPLEMENTATION MAP (KEY FILES)
+====================================================================
+
+Buy flow
+- app/Http/Controllers/user/CoinController.php
+- app/Repository/CoinRepository.php
+- app/Http/Controllers/Api/PresaleWebhookController.php
+- app/Console/Commands/PresaleSyncEvents.php
+- contracts/OBXPresale.sol
+
+Withdrawal flow
+- app/Http/Controllers/user/WalletController.php
+- app/Jobs/Withdrawal.php
+- app/Http/Services/TransactionService.php
+- app/Services/BlockchainService.php
+- contracts/signer.js
+
+Staking flow
+- app/Http/Controllers/user/StakingController.php
+- app/Repository/StakingRepository.php
+- contracts/OBXStaking.sol
+
+Airdrop flow
+- app/Http/Controllers/user/AirdropController.php
+- app/Model/AirdropCampaign.php
+- app/Model/AirdropClaim.php
+- app/Model/AirdropUnlock.php
+- contracts/OBXAirdrop.sol
+
+====================================================================
+9) CONCLUSION
+====================================================================
+
+The system is a serious hybrid Web2+Web3 implementation with:
+- Strong on-chain integration in presale and staking,
+- Production-grade off-chain orchestration for user flows,
+- Queue and verification patterns that are generally sound.
+
+Primary architecture decision to confirm at business level:
+- How internal ledger credits are intended to coexist with direct on-chain token ownership (especially presale and airdrop paths).
+
+If this ledger policy is intentional and documented, the platform design is coherent.
+If not intentional, the highest priority is to close any value duplication path.

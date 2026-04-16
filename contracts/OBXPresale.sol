@@ -112,8 +112,8 @@ contract OBXPresale {
     /// @dev Optional: PancakeSwap/Uniswap V2 router. Zero = LP disabled.
     IUniswapV2Router02 public router;
 
-    /// @dev % of each purchase USDT allocated to LP (basis points). Default 200 = 2 %.
-    uint256 public liquidityBps       = 200;
+    /// @dev % of each purchase USDT allocated to LP (basis points). Default 500 = 5 %.
+    uint256 public liquidityBps       = 500;
 
     /// @dev Minimum accumulated USDT to trigger auto-LP addition. Default 100 USDT.
     uint256 public liquidityThreshold = 100_000_000;   // 100 × 10^6

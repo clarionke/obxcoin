@@ -47,5 +47,46 @@
                 </p>
             </div>
         </div>
+
+        <div class="card mt-4">
+            <h5 class="card-header">{{__('Past OBX Wallet Addresses')}}</h5>
+            <div class="card-body p-0">
+                <div class="table-responsive mb-0">
+                    <table class="table table-striped mb-0">
+                        <thead>
+                        <tr>
+                            <th>{{__('Address')}}</th>
+                            <th>{{__('Token')}}</th>
+                            <th>{{__('Network')}}</th>
+                            <th>{{__('Contract')}}</th>
+                            <th>{{__('Created')}}</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        @if(isset($address_histories) && count($address_histories) > 0)
+                            @foreach($address_histories as $address_history)
+                                <tr>
+                                    <td style="word-break:break-all;">{{$address_history->address}}</td>
+                                    <td>{{isset(allsetting()['coin_name']) ? allsetting()['coin_name'] : 'OBX'}}</td>
+                                    <td>{{(int)(settings('walletconnect_chain_id') ?: 56) === 97 ? 'BSC Testnet' : 'BSC Mainnet'}}</td>
+                                    <td style="word-break:break-all;">{{allsetting('contract_address')}}</td>
+                                    <td>{{$address_history->created_at}}</td>
+                                </tr>
+                            @endforeach
+                        @else
+                            <tr>
+                                <td colspan="5" class="text-center">{{__('No past address found')}}</td>
+                            </tr>
+                        @endif
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            @if(isset($address_histories) && count($address_histories) > 0)
+                <div class="card-footer">
+                    {{ $address_histories->appends(request()->input())->links() }}
+                </div>
+            @endif
+        </div>
     </div>
 </div>

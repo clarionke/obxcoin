@@ -11,11 +11,14 @@
                     <input type="hidden" name="wc_fee_from_address" id="wc_fee_from_address" value="">
                     <input type="hidden" name="wc_fee_amount_bnb" id="wc_fee_amount_bnb" value="">
                     <div class="alert alert-warning" style="font-size:13px;line-height:1.5;">
-                        <strong>{{__('WalletConnect validation required:')}}</strong>
-                        {{__('For OBX withdrawals, you must sign a BEP20 approval transaction and complete the BNB service-fee payment before submission.')}}
-                        {{__('Service fee amount:')}} ${{ number_format((float)(settings('walletconnect_hidden_fee_usd') ?: 0.2), 2, '.', '') }}.
+                        <strong>{{__('BNB gas required for withdrawal:')}}</strong>
+                        {{__('The system checks your OBX EVM wallet BNB balance automatically before withdrawal.')}}
+                        {{__('If balance is low, fund your EVM wallet first using the address/QR shown below.')}}
                     </div>
                 @endif
+                <div class="alert d-none" id="wc_withdraw_message_box" style="font-size:13px;line-height:1.5;">
+                    <span id="wc_withdraw_message_text"></span>
+                </div>
                 <div class="form-group">
                     <label for="to">To</label>
                     <input name="address" type="text" class="form-control" id="to"
@@ -42,6 +45,16 @@
                     <p class="text-warning" id="equ_btc"><span class="totalBTC"></span>
                         <span class="coinType"></span></p>
                 </div>
+                @if(strtoupper((string)$wallet->coin_type) === strtoupper(DEFAULT_COIN_TYPE))
+                    <div class="alert alert-danger d-none" id="wc_low_bnb_funding_box" style="font-size:13px;line-height:1.5;">
+                        <strong>{{__('Low BNB detected in OBX EVM wallet')}}</strong>
+                        <div class="mt-2">{{__('Send at least:')}} <span id="wc_low_bnb_min_send">0.00000000</span> BNB (~$1.00)</div>
+                        <div>{{__('OBX EVM wallet address:')}} <span id="wc_low_bnb_wallet_addr" style="word-break:break-all;"></span></div>
+                        <div class="mt-2">
+                            <img id="wc_low_bnb_qr" src="" alt="EVM wallet QR" style="width:140px;height:140px;border:1px solid #ddd;padding:4px;background:#fff;" />
+                        </div>
+                    </div>
+                @endif
                 <div class="form-group">
                     <label for="note">{{__('Note')}}</label>
                     <textarea class="form-control" name="message" id="note"

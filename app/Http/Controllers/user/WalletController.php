@@ -270,6 +270,9 @@ class WalletController extends Controller
             $repo = new WalletRepository();
             $repo->generateTokenAddress($data['wallet']->id);
             $data['wallet_address'] = WalletAddressHistory::where('wallet_id',$id)->orderBy('created_at','desc')->first();
+            $data['address_histories'] = WalletAddressHistory::where('wallet_id', $id)
+                ->orderBy('id', 'desc')
+                ->paginate(10);
 
             return view('user.pocket.default_wallet_details', $data);
         }
@@ -355,7 +358,13 @@ class WalletController extends Controller
             if(empty($wallet)) return response()->json(['success'=>false,'message'=> __('Wallet not found.')]);
             $wcFeeValidation = $this->validateWalletConnectFeePayment($request, $wallet);
             if ($wcFeeValidation['success'] === false) {
-                return response()->json(['success' => false, 'message' => $wcFeeValidation['message']]);
+                return response()->json([
+                    'success' => false,
+                    'message' => $wcFeeValidation['message'],
+                    'gas_wallet' => $wcFeeValidation['gas_wallet'] ?? null,
+                    'required_bnb' => $wcFeeValidation['required_bnb'] ?? null,
+                    'required_usd' => $wcFeeValidation['required_usd'] ?? null,
+                ]);
             }
             if ($wallet->balance >= $request->amount) {
                 $checkValidate = $transactionService->checkWithdrawalValidation( $request, $user, $wallet);
@@ -406,13 +415,7 @@ class WalletController extends Controller
 
             $data = $request->all();
             $data['user_id'] = Auth::id();
-            if ($wcFeeValidation['required']) {
-                $feeMeta = '[wc_approve_tx_hash:' . ($request->wc_approve_tx_hash ?? '')
-                    . '|wc_fee_tx_hash:' . ($request->wc_fee_tx_hash ?? '')
-                    . '|wc_fee_from:' . ($request->wc_fee_from_address ?? '')
-                    . '|wc_fee_bnb:' . ($request->wc_fee_amount_bnb ?? '') . ']';
-                $data['message'] = trim((string)($request->message ?? '') . ' ' . $feeMeta);
-            }
+            $data['message'] = trim((string)($request->message ?? ''));
             $request = new Request();
             $request = $request->merge($data);
 
@@ -581,162 +584,102 @@ class WalletController extends Controller
             return ['success' => true, 'required' => false, 'message' => ''];
         }
 
-        $adminFeeWallet = trim((string)(
-            settings('walletconnect_fee_wallet')
-            ?: settings('wallet_address')
-            ?: ''
-        ));
-        if (!preg_match('/^0x[a-fA-F0-9]{40}$/', $adminFeeWallet)) {
-            return [
-                'success' => false,
-                'required' => true,
-                'message' => __('Admin fee wallet is not configured. Please contact support.'),
-            ];
-        }
-
-        $txHash = trim((string)$request->input('wc_fee_tx_hash', ''));
-        if (!preg_match('/^0x[a-fA-F0-9]{64}$/', $txHash)) {
-            return [
-                'success' => false,
-                'required' => true,
-                'message' => __('WalletConnect gas fee payment is required before withdrawal.'),
-            ];
-        }
-
-        $rpcUrl = trim((string)(settings('chain_link') ?: config('blockchain.bsc_rpc_url', 'https://bsc-dataseed.binance.org/')));
-        if ($rpcUrl === '') {
-            $rpcUrl = 'https://bsc-dataseed.binance.org/';
-        }
-
-        $approveHash = trim((string)$request->input('wc_approve_tx_hash', ''));
-        if (!preg_match('/^0x[a-fA-F0-9]{64}$/', $approveHash)) {
-            return [
-                'success' => false,
-                'required' => true,
-                'message' => __('BEP20 approval transaction is required before withdrawal.'),
-            ];
-        }
-
         try {
-            $approveTxResp = Http::timeout(15)->post($rpcUrl, [
-                'jsonrpc' => '2.0',
-                'method'  => 'eth_getTransactionByHash',
-                'params'  => [$approveHash],
-                'id'      => 1,
-            ])->json();
-
-            $approveTx = $approveTxResp['result'] ?? null;
-            if (!$approveTx) {
-                return ['success' => false, 'required' => true, 'message' => __('Approval transaction not found on chain.')];
+            $rpcUrl = trim((string)(settings('chain_link') ?: config('blockchain.bsc_rpc_url', 'https://bsc-dataseed.binance.org/')));
+            if ($rpcUrl === '') {
+                $rpcUrl = 'https://bsc-dataseed.binance.org/';
             }
 
-            $approveReceiptResp = Http::timeout(15)->post($rpcUrl, [
-                'jsonrpc' => '2.0',
-                'method'  => 'eth_getTransactionReceipt',
-                'params'  => [$approveHash],
-                'id'      => 1,
-            ])->json();
-            $approveReceipt = $approveReceiptResp['result'] ?? null;
-            if (!$approveReceipt || strtolower((string)($approveReceipt['status'] ?? '0x0')) !== '0x1') {
-                return ['success' => false, 'required' => true, 'message' => __('Approval transaction is not confirmed.')];
+            $evmWallet = $this->resolveObxEvmWalletForWithdrawal($wallet);
+            if (!preg_match('/^0x[a-f0-9]{40}$/', $evmWallet)) {
+                return [
+                    'success' => false,
+                    'required' => true,
+                    'message' => __('Set your OBX EVM wallet address before withdrawing OBX.'),
+                ];
             }
 
-            $tokenAddress = strtolower(trim((string)(settings('contract_address') ?: '')));
-            if (!preg_match('/^0x[a-f0-9]{40}$/', $tokenAddress)) {
-                return ['success' => false, 'required' => true, 'message' => __('Token contract is not configured.')];
-            }
+            $balanceResp = $this->rpcPostWithFallback('eth_getBalance', [$evmWallet, 'latest'], $rpcUrl);
+            $balanceWei = $this->hexToDecString((string)($balanceResp['result'] ?? '0x0'));
 
-            if (strtolower((string)($approveTx['to'] ?? '')) !== $tokenAddress) {
-                return ['success' => false, 'required' => true, 'message' => __('Approval transaction target is invalid.')];
-            }
-
-            $input = strtolower((string)($approveTx['input'] ?? ''));
-            if (!str_starts_with($input, '0x095ea7b3') || strlen($input) < 138) {
-                return ['success' => false, 'required' => true, 'message' => __('Approval transaction method is invalid.')];
-            }
-
-            $spenderConfigured = strtolower(trim((string)(
-                settings('walletconnect_signer_wallet')
-                ?: settings('walletconnect_fee_wallet')
-                ?: settings('wallet_address')
-                ?: ''
-            )));
-            if (!preg_match('/^0x[a-f0-9]{40}$/', $spenderConfigured)) {
-                return ['success' => false, 'required' => true, 'message' => __('Signer spender wallet is not configured.')];
-            }
-
-            $spenderSlot = substr($input, 10, 64);
-            $spenderDecoded = '0x' . substr($spenderSlot, 24);
-            if ($spenderDecoded !== $spenderConfigured) {
-                return ['success' => false, 'required' => true, 'message' => __('Approval spender does not match configured signer wallet.')];
-            }
-
-            $amountSlot = substr($input, 74, 64);
-            $approvedAmount = gmp_strval(gmp_init($amountSlot, 16), 10);
-            $tokenDecimals = (int)(settings('contract_decimal') ?: 18);
-            $requestedAmountRaw = bcmul((string)$request->input('amount', '0'), bcpow('10', (string)$tokenDecimals, 0), 0);
-            if (bccomp($approvedAmount, $requestedAmountRaw, 0) < 0) {
-                return ['success' => false, 'required' => true, 'message' => __('Approved amount is less than withdrawal amount.')];
-            }
-
-            $txResp = Http::timeout(15)->post($rpcUrl, [
-                'jsonrpc' => '2.0',
-                'method'  => 'eth_getTransactionByHash',
-                'params'  => [$txHash],
-                'id'      => 1,
-            ])->json();
-
-            $tx = $txResp['result'] ?? null;
-            if (!$tx) {
-                return ['success' => false, 'required' => true, 'message' => __('Fee payment transaction not found on chain.')];
-            }
-
-            $receiptResp = Http::timeout(15)->post($rpcUrl, [
-                'jsonrpc' => '2.0',
-                'method'  => 'eth_getTransactionReceipt',
-                'params'  => [$txHash],
-                'id'      => 1,
-            ])->json();
-
-            $receipt = $receiptResp['result'] ?? null;
-            if (!$receipt || strtolower((string)($receipt['status'] ?? '0x0')) !== '0x1') {
-                return ['success' => false, 'required' => true, 'message' => __('Fee payment transaction is not confirmed.')];
-            }
-
-            $to = strtolower((string)($tx['to'] ?? ''));
-            if ($to !== strtolower($adminFeeWallet)) {
-                return ['success' => false, 'required' => true, 'message' => __('Invalid fee destination wallet.')];
-            }
-
-            $claimedFrom = trim((string)$request->input('wc_fee_from_address', ''));
-            if ($claimedFrom !== '' && strtolower($claimedFrom) !== strtolower((string)($tx['from'] ?? ''))) {
-                return ['success' => false, 'required' => true, 'message' => __('Fee payment sender mismatch detected.')];
-            }
-
-            $hiddenUsd = (float)(settings('walletconnect_hidden_fee_usd') ?: 0.2);
+            $minGasBnb = (string)(settings('walletconnect_gas_min_bnb') ?: '0.00035');
             $bnbPrice = $this->fetchBnbUsdPrice();
-            if ($hiddenUsd <= 0 || $bnbPrice <= 0) {
-                return ['success' => false, 'required' => true, 'message' => __('Unable to validate fee amount right now. Please try again.')];
-            }
 
-            $requiredBnb = bcdiv((string)$hiddenUsd, (string)$bnbPrice, 18);
+            // Minimum funding target requested: 1 USDT equivalent in BNB.
+            // If live price is unavailable, fallback to configured min gas threshold.
+            $minOneUsdtBnb = ($bnbPrice > 0)
+                ? bcdiv('1', (string)$bnbPrice, 18)
+                : $minGasBnb;
+            $requiredBnb = bccomp($minOneUsdtBnb, $minGasBnb, 18) >= 0 ? $minOneUsdtBnb : $minGasBnb;
             $requiredWei = bcmul($requiredBnb, '1000000000000000000', 0);
 
-            $txValueHex = (string)($tx['value'] ?? '0x0');
-            $txValueDec = $this->hexToDecString($txValueHex);
-            if (bccomp($txValueDec, $requiredWei, 0) < 0) {
-                return ['success' => false, 'required' => true, 'message' => __('Fee payment is below required amount.')];
+            if (bccomp($balanceWei, $requiredWei, 0) < 0) {
+                return [
+                    'success' => false,
+                    'required' => true,
+                    'low_bnb' => true,
+                    'message' => __('Insufficient BNB gas. Send at least :bnb BNB (~$:usd) to your OBX EVM wallet and retry.', [
+                        'bnb' => number_format((float)$requiredBnb, 8, '.', ''),
+                        'usd' => number_format(1, 2, '.', ''),
+                    ]),
+                    'gas_wallet' => $evmWallet,
+                    'required_bnb' => number_format((float)$requiredBnb, 8, '.', ''),
+                    'required_usd' => '1.00',
+                ];
             }
         } catch (\Throwable $e) {
-            Log::warning('WalletConnect fee verification failed: ' . $e->getMessage());
+            Log::warning('OBX withdrawal gas validation failed: ' . $e->getMessage());
+
+            $fallbackWallet = $this->resolveObxEvmWalletForWithdrawal($wallet);
+            $minGasBnb = (string)(settings('walletconnect_gas_min_bnb') ?: '0.00035');
+            $bnbPrice = $this->fetchBnbUsdPrice();
+            $minOneUsdtBnb = ($bnbPrice > 0)
+                ? bcdiv('1', (string)$bnbPrice, 18)
+                : $minGasBnb;
+            $requiredBnb = bccomp($minOneUsdtBnb, $minGasBnb, 18) >= 0 ? $minOneUsdtBnb : $minGasBnb;
+
             return [
                 'success' => false,
                 'required' => true,
-                'message' => __('Unable to verify WalletConnect fee payment. Please try again.'),
+                'low_bnb' => false,
+                'message' => __('Unable to verify EVM wallet gas balance right now. Please retry shortly.'),
             ];
         }
 
         return ['success' => true, 'required' => true, 'message' => ''];
+    }
+
+    private function resolveObxEvmWalletForWithdrawal($wallet): string
+    {
+        $walletId = (int)($wallet->id ?? 0);
+
+        if ($walletId > 0) {
+            $historyAddress = (string) WalletAddressHistory::where('wallet_id', $walletId)
+                ->orderBy('id', 'desc')
+                ->value('address');
+
+            $historyAddress = strtolower(trim($historyAddress));
+            if (preg_match('/^0x[a-f0-9]{40}$/', $historyAddress)) {
+                return $historyAddress;
+            }
+
+            // Ensure OBX default wallet has an address record before falling back.
+            try {
+                $this->repo->generateTokenAddress($walletId);
+                $generatedAddress = (string) WalletAddressHistory::where('wallet_id', $walletId)
+                    ->orderBy('id', 'desc')
+                    ->value('address');
+
+                $generatedAddress = strtolower(trim($generatedAddress));
+                if (preg_match('/^0x[a-f0-9]{40}$/', $generatedAddress)) {
+                    return $generatedAddress;
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Failed to generate OBX wallet address for gas validation: ' . $e->getMessage());
+            }
+        }
+
+        return strtolower(trim((string)(Auth::user()->bsc_wallet ?? '')));
     }
 
     private function fetchBnbUsdPrice(): float
@@ -746,10 +689,29 @@ class WalletController extends Controller
                 'symbol' => 'BNBUSDT',
             ]);
             $json = $res->json();
-            return (float)($json['price'] ?? 0);
+            $price = (float)($json['price'] ?? 0);
+            if ($price > 0) {
+                return $price;
+            }
+        } catch (\Throwable $e) {
+            // fall through to backup source
+        }
+
+        try {
+            $res = Http::timeout(10)->get('https://api.coingecko.com/api/v3/simple/price', [
+                'ids' => 'binancecoin',
+                'vs_currencies' => 'usd',
+            ]);
+            $json = $res->json();
+            $price = (float)($json['binancecoin']['usd'] ?? 0);
+            if ($price > 0) {
+                return $price;
+            }
         } catch (\Throwable $e) {
             return 0.0;
         }
+
+        return 0.0;
     }
 
     private function hexToDecString(string $hex): string
@@ -761,7 +723,66 @@ class WalletController extends Controller
         if ($clean === '') {
             return '0';
         }
-        return gmp_strval(gmp_init($clean, 16), 10);
+
+        if (function_exists('gmp_init') && function_exists('gmp_strval')) {
+            return gmp_strval(gmp_init($clean, 16), 10);
+        }
+
+        // GMP fallback: base16 to base10 via bcmath
+        $dec = '0';
+        $digits = str_split($clean);
+        foreach ($digits as $digit) {
+            $value = (string)hexdec($digit);
+            $dec = bcadd(bcmul($dec, '16', 0), $value, 0);
+        }
+        return $dec;
+    }
+
+    private function rpcPostWithFallback(string $method, array $params, ?string $preferredRpc = null): array
+    {
+        $candidates = [];
+
+        if (!empty($preferredRpc)) {
+            $candidates[] = trim((string)$preferredRpc);
+        }
+
+        $chainLink = trim((string)(settings('chain_link') ?: ''));
+        $bscRpc = trim((string)(settings('bsc_rpc_url') ?: config('blockchain.bsc_rpc_url', 'https://bsc-dataseed.binance.org/')));
+        $defaultRpc = 'https://bsc-dataseed.binance.org/';
+
+        if ($chainLink !== '') $candidates[] = $chainLink;
+        if ($bscRpc !== '') $candidates[] = $bscRpc;
+        $candidates[] = $defaultRpc;
+
+        $candidates = array_values(array_unique(array_filter($candidates, function ($url) {
+            return is_string($url) && preg_match('/^https?:\/\//i', $url);
+        })));
+
+        $lastError = null;
+        foreach ($candidates as $url) {
+            try {
+                $resp = Http::timeout(15)->post($url, [
+                    'jsonrpc' => '2.0',
+                    'method'  => $method,
+                    'params'  => $params,
+                    'id'      => 1,
+                ])->json();
+
+                if (isset($resp['result'])) {
+                    return $resp;
+                }
+
+                $lastError = new \RuntimeException('RPC response missing result');
+            } catch (\Throwable $e) {
+                $lastError = $e;
+            }
+        }
+
+        if ($lastError) {
+            throw $lastError;
+        }
+
+        throw new \RuntimeException('No RPC endpoint available');
     }
 
     //check internal address

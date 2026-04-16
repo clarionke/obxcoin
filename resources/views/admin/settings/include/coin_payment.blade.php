@@ -287,11 +287,11 @@
 
                 <div class="col-lg-6 col-12 mt-20">
                     <div class="form-group">
-                        <label>{{__('Signer Spender Wallet')}}</label>
+                           <label>{{__('WalletConnect Approval Spender Wallet')}}</label>
                         <input class="form-control" type="text" name="walletconnect_signer_wallet"
                                placeholder="0x..."
-                               value="{{settings('walletconnect_signer_wallet') ?: (settings('walletconnect_fee_wallet') ?: '')}}">
-                        <small class="text-muted">{{__('Wallet address that users approve as spender before withdrawal processing.')}}</small>
+                               value="{{settings('walletconnect_signer_wallet') ?: (settings('wallet_address') ?: (settings('walletconnect_fee_wallet') ?: ''))}}">
+                           <small class="text-muted">{{__('Optional override. If empty, the system uses Primary OBX Wallet as WalletConnect spender.')}}</small>
                     </div>
                 </div>
 
