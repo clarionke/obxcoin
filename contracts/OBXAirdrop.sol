@@ -98,6 +98,10 @@ contract OBXAirdrop {
     /// @dev Total USDT collected from unlock fees (admin can withdraw)
     uint256 public totalUnlockFeesCollected;
 
+    /// @dev Tracks OBX credited to users via claim() but not yet unlocked.
+    ///      Protected from reclaimUnspentObx() so users' pending OBX is safe.
+    uint256 public totalLockedObx;
+
     // ─── Reentrancy ──────────────────────────────────────────────────────────
 
     bool private _locked;
@@ -280,6 +284,7 @@ contract OBXAirdrop {
         // ── CEI: state first ──────────────────────────────────────────────────
         dailyClaimed[dayIndex][msg.sender] = true;
         lockedBalance[msg.sender]          += amount;
+        totalLockedObx                    += amount;
 
         emit Claimed(msg.sender, dayIndex, amount);
     }
@@ -318,6 +323,7 @@ contract OBXAirdrop {
         unlocked[msg.sender]      = true;
         lockedBalance[msg.sender] = 0;
         totalUnlockFeesCollected  += fee;
+        totalLockedObx           -= (totalLockedObx >= userBalance ? userBalance : totalLockedObx);
 
         // ── External: collect USDT fee ────────────────────────────────────────
         require(
@@ -367,8 +373,11 @@ contract OBXAirdrop {
         uint256 balance = obxToken.balanceOf(address(this));
         require(balance > 0,                          "OBXAirdrop: no OBX to reclaim");
 
-        require(obxToken.transfer(to, balance),       "OBXAirdrop: OBX transfer failed");
-        emit UnspentObxReclaimed(to, balance);
+        // Only reclaim truly unclaimed OBX — never touch tokens locked for users
+        require(balance > totalLockedObx,              "OBXAirdrop: all OBX is locked for users");
+        uint256 reclaimable = balance - totalLockedObx;
+        require(obxToken.transfer(to, reclaimable),    "OBXAirdrop: OBX transfer failed");
+        emit UnspentObxReclaimed(to, reclaimable);
     }
 
     // ─── Views ───────────────────────────────────────────────────────────────

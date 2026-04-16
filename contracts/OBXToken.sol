@@ -19,21 +19,17 @@ pragma solidity ^0.8.20;
  *  • Burn Floor:          41,000,000 OBX (41% of initial supply remains)
  *  • Max Burnable:        59,000,000 OBX (59% of initial supply)
  *  • After floor reached: Burns are 0%, all transfers are fee-free forever
- *  • Fee-exempt list:    Owner, presale contract, airdrop contract, DEX router, LP pair(s)
+ *  • Transfer burn scope: applies to all transfers until burn floor is reached
  *
  * ─── Deployment Checklist ─────────────────────────────────────────────────
  *  1. Deploy OBXToken(100_000_000)
  *  2. Deploy OBXPresale(obxToken, usdt, treasury)
  *  3. Deploy OBXAirdrop(obxToken, usdt)
- *  4. OBXToken.setFeeExempt(presaleAddress, true)     ← BEFORE presale transfer
- *  5. OBXToken.transfer(presaleAddress, 20_000_000)   ← 20% presale allocation
- *  6. OBXToken.setFeeExempt(airdropAddress, true)     ← BEFORE airdrop transfer
- *  7. OBXToken.transfer(airdropAddress,  5_000_000)   ←  5% airdrop allocation
- *  8. OBXToken.setFeeExempt(routerAddress, true)      ← DEX router (PancakeSwap V2/Uniswap V2)
- *  9. (After LP created) OBXToken.setFeeExempt(lpPairAddress, true)
- * 10. OBXPresale.setRouter(routerAddress)             ← Enable auto-liquidity
- * 11. OBXAirdrop.createCampaign(start, end, daily)    ← Admin creates first airdrop campaign
- * 12. Verify balances via OBXToken.balanceOf()
+ *  4. OBXToken.transfer(presaleAddress, 20_000_000)   ← 20% presale allocation
+ *  5. OBXToken.transfer(airdropAddress,  5_000_000)   ←  5% airdrop allocation
+ *  6. OBXPresale.setRouter(routerAddress)             ← Enable auto-liquidity
+ *  7. OBXAirdrop.createCampaign(start, end, daily)    ← Admin creates first airdrop campaign
+ *  8. Verify balances via OBXToken.balanceOf()
  *
  * ─── Security Notes ───────────────────────────────────────────────────────
  *  • Owner can be transferred (2-step transfer via transferOwnership/acceptOwnership)
@@ -62,7 +58,8 @@ contract OBXToken {
     ///      Checked before every burn so the SLOAD is avoided when already true.
     bool public burnComplete;
 
-    /// @dev Fee-exempt addresses (presale, router, LP pair, owner).
+    /// @dev Retained for backward compatibility with existing admin tooling.
+    ///      Transfer burn no longer checks fee exemptions.
     mapping(address => bool) public feeExempt;
 
     // ─── Ownership ───────────────────────────────────────────────────────────
@@ -144,6 +141,14 @@ contract OBXToken {
         return true;
     }
 
+    /// @notice Explicit burn used by staking contracts and power users.
+    /// @dev Burn is capped by BURN_FLOOR; may burn less than requested near floor.
+    function burn(uint256 amount) external notPaused returns (bool) {
+        require(balanceOf[msg.sender] >= amount, "OBXToken: insufficient balance");
+        _burn(msg.sender, amount);
+        return true;
+    }
+
     // ─── Internal ────────────────────────────────────────────────────────────
 
     function _transfer(address from, address to, uint256 amount) internal {
@@ -151,31 +156,12 @@ contract OBXToken {
         require(to   != address(0), "OBXToken: to zero");
         require(balanceOf[from] >= amount, "OBXToken: insufficient balance");
 
-        // 0.05 % burn — skipped when either address is fee-exempt OR burn is complete
-        if (!feeExempt[from] && !feeExempt[to] && !burnComplete && amount > 0) {
+        // 0.05 % burn on all transfers until burn floor is reached.
+        if (!burnComplete && amount > 0) {
             uint256 burnAmount = (amount * BURN_FEE_BPS) / 10_000;
             if (burnAmount > 0) {
-                // ── Programmed Scarcity: cap burn at the floor ────────────────
-                // If this burn would push totalSupply below 41 M, only burn
-                // the exact remainder so we land precisely on the floor.
-                uint256 available = totalSupply > BURN_FLOOR
-                    ? totalSupply - BURN_FLOOR
-                    : 0;
-                if (burnAmount > available) {
-                    burnAmount = available;
-                }
-                if (burnAmount > 0) {
-                    balanceOf[from] -= burnAmount;
-                    totalSupply     -= burnAmount;
-                    emit Transfer(from, address(0), burnAmount); // standard burn
-                    emit Burn(from, burnAmount, totalSupply);
-                    amount -= burnAmount;
-                }
-                // ── Lock burn permanently once floor is reached ───────────────
-                if (totalSupply <= BURN_FLOOR && !burnComplete) {
-                    burnComplete = true;
-                    emit BurnComplete(totalSupply);
-                }
+                uint256 burned = _burn(from, burnAmount);
+                amount -= burned;
             }
         }
 
@@ -189,6 +175,30 @@ contract OBXToken {
         require(spender != address(0), "OBXToken: approve to zero");
         allowance[_owner][spender] = amount;
         emit Approval(_owner, spender, amount);
+    }
+
+    function _burn(address from, uint256 requested) internal returns (uint256 burnedAmount) {
+        if (requested == 0 || burnComplete) {
+            return 0;
+        }
+
+        uint256 available = totalSupply > BURN_FLOOR
+            ? totalSupply - BURN_FLOOR
+            : 0;
+
+        burnedAmount = requested > available ? available : requested;
+
+        if (burnedAmount > 0) {
+            balanceOf[from] -= burnedAmount;
+            totalSupply     -= burnedAmount;
+            emit Transfer(from, address(0), burnedAmount);
+            emit Burn(from, burnedAmount, totalSupply);
+        }
+
+        if (totalSupply <= BURN_FLOOR && !burnComplete) {
+            burnComplete = true;
+            emit BurnComplete(totalSupply);
+        }
     }
 
     // ─── Admin ───────────────────────────────────────────────────────────────

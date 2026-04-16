@@ -30,6 +30,19 @@ class CoinController extends Controller
         return trim((string) (settings('presale_contract') ?: config('blockchain.presale_contract', '')));
     }
 
+    private function explorerBaseUrl(): string
+    {
+        $chainId = (int)(settings('walletconnect_chain_id') ?: settings('presale_chain_id') ?: settings('chain_id') ?: config('blockchain.presale_chain_id', 56));
+
+        return match ($chainId) {
+            1   => 'https://etherscan.io',
+            56  => 'https://bscscan.com',
+            97  => 'https://testnet.bscscan.com',
+            137 => 'https://polygonscan.com',
+            default => 'https://bscscan.com',
+        };
+    }
+
     // buy coin
     public function buyCoinPage()
     {
@@ -54,8 +67,8 @@ class CoinController extends Controller
             }
             $data['activePhase'] = $activePhases;
 
-            // OBX buy is on-chain only in production: WalletConnect is the only allowed buy method.
-            $data['nowpayments_enabled']  = false;
+            // Production buy flow: NOWPayments (processor) then backend credits OBX wallet.
+            $data['nowpayments_enabled']  = (int) (settings('nowpayments_enabled') ?? 0) === 1;
             $data['walletconnect_enabled']= $this->resolvedPresaleContract() !== '';
             $data['wc_project_id']        = settings('walletconnect_project_id') ?? '';
             $data['wc_chain_id']          = (int)(settings('walletconnect_chain_id') ?? 56);
@@ -67,6 +80,11 @@ class CoinController extends Controller
             $data['obx_token_decimals']   = (int)(settings('contract_decimal') ?: 18);
             $data['obx_token_symbol']     = settings('coin_name')          ?: 'OBX';
             $data['obx_token_logo_url']   = settings('obx_token_logo_url') ?: '';
+
+            $data['gasless_enabled']      = (int) (settings('gasless_enabled') ?? 0) === 1;
+            $data['gasless_quote_url']    = url('/api/gasless/quote');
+            $data['gasless_sponsor_url']  = url('/api/gasless/sponsor');
+            $data['gasless_actions']      = settings('gasless_allowed_actions') ?: 'buy,stake,unstake,unlock,transfer,withdraw';
 
             return view('user.buy_coin.index', $data);
         } catch (\Exception $e) {
@@ -137,22 +155,26 @@ class CoinController extends Controller
             }
 
             if ((int) $request->payment_type === NOWPAYMENTS) {
-                return redirect()->back()->with('dismiss', __('OBX purchase is on-chain only. Please use WalletConnect.'));
-            }
+                if ((int) (settings('nowpayments_enabled') ?? 0) !== 1) {
+                    return redirect()->back()->with('dismiss', __('NOWPayments is currently disabled.'));
+                }
 
-            if ((int) $request->payment_type === WALLETCONNECT) {
-                $result = $coinRepo->buyCoinWithWalletConnect(
+                $result = $coinRepo->buyCoinWithNowPayments(
                     $request, $coin_amount, (float) $coin_price_doller,
                     $phase_id, $referral_level, $phase_fees, $bonus, $affiliation_percentage
                 );
 
                 if ($result['success']) {
                     return redirect()
-                        ->route('buyCoinByAddress', $result['data']->id)
+                        ->route('buyCoinByAddress', $result['data']->nowpayments_payment_id ?: $result['data']->id)
                         ->with('success', $result['message']);
                 }
 
                 return redirect()->back()->with('dismiss', $result['message']);
+            }
+
+            if ((int) $request->payment_type === WALLETCONNECT) {
+                return redirect()->back()->with('dismiss', __('Please use NOWPayments for purchase.'));
             }
 
             return redirect()->back()->with('dismiss', __('Invalid payment method selected.'));
@@ -227,6 +249,14 @@ class CoinController extends Controller
                 })
                 ->addColumn('tx_hash', function ($item) {
                     return $item->tx_hash ?? '';
+                })
+                ->addColumn('tx_url', function ($item) {
+                    $hash = trim((string)($item->tx_hash ?? ''));
+                    if (!preg_match('/^0x[a-fA-F0-9]{64}$/', $hash)) {
+                        return '';
+                    }
+
+                    return rtrim($this->explorerBaseUrl(), '/') . '/tx/' . $hash;
                 })
                 ->rawColumns(['status', 'type'])
                 ->make(true);

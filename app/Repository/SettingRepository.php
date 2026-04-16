@@ -6,9 +6,167 @@ use App\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 
 class SettingRepository
 {
+    private function envWrap(string $value): string
+    {
+        if ($value === '') {
+            return '""';
+        }
+
+        if (preg_match("/\\s|#|\"|'|=/", $value)) {
+            $escaped = str_replace(['\\', '"'], ['\\\\', '\\"'], $value);
+            return '"' . $escaped . '"';
+        }
+
+        return $value;
+    }
+
+    private function upsertEnvValues(array $values): void
+    {
+        $values = array_filter($values, static function ($v) {
+            return $v !== null;
+        });
+
+        if (empty($values)) {
+            return;
+        }
+
+        $envPath = base_path('.env');
+        if (!file_exists($envPath)) {
+            throw new \RuntimeException('.env file not found');
+        }
+
+        $envContent = (string) file_get_contents($envPath);
+
+        foreach ($values as $key => $rawValue) {
+            $line = $key . '=' . $this->envWrap((string) $rawValue);
+            $pattern = '/^' . preg_quote($key, '/') . '=.*$/m';
+
+            if (preg_match($pattern, $envContent)) {
+                $envContent = preg_replace($pattern, $line, $envContent, 1);
+            } else {
+                $envContent = rtrim($envContent) . PHP_EOL . $line . PHP_EOL;
+            }
+        }
+
+        if (file_put_contents($envPath, $envContent) === false) {
+            throw new \RuntimeException('Unable to write .env file');
+        }
+    }
+
+    private function chainRpcEnvKey(int $chainId): string
+    {
+        return match ($chainId) {
+            1 => 'ETH_RPC_URL',
+            137 => 'POLYGON_RPC_URL',
+            97 => 'BSC_TESTNET_RPC_URL',
+            default => 'BSC_RPC_URL',
+        };
+    }
+
+    private function chainPresaleContractEnvKey(int $chainId): string
+    {
+        return match ($chainId) {
+            1 => 'PRESALE_CONTRACT_ETH',
+            137 => 'PRESALE_CONTRACT_POLYGON',
+            97 => 'PRESALE_CONTRACT_BSC_TEST',
+            default => 'PRESALE_CONTRACT_BSC',
+        };
+    }
+
+    private function chainObxContractEnvKey(int $chainId): string
+    {
+        return match ($chainId) {
+            1 => 'OBX_TOKEN_ETH',
+            137 => 'OBX_TOKEN_POLYGON',
+            97 => 'OBX_TOKEN_BSC_TEST',
+            default => 'OBX_TOKEN_BSC',
+        };
+    }
+
+    private function chainAirdropContractEnvKey(int $chainId): string
+    {
+        return match ($chainId) {
+            1 => 'AIRDROP_CONTRACT_ETH',
+            137 => 'AIRDROP_CONTRACT_POLYGON',
+            97 => 'AIRDROP_CONTRACT_BSC_TEST',
+            default => 'AIRDROP_CONTRACT_BSC',
+        };
+    }
+
+    private function chainStakingContractEnvKey(int $chainId): string
+    {
+        return match ($chainId) {
+            1 => 'STAKING_CONTRACT_ETH',
+            137 => 'STAKING_CONTRACT_POLYGON',
+            97 => 'STAKING_CONTRACT_BSC_TEST',
+            default => 'STAKING_CONTRACT_BSC',
+        };
+    }
+
+    private function syncBlockchainSettingsToEnv($request): void
+    {
+        $chainId = (int) ($request->input('presale_chain_id', $request->input('chain_id', config('blockchain.presale_chain_id', 56))));
+
+        $rpcUrl = null;
+        if ($request->filled('bsc_rpc_url')) {
+            $rpcUrl = trim((string) $request->bsc_rpc_url);
+        } elseif ($request->filled('chain_link')) {
+            $rpcUrl = trim((string) $request->chain_link);
+        }
+
+        $updates = [];
+
+        if ($rpcUrl !== null) {
+            $updates['BSC_RPC_URL'] = $rpcUrl;
+            $updates[$this->chainRpcEnvKey($chainId)] = $rpcUrl;
+        }
+
+        if ($request->filled('presale_chain_id')) {
+            $updates['PRESALE_CHAIN_ID'] = (int) $request->presale_chain_id;
+        } elseif ($request->filled('chain_id')) {
+            $updates['PRESALE_CHAIN_ID'] = (int) $request->chain_id;
+        }
+
+        if ($request->filled('presale_contract')) {
+            $presaleContract = trim((string) $request->presale_contract);
+            $updates['PRESALE_CONTRACT'] = $presaleContract;
+            $updates[$this->chainPresaleContractEnvKey($chainId)] = $presaleContract;
+        }
+
+        if ($request->filled('contract_address')) {
+            $obxContract = trim((string) $request->contract_address);
+            $updates['OBX_TOKEN_CONTRACT'] = $obxContract;
+            $updates[$this->chainObxContractEnvKey($chainId)] = $obxContract;
+        }
+
+        if ($request->filled('airdrop_contract')) {
+            $updates[$this->chainAirdropContractEnvKey($chainId)] = trim((string) $request->airdrop_contract);
+        }
+
+        if ($request->filled('staking_contract')) {
+            $updates[$this->chainStakingContractEnvKey($chainId)] = trim((string) $request->staking_contract);
+        }
+
+        if ($request->filled('bscscan_api_key')) {
+            $updates['BSCSCAN_API_KEY'] = trim((string) $request->bscscan_api_key);
+        }
+
+        if ($request->filled('owner_private_key')) {
+            $updates['OWNER_PRIVATE_KEY'] = trim((string) $request->owner_private_key);
+        }
+
+        if ($request->has('presale_start_block')) {
+            $updates['PRESALE_START_BLOCK'] = max(0, (int) $request->presale_start_block);
+        }
+
+        if (!empty($updates)) {
+            $this->upsertEnvValues($updates);
+        }
+    }
 
     // save general setting
     public function saveCommonSetting($request)
@@ -281,12 +439,16 @@ class SettingRepository
                 );
             }
 
+            // Keep .env blockchain keys synchronized with admin inputs.
+            $this->syncBlockchainSettingsToEnv($request);
+
             $response = [
                 'success' => true,
                 'message' => __('Payment settings updated successfully'),
             ];
         } catch (\Exception $e) {
             DB::rollBack();
+            Log::error('savePaymentSetting failed: ' . $e->getMessage());
             return ['success' => false, 'message' => __('Something went wrong')];
         }
         DB::commit();
@@ -322,12 +484,16 @@ class SettingRepository
                 AdminSetting::updateOrCreate(['slug' => 'obx_token_logo_url'], ['value' => $request->obx_token_logo_url]);
             }
 
+            // Withdrawal page also edits chain details; sync those to .env as well.
+            $this->syncBlockchainSettingsToEnv($request);
+
             $response = [
                 'success' => true,
                 'message' => __('Default token setting updated successfully')
             ];
         } catch (\Exception $e) {
             DB::rollBack();
+            Log::error('saveWithdrawSetting failed: ' . $e->getMessage());
             $response = [
                 'success' => false,
                 'message' => __('Something went wrong')

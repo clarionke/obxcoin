@@ -20,6 +20,7 @@ class Kernel extends ConsoleKernel
         Commands\ReportCMCSupply::class,
         Commands\CancelExpiredCoWalletWithdrawals::class,
         Commands\PresaleSyncEvents::class,
+        Commands\RetryFailedObxDeliveries::class,
     ];
 
     /**
@@ -56,6 +57,12 @@ class Kernel extends ConsoleKernel
 
         // Finalize pending WalletConnect buys from on-chain TokensPurchased events
         $schedule->command('presale:sync-events')
+            ->everyMinute()
+            ->withoutOverlapping()
+            ->runInBackground();
+
+        // Retry failed NOWPayments OBX on-chain deliveries.
+        $schedule->command('nowpayments:retry-obx-delivery --limit=100')
             ->everyMinute()
             ->withoutOverlapping()
             ->runInBackground();

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Model\BuyCoinHistory;
+use App\Services\BlockchainService;
 use App\Services\NowPaymentsService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -19,7 +20,7 @@ use Illuminate\Support\Facades\Log;
  *   waiting → confirming → confirmed → sending → partially_paid → finished
  *   failed | refunded | expired
  *
- * We credit OBX tokens when payment_status == 'finished'.
+ * We finalize purchases only after successful on-chain OBX delivery.
  */
 class NowPaymentsWebhookController extends Controller
 {
@@ -101,23 +102,72 @@ class NowPaymentsWebhookController extends Controller
             return response('OK', 200);
         }
 
-        // ── 6. Finished — credit OBX ──────────────────────────────────────
-        if ($purchase->status == STATUS_SUCCESS) {
-            // Idempotency: already credited
-            return response('OK', 200);
+        // ── 6. Finished — enforce on-chain delivery first ──────────────────
+        $wasAlreadyCredited = ((int) $purchase->status === STATUS_SUCCESS);
+        $isDelivered = (($purchase->obx_delivery_status ?? 'pending') === 'success');
+
+        if (!$isDelivered) {
+            $targetWallet = $this->resolveTargetWallet($purchase);
+
+            if (!$targetWallet) {
+                $purchase->update([
+                    'obx_delivery_status' => 'failed',
+                    'obx_delivery_error' => 'No valid EVM wallet configured for delivery',
+                ]);
+                Log::warning("NowPaymentsIPN: EVM delivery failed, missing wallet for order #{$purchase->id}");
+                return response('OK', 200);
+            }
+
+            try {
+                $blockchain = app(BlockchainService::class);
+                $tx = $blockchain->transferObxOnChain($targetWallet, (string) $purchase->requested_amount);
+
+                if ($tx && !empty($tx['txHash'])) {
+                    $updates = [
+                        'obx_delivery_status' => 'success',
+                        'obx_delivery_tx_hash' => $tx['txHash'],
+                        'obx_delivery_error' => null,
+                    ];
+
+                    if (empty($purchase->tx_hash)) {
+                        $updates['tx_hash'] = $tx['txHash'];
+                    }
+
+                    $purchase->update($updates);
+                    $purchase->refresh();
+                    Log::info("NowPaymentsIPN: delivered OBX on-chain for order #{$purchase->id} tx={$tx['txHash']}");
+                } else {
+                    $err = $blockchain->getLastSignerError() ?: 'OBX delivery failed';
+                    $purchase->update([
+                        'obx_delivery_status' => 'failed',
+                        'obx_delivery_error' => mb_substr($err, 0, 500),
+                    ]);
+                    Log::warning("NowPaymentsIPN: OBX delivery failed for order #{$purchase->id}: {$err}");
+                    return response('OK', 200);
+                }
+            } catch (\Throwable $e) {
+                $purchase->update([
+                    'obx_delivery_status' => 'failed',
+                    'obx_delivery_error' => mb_substr($e->getMessage(), 0, 500),
+                ]);
+                Log::error("NowPaymentsIPN: OBX delivery exception for order #{$purchase->id}: " . $e->getMessage());
+                return response('OK', 200);
+            }
         }
 
         DB::beginTransaction();
         try {
-            $purchase->update(['status' => STATUS_SUCCESS]);
+            if (!$wasAlreadyCredited) {
+                $purchase->update(['status' => STATUS_SUCCESS]);
+            }
 
-            // Always credit to the user's system OBX wallet (default coin wallet).
-            $wallet = get_primary_wallet($purchase->user_id, DEFAULT_COIN_TYPE);
+            // Mirror the finalized on-chain delivery into the internal OBX wallet ledger.
+            $wallet = get_primary_wallet((int) $purchase->user_id, DEFAULT_COIN_TYPE);
 
-            if ($wallet) {
+            if ($wallet && !$wasAlreadyCredited) {
                 $wallet->increment('balance', (float) $purchase->requested_amount);
-                Log::info("NowPaymentsIPN: credited {$purchase->requested_amount} OBX to user #{$purchase->user_id}");
-            } else {
+                Log::info("NowPaymentsIPN: credited {$purchase->requested_amount} OBX to user #{$purchase->user_id} after on-chain delivery");
+            } elseif (!$wallet) {
                 Log::warning("NowPaymentsIPN: no primary OBX wallet for user #{$purchase->user_id}");
             }
 
@@ -126,8 +176,26 @@ class NowPaymentsWebhookController extends Controller
             DB::rollBack();
             Log::error('NowPaymentsIPN: DB error for payment_id=' . $paymentId . ': ' . $e->getMessage());
             // Return 200 so NOWPayments does not retry; alert is in logs
+            return response('OK', 200);
         }
 
         return response('OK', 200);
+    }
+
+    private function resolveTargetWallet(BuyCoinHistory $purchase): ?string
+    {
+        $candidates = [
+            strtolower(trim((string)($purchase->buyer_wallet ?? ''))),
+            strtolower(trim((string)($purchase->wc_buyer_address ?? ''))),
+            strtolower(trim((string)($purchase->user->bsc_wallet ?? ''))),
+        ];
+
+        foreach ($candidates as $candidate) {
+            if (preg_match('/^0x[a-f0-9]{40}$/', $candidate)) {
+                return $candidate;
+            }
+        }
+
+        return null;
     }
 }

@@ -74,6 +74,10 @@ Route::group(['namespace' => 'Api', 'middleware' => 'auth:api'], function () {
 });
 
 Route::group(['namespace' => 'Api', 'middleware' => ['auth:api','two_step']], function () {
+    // Gasless UX endpoints: quote eligibility + sponsor native gas top-up
+    Route::post('gasless/quote', 'GaslessController@quote')->name('gasless.quote');
+    Route::post('gasless/sponsor', 'GaslessController@sponsor')->name('gasless.sponsor');
+
     // ── OBX Wallet management ──────────────────────────────────────────────────
     // Users can generate multiple BSC/ETH-compatible OBX wallets.
     // Balances are sourced live from the OBXToken contract.

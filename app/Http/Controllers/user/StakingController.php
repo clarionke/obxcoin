@@ -42,6 +42,10 @@ class StakingController extends Controller
         $data['obx_token_symbol']     = settings('coin_symbol') ?? 'OBX';
         $data['obx_token_decimals']   = (int) (settings('obx_token_decimals') ?? 18);
         $data['obx_token_logo_url']   = settings('obx_token_logo_url') ?? '';
+        $data['gasless_enabled']      = (int) (settings('gasless_enabled') ?? 0) === 1;
+        $data['gasless_quote_url']    = url('/api/gasless/quote');
+        $data['gasless_sponsor_url']  = url('/api/gasless/sponsor');
+        $data['gasless_actions']      = settings('gasless_allowed_actions') ?: 'buy,stake,unstake,unlock,transfer,withdraw';
 
         return view('user.staking.index', $data);
     }

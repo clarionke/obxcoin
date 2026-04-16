@@ -3,12 +3,14 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Model\AdminSetting;
 use App\Model\BuyCoinHistory;
 use App\Model\IcoPhase;
 use App\Services\BlockchainService;
 use App\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -103,10 +105,18 @@ class PresaleWebhookController extends Controller
 
         // Persist the new high-water block
         if ($maxBlock > $lastBlock) {
-            \App\Model\AdminSetting::updateOrCreate(
+            AdminSetting::updateOrCreate(
                 ['slug' => 'presale_last_block'],
                 ['value' => $maxBlock + 1]
             );
+        }
+
+        // Keep phase index mapping in DB up to date for frontend reads.
+        try {
+            $totalPhases = $this->blockchain->getTotalPhases();
+            $this->syncPendingPhaseIndexesFromChain($totalPhases);
+        } catch (\Throwable $e) {
+            Log::warning('PresaleWebhook::syncEvents phase index sync warning: ' . $e->getMessage());
         }
 
         return response()->json(['processed' => $processed, 'last_block' => $maxBlock]);
@@ -238,18 +248,47 @@ class PresaleWebhookController extends Controller
      */
     public function phaseInfo(int $index)
     {
+        $cacheTtl = max(10, (int) (settings('presale_phase_cache_ttl', 30)));
+        $cacheSlug = 'presale_phase_info_' . (int)$index;
+
+        $cachedRow = AdminSetting::where('slug', $cacheSlug)->first();
+        if ($cachedRow) {
+            $cached = json_decode((string)$cachedRow->value, true);
+            if (is_array($cached)) {
+                $updatedAt = (int)($cached['cached_at'] ?? 0);
+                if ($updatedAt > 0 && (time() - $updatedAt) <= $cacheTtl) {
+                    return response()->json($cached['payload'] ?? []);
+                }
+            }
+        }
+
         $remaining  = $this->blockchain->getRemainingTokens($index);
         $obxReserve = $this->blockchain->getObxReserve();
         $totalPhases= $this->blockchain->getTotalPhases();
         $activePh   = $this->blockchain->getActivePhaseIndex();
 
-        return response()->json([
+        $payload = [
             'phase_index'    => $index,
             'remaining_obx'  => $remaining,
             'obx_reserve'    => $obxReserve,
             'total_phases'   => $totalPhases,
             'active_phase'   => $activePh,
-        ]);
+        ];
+
+        // Save on-chain read snapshot to DB so frontend does not force RPC every request.
+        AdminSetting::updateOrCreate(
+            ['slug' => $cacheSlug],
+            ['value' => json_encode(['cached_at' => time(), 'payload' => $payload])]
+        );
+        AdminSetting::updateOrCreate(
+            ['slug' => 'presale_active_phase_cached'],
+            ['value' => (string) $activePh]
+        );
+
+        // If admin-created phases are pending index assignment, map them now from chain state.
+        $this->syncPendingPhaseIndexesFromChain((int)$totalPhases);
+
+        return response()->json($payload);
     }
 
     /**
@@ -285,5 +324,85 @@ class PresaleWebhookController extends Controller
         // Support both bare hex and "sha256=<hex>" prefix formats
         $incoming = str_starts_with($signature, 'sha256=') ? substr($signature, 7) : $signature;
         return hash_equals($expected, $incoming);
+    }
+
+    private function syncPendingPhaseIndexesFromChain(int $totalPhases): void
+    {
+        if ($totalPhases <= 0) {
+            return;
+        }
+
+        $maxChainIndex = $totalPhases - 1;
+        $usedIndexes = IcoPhase::whereNotNull('contract_phase_index')
+            ->pluck('contract_phase_index')
+            ->map(fn($v) => (int)$v)
+            ->filter(fn($v) => $v >= 0)
+            ->unique()
+            ->values()
+            ->all();
+
+        $availableIndexes = [];
+        for ($i = 0; $i <= $maxChainIndex; $i++) {
+            if (!in_array($i, $usedIndexes, true)) {
+                $availableIndexes[] = $i;
+            }
+        }
+
+        if (empty($availableIndexes)) {
+            return;
+        }
+
+        $pendingPhases = IcoPhase::whereNull('contract_phase_index')
+            ->whereNotNull('pending_onchain_tx')
+            ->orderBy('id', 'asc')
+            ->get();
+
+        foreach ($pendingPhases as $phase) {
+            if (empty($availableIndexes)) {
+                break;
+            }
+
+            $txHash = trim((string)$phase->pending_onchain_tx);
+            if (!preg_match('/^0x[a-fA-F0-9]{64}$/', $txHash)) {
+                continue;
+            }
+
+            if (!$this->isMinedSuccessfulTx($txHash)) {
+                continue;
+            }
+
+            $nextIndex = array_shift($availableIndexes);
+            $phase->contract_phase_index = $nextIndex;
+            $phase->contract_synced = true;
+            $phase->pending_onchain_tx = null;
+            $phase->save();
+        }
+    }
+
+    private function isMinedSuccessfulTx(string $txHash): bool
+    {
+        $rpcUrl = trim((string)(settings('bsc_rpc_url') ?: settings('chain_link') ?: config('blockchain.bsc_rpc_url', 'https://bsc-dataseed.binance.org/')));
+        if ($rpcUrl === '') {
+            $rpcUrl = 'https://bsc-dataseed.binance.org/';
+        }
+
+        try {
+            $res = Http::timeout(12)->post($rpcUrl, [
+                'jsonrpc' => '2.0',
+                'method'  => 'eth_getTransactionReceipt',
+                'params'  => [$txHash],
+                'id'      => 1,
+            ])->json();
+
+            $receipt = $res['result'] ?? null;
+            if (!$receipt) {
+                return false;
+            }
+
+            return strtolower((string)($receipt['status'] ?? '0x0')) === '0x1';
+        } catch (\Throwable $e) {
+            Log::warning('PresaleWebhook::isMinedSuccessfulTx warning', ['tx' => $txHash, 'error' => $e->getMessage()]);
+            return false;
+        }
     }
 }

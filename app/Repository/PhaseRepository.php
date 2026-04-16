@@ -7,6 +7,7 @@ use App\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class PhaseRepository
@@ -66,6 +67,62 @@ class PhaseRepository
         return $base . ' ' . $safe . ' ' . $hint;
     }
 
+    private function refreshPendingOnchainTxState(IcoPhase $phase): bool
+    {
+        $txHash = trim((string)($phase->pending_onchain_tx ?? ''));
+        if ($txHash === '') {
+            return false;
+        }
+
+        // Invalid/partial hash should never block admin updates forever.
+        if (!preg_match('/^0x[a-fA-F0-9]{64}$/', $txHash)) {
+            Log::warning('PhaseRepository clearing malformed pending tx hash', [
+                'phase_id' => $phase->id,
+                'pending_onchain_tx' => $txHash,
+            ]);
+            $phase->pending_onchain_tx = null;
+            $phase->save();
+            return false;
+        }
+
+        $rpcUrl = trim((string)(settings('bsc_rpc_url') ?: settings('chain_link') ?: config('blockchain.bsc_rpc_url', 'https://bsc-dataseed.binance.org/')));
+        if ($rpcUrl === '') {
+            $rpcUrl = 'https://bsc-dataseed.binance.org/';
+        }
+
+        try {
+            $receiptResp = Http::timeout(12)->post($rpcUrl, [
+                'jsonrpc' => '2.0',
+                'method'  => 'eth_getTransactionReceipt',
+                'params'  => [$txHash],
+                'id'      => 1,
+            ])->json();
+
+            $receipt = $receiptResp['result'] ?? null;
+            if (!$receipt) {
+                return true;
+            }
+
+            $status = strtolower((string)($receipt['status'] ?? ''));
+
+            // Mined (success/fail): no longer pending. Allow next admin action.
+            if ($status === '0x1' || $status === '0x0') {
+                $phase->pending_onchain_tx = null;
+                $phase->save();
+                return false;
+            }
+
+            return true;
+        } catch (\Throwable $e) {
+            Log::warning('PhaseRepository pending tx status check failed', [
+                'phase_id' => $phase->id,
+                'tx_hash' => $txHash,
+                'error' => $e->getMessage(),
+            ]);
+            return true;
+        }
+    }
+
 // phase  save process
     public function phaseAddProcess($request)
     {
@@ -123,8 +180,11 @@ class PhaseRepository
                 }
 
                 if (!empty($phase->pending_onchain_tx)) {
-                    DB::rollBack();
-                    return ['success' => false, 'message' => __('This phase has a pending on-chain transaction: ') . $phase->pending_onchain_tx];
+                    $stillPending = $this->refreshPendingOnchainTxState($phase);
+                    if ($stillPending) {
+                        DB::rollBack();
+                        return ['success' => false, 'message' => __('This phase has a pending on-chain transaction: ') . $phase->pending_onchain_tx];
+                    }
                 }
 
                 $phase->fill($data);

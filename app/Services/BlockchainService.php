@@ -10,9 +10,9 @@ use Illuminate\Support\Facades\Log;
  *
  * PHP layer for all on-chain interactions with OBXToken + OBXPresale.
  * Uses plain HTTP (no web3.php dependency):
- *   â€¢ Read calls  â†’ eth_call via BSC JSON-RPC
- *   â€¢ Write calls â†’ Node.js signer subprocess (contracts/signer.js)
- *   â€¢ Events      â†’ BSCScan getLogs API
+ *   - Read calls  -> eth_call via BSC JSON-RPC
+ *   - Write calls -> Node.js signer subprocess (contracts/signer.js)
+ *   - Events      -> Etherscan V2 getLogs API
  *
  * Multi-chain: same ABI works on BSC, ETH, Polygon, etc.
  * Every operation is visible on the chain's block explorer.
@@ -21,8 +21,8 @@ use Illuminate\Support\Facades\Log;
  *   BSC_RPC_URL           = https://bsc-dataseed.binance.org/
  *   PRESALE_CONTRACT      = 0x...   (OBXPresale contract address)
  *   OBX_TOKEN_CONTRACT    = 0x...   (OBXToken contract address)
- *   OWNER_PRIVATE_KEY     = 0x...   (admin wallet â€” keep secret)
- *   BSCSCAN_API_KEY       = ...
+ *   OWNER_PRIVATE_KEY     = 0x...   (admin wallet - keep secret)
+ *   BSCSCAN_API_KEY       = ... (Etherscan V2 API key)
  *   PRESALE_CHAIN_ID      = 56      (56=BSC, 97=testnet, 1=ETH, 137=Polygon)
  *   PRESALE_WEBHOOK_SECRET = ...    (HMAC secret for webhook endpoint)
  *   PRESALE_SYNC_API_KEY  = ...     (bearer key for cron endpoint)
@@ -35,10 +35,11 @@ class BlockchainService
     private string $bscscanKey;
     private int    $chainId;
     private ?string $lastSignerError = null;
+    private const ETHERSCAN_V2_SUPPORTED_CHAIN_IDS = [1, 56, 97, 137];
 
-    // â”€â”€â”€ Verified function selectors â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // Verified function selectors
     // Computed via: ethers.utils.id("funcName(types)").slice(0,10)
-    // DO NOT use ltrim('0x') â€” these are complete 4-byte selectors
+    // DO NOT use ltrim('0x') - these are complete 4-byte selectors
 
     /** activePhaseIndex() */
     private const SEL_ACTIVE_PHASE   = '0x9e9535eb';
@@ -51,7 +52,7 @@ class BlockchainService
     /** obxReserve() */
     private const SEL_OBX_RESERVE    = '0x5d531308';
 
-    // â”€â”€â”€ Verified event topic0 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // Verified event topic0
     // keccak256("TokensPurchased(address,uint256,uint256,uint256,uint256,uint256,uint256)")
     private const TOPIC_TOKENS_PURCHASED =
         '0xb176b33ad40225c8f67dc6ef0cba96c0c88f67afd36396e2198a3f48a44fc7a0';
@@ -64,7 +65,7 @@ class BlockchainService
         $presaleContracts = (array) config('blockchain.presale_contracts', []);
         $tokenContracts   = (array) config('blockchain.obx_token_addresses', []);
 
-        // Load admin_settings — these take priority over .env for all contract/chain config.
+        // Load admin_settings  these take priority over .env for all contract/chain config.
         $s = [];
         try { $s = allsetting(); } catch (\Throwable $e) {}
 
@@ -73,6 +74,14 @@ class BlockchainService
             $this->chainId = (int) $s['presale_chain_id'];
         } elseif (!empty($s['chain_id'])) {
             $this->chainId = (int) $s['chain_id'];
+        }
+
+        if (!$this->isEtherscanV2SupportedChainId($this->chainId)) {
+            Log::warning('BlockchainService: unsupported chain id for Etherscan V2, fallback to BSC mainnet', [
+                'requested_chain_id' => $this->chainId,
+                'fallback_chain_id' => 56,
+            ]);
+            $this->chainId = 56;
         }
 
         $configuredRpc = (string) ($rpcUrls[$this->chainId]
@@ -104,13 +113,13 @@ class BlockchainService
             $this->obxTokenAddress = trim($s['contract_address']);
         }
 
-        // BSCScan key: admin_settings 'bscscan_api_key' > .env BSCSCAN_API_KEY
+        // Etherscan V2 API key: admin_settings 'bscscan_api_key' > .env BSCSCAN_API_KEY
         $this->bscscanKey = !empty($s['bscscan_api_key'])
             ? trim($s['bscscan_api_key'])
             : (string) config('blockchain.bscscan_api_key', '');
     }
 
-    // â”€â”€â”€ Read: active phase â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    //  Read: active phase 
 
     /**
      * Get the currently active phase index from the contract (-1 if none).
@@ -123,7 +132,7 @@ class BlockchainService
         $hex = substr($result, 2); // strip 0x prefix ONLY (not ltrim mask)
         if (strlen($hex) !== 64) return -1;
 
-        // int256 two's complement: if high bit set â†’ negative (=-1 means none)
+        // int256 two's complement: if high bit set  negative (=-1 means none)
         $value = gmp_intval(gmp_init($hex, 16));
         if (hexdec(substr($hex, 0, 2)) >= 128) {
             // negative: subtract 2^256
@@ -142,7 +151,7 @@ class BlockchainService
         if (!$result) return '0';
 
         $raw = $this->hexToDecimal(substr($result, 2));
-        return bcdiv($raw, '1000000000000000000', 18); // 18 decimals â†’ human
+        return bcdiv($raw, '1000000000000000000', 18); // 18 decimals  human
     }
 
     /**
@@ -198,7 +207,7 @@ class BlockchainService
     {
         if (!$this->obxTokenAddress || !str_starts_with($address, '0x')) return '0';
 
-        // balanceOf(address) selector: keccak256("balanceOf(address)") → 0x70a08231
+        // balanceOf(address) selector: keccak256("balanceOf(address)")  0x70a08231
         $paddedAddr = str_pad(ltrim($address, '0x'), 64, '0', STR_PAD_LEFT);
         $data       = '0x70a08231' . $paddedAddr;
 
@@ -227,7 +236,7 @@ class BlockchainService
         }
     }
 
-    // â”€â”€â”€ Write: phase management â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    //  Write: phase management 
 
     /**
      * Push a new phase to the contract.
@@ -304,7 +313,7 @@ class BlockchainService
     }
 
     /**
-     * Fund the presale contract with OBX tokens (admin wallet â†’ presale contract).
+     * Fund the presale contract with OBX tokens (admin wallet  presale contract).
      * Call this after deploying a new phase or replenishing the reserve.
      */
     public function fundPresale(string $obxAmountHuman): ?array
@@ -325,7 +334,7 @@ class BlockchainService
         return $this->callSignerScript($payload);
     }
 
-    // â”€â”€â”€ Events: BSCScan polling â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    //  Events: Etherscan V2 polling 
     /**
      * Transfer OBX tokens on-chain from the platform signer wallet to a recipient.
      * Triggers OBXToken.sol's built-in 0.05% deflationary burn on every transfer.
@@ -426,8 +435,8 @@ class BlockchainService
 
 
     /**
-     * Fetch TokensPurchased events from BSCScan API.
-     * Uses the hardcoded verified topic0 â€” does NOT use keccak256 at runtime.
+    * Fetch TokensPurchased events from Etherscan V2 API.
+     * Uses the hardcoded verified topic0  does NOT use keccak256 at runtime.
      *
      * @param  int $fromBlock  Start block (persisted in admin_settings)
      * @return array  Array of decoded event objects ready for processEvent()
@@ -436,6 +445,14 @@ class BlockchainService
     {
         if (!$this->contractAddress || !$this->bscscanKey) {
             Log::warning('BlockchainService::getPurchaseEvents: contract or explorer API key not configured');
+            return [];
+        }
+
+        if (!$this->isEtherscanV2SupportedChainId($this->chainId)) {
+            Log::warning('BlockchainService::getPurchaseEvents: unsupported chain id for Etherscan V2', [
+                'chain_id' => $this->chainId,
+                'supported' => self::ETHERSCAN_V2_SUPPORTED_CHAIN_IDS,
+            ]);
             return [];
         }
 
@@ -482,7 +499,7 @@ class BlockchainService
     }
 
     /**
-     * Verify a transaction receipt from the RPC â€” used to cross-check webhook payloads.
+     * Verify a transaction receipt from the RPC  used to cross-check webhook payloads.
      * Returns the decoded TokensPurchased data from the receipt, or null if not found/confirmed.
      */
     public function verifyPurchaseTransaction(string $txHash): ?array
@@ -524,7 +541,7 @@ class BlockchainService
         }
     }
 
-    // â”€â”€â”€ Internal helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    //  Internal helpers 
 
     private function ethCall(string $data): ?string
     {
@@ -557,7 +574,7 @@ class BlockchainService
     /**
      * Call the Node.js signer script (contracts/signer.js).
      * Payload is sent via stdin; result JSON is read from stdout.
-     * Private key is passed via environment â€” never appears in logs.
+     * Private key is passed via environment  never appears in logs.
      *
      * @return array|null  ['txHash' => '0x...', 'blockNumber' => N] or null
      */
@@ -581,11 +598,7 @@ class BlockchainService
             ? trim($s['owner_private_key'])
             : config('blockchain.owner_private_key', '');
 
-        $action = (string)($payload['action'] ?? '');
-        $signerOnlyActions = ['transferObx', 'transferNative'];
-        $isSignerOnlyAction = in_array($action, $signerOnlyActions, true);
-
-        if (!$isSignerOnlyAction && !$privKey) {
+        if (!$privKey) {
             $this->lastSignerError = 'OWNER_PRIVATE_KEY not configured';
             Log::error('BlockchainService: ' . $this->lastSignerError);
             return null;
@@ -600,16 +613,12 @@ class BlockchainService
             2 => ['pipe', 'w'],
         ];
 
-        // Pass private key via env only — do NOT include in the JSON payload
+        // Pass private key via env only  do NOT include in the JSON payload
         $env  = array_merge($_ENV, []);
         if (!empty($privKey)) {
             $env['OWNER_PRIVATE_KEY'] = $privKey;
-        }
-        $signerKey = !empty($s['signer_private_key'])
-            ? trim($s['signer_private_key'])
-            : config('blockchain.signer_private_key', '');
-        if ($signerKey) {
-            $env['SIGNER_PRIVATE_KEY'] = $signerKey;
+            // Keep SIGNER_PRIVATE_KEY aligned for backward compatibility with older signer logic.
+            $env['SIGNER_PRIVATE_KEY'] = $privKey;
         }
 
         // Propagate admin-settings contract addresses so signer.js can resolve them
@@ -677,10 +686,10 @@ class BlockchainService
      * rateUsdt = (OBX per 1 USDT) * 1e18
      *
      * Example: rate = "0.01" (1 OBX costs $0.01)
-     *   â†’ OBX per USDT = 1 / 0.01 = 100
-     *   â†’ rateUsdt     = 100 * 1e18 = "100000000000000000000"
+     *    OBX per USDT = 1 / 0.01 = 100
+     *    rateUsdt     = 100 * 1e18 = "100000000000000000000"
      *
-     * Uses bcmath throughout â€” no float rounding.
+     * Uses bcmath throughout  no float rounding.
      */
     public function usdRateToContractRate(string $usdPerObx): string
     {
@@ -697,7 +706,7 @@ class BlockchainService
 
     /**
      * Convert a hex string (with or without 0x prefix) to a decimal string via GMP.
-     * Handles 32-byte (64 hex char) values correctly â€” no float overflow.
+     * Handles 32-byte (64 hex char) values correctly  no float overflow.
      */
     public function hexToDecimal(string $hex): string
     {
@@ -774,5 +783,11 @@ class BlockchainService
 
         return str_contains($message, 'no records') || str_contains($result, 'no records');
     }
+
+    private function isEtherscanV2SupportedChainId(int $chainId): bool
+    {
+        return in_array($chainId, self::ETHERSCAN_V2_SUPPORTED_CHAIN_IDS, true);
+    }
 }
+
 

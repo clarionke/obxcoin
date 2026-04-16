@@ -241,6 +241,13 @@ class CoinRepository
 
         DB::beginTransaction();
         try {
+            $targetEvmWallet = strtolower(trim((string)(Auth::user()->bsc_wallet ?? '')));
+            if (!preg_match('/^0x[a-f0-9]{40}$/', $targetEvmWallet)) {
+                $targetEvmWallet = null;
+            }
+
+            $payCurrency = strtolower((string)($request->pay_currency ?? 'btc'));
+
             // Create a pending record first so we have an ID for the order reference
             $purchase = new BuyCoinHistory();
             $purchase->type             = NOWPAYMENTS;
@@ -255,14 +262,14 @@ class CoinRepository
             $purchase->coin             = $request->coin;
             $purchase->doller           = $coin_price_doller;
             $purchase->btc              = 0;
-            $purchase->coin_type        = strtolower($request->pay_currency ?? 'btc');
+            $purchase->coin_type        = strtoupper($payCurrency);
+            $purchase->buyer_wallet     = $targetEvmWallet;
             $purchase->status           = STATUS_PENDING;
             $purchase->save();
 
             // Call NOWPayments API
             $nowPayments = new NowPaymentsService();
             $ipnUrl      = route('nowpayments.ipn');
-            $payCurrency = strtolower($request->pay_currency ?? 'btc');
 
             $npResponse = $nowPayments->createPayment(
                 priceAmount:    (float) $coin_price_doller,

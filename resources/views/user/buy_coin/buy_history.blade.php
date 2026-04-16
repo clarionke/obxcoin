@@ -59,10 +59,11 @@
                 {"data": "coin","orderable": false},
                 {"data": "coin_type","orderable": false},
                 {"data": "type","orderable": false},
-                {"data": "tx_hash","orderable": false, "render": function(data) {
+                {"data": "tx_hash","orderable": false, "render": function(data, type, row) {
                     if (!data) return '&mdash;';
-                    if (typeof data === 'string' && /^0x/i.test(data)) {
-                        return '<a href="https://bscscan.com/tx/'+data+'" target="_blank" rel="noopener noreferrer" title="'+data+'">'+data.substring(0,16)+'&#8230;</a>';
+                    var txUrl = row && row.tx_url ? row.tx_url : '';
+                    if (typeof data === 'string' && /^0x/i.test(data) && txUrl) {
+                        return '<a href="'+txUrl+'" target="_blank" rel="noopener noreferrer" title="'+data+'">'+data.substring(0,16)+'&#8230;</a>';
                     }
                     return data;
                 }},

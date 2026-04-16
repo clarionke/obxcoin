@@ -180,9 +180,6 @@ class CoinController extends Controller
             if(isset($data['settings']['nowpayments_enabled']) && ($data['settings']['nowpayments_enabled'] == 1)){
                 $data['payment_methods'][NOWPAYMENTS] = 'NOWPayments';
             }
-            if ($this->resolvedPresaleContract() !== '') {
-                $data['payment_methods'][WALLETCONNECT] = 'WalletConnect';
-            }
             unset($data['settings']);
             $response = ['success' => true, 'data'=>$data, 'message' => __('Buy coin and phase information')];
         } catch(\Exception $e) {
@@ -238,16 +235,7 @@ class CoinController extends Controller
                     }
                 }
             } elseif ((int) $request->payment_type === WALLETCONNECT) {
-                $result = $coinRepo->buyCoinWithWalletConnect($request, $coin_amount, $coin_price_doller, $phase_id, $referral_level, $phase_fees, $bonus, $affiliation_percentage);
-                if ($result['success']) {
-                    $response = ['success' => true, 'data' => [
-                        'id'       => $result['data']->id,
-                        'tx_hash'  => $result['data']->tx_hash,
-                        'status'   => $result['data']->status,
-                    ], 'message' => __($result['message'])];
-                } else {
-                    $response = ['success' => false, 'message' => __($result['message'])];
-                }
+                $response = ['success' => false, 'message' => __('Please use NOWPayments for purchase.')];
             } else {
                 $response = ['success' => false, 'message' => __('Invalid payment method selected.')];
             }

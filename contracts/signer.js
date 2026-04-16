@@ -1,19 +1,19 @@
 ﻿/**
- * contracts/signer.js  v3
+ * contracts/signer.js v3
  *
  * Signs and broadcasts EVM transactions for OBXPresale admin operations.
  * Called by BlockchainService::callSignerScript() with JSON payload via stdin.
  *
- * Requires: ethers v5  (npm install in contracts/ directory)
+ * Requires: ethers v5 (npm install in contracts/ directory)
  *
- * Environment variable (passed by BlockchainService â€” NEVER log it):
- *   OWNER_PRIVATE_KEY  â€” admin BSC wallet private key
+ * Environment variable (passed by BlockchainService; never log it):
+ *   OWNER_PRIVATE_KEY - admin BSC wallet private key
  *
  * Usage via pipe:
  *   echo '{"action":"addPhase",...}' | node contracts/signer.js
  *
  * Actions:
- *   â”€â”€ Presale write â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+ *   Presale write:
  *   addPhase           OBXPresale.addPhase(...)
  *   updatePhase        OBXPresale.updatePhase(...)
  *   setPhaseActive     OBXPresale.setPhaseActive(index, bool)
@@ -25,10 +25,12 @@
  *   transferOwnership  OBXPresale.transferOwnership(address)
  *   setPaused          OBXPresale.setPaused(bool)
  *   setTreasury        OBXPresale.setTreasury(address)
- *   â”€â”€ OBXToken write â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+ *
+ *   OBXToken write:
  *   fundPresale        OBXToken.transfer(presaleContract, amount)
  *   setFeeExempt       OBXToken.setFeeExempt(address, bool)
- *   â”€â”€ Utility (no RPC needed) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+ *
+ *   Utility (no RPC needed):
  *   generateWallet     Generate a random Ethereum-compatible wallet
  *   computeTopic0      keccak256("EventName(types)")
  *   computeSelector    First 4 bytes of keccak256("funcName(types)")
@@ -59,7 +61,7 @@ const OBX_TOKEN_CONTRACTS = {
     137: process.env.OBX_TOKEN_POLYGON || process.env.OBX_TOKEN_CONTRACT || '',
 };
 
-// â”€â”€â”€ ABIs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ABIs
 
 const PRESALE_ABI = [
     // Phase management
@@ -191,7 +193,7 @@ function resolveContractAddress(payload) {
     return presaleAddress ? normalizeAddress(presaleAddress) : '';
 }
 
-// â”€â”€â”€ Entry point â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//  Entry point 
 
 async function main() {
     let raw = '';
@@ -205,7 +207,7 @@ async function main() {
         process.exit(1);
     }
 
-    // â”€â”€ Wallet generation â€” no RPC or private key needed â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    //  Wallet generation  no RPC or private key needed 
     if (payload.action === 'generateWallet') {
         const w = ethers.Wallet.createRandom();
         out({
@@ -216,10 +218,10 @@ async function main() {
         return;
     }
 
-    // -- User wallet transfer: uses SIGNER_PRIVATE_KEY, not OWNER_PRIVATE_KEY --
+    // -- User wallet transfer: uses OWNER_PRIVATE_KEY (owner-funded gas model) --
     if (payload.action === 'transferObx') {
-        const signerKey = normalizePrivateKey(process.env.SIGNER_PRIVATE_KEY);
-        if (!signerKey) { out({ error: 'SIGNER_PRIVATE_KEY not set for transferObx' }); process.exit(1); }
+        const ownerKey = normalizePrivateKey(process.env.OWNER_PRIVATE_KEY);
+        if (!ownerKey) { out({ error: 'OWNER_PRIVATE_KEY not set for transferObx' }); process.exit(1); }
         const p = payload.params || {};
         const chainId = resolveChainId(payload);
         const obxTokenAddress = p.obxTokenAddress ? normalizeAddress(p.obxTokenAddress) : resolveContractAddress({ ...payload, contractType: 'token' });
@@ -230,8 +232,8 @@ async function main() {
         }
         try {
             const { provider, rpcUrl } = await resolveWorkingProvider(payload, chainId);
-            const userWallet = new ethers.Wallet(signerKey, provider);
-            const obxToken   = new ethers.Contract(obxTokenAddress, OBX_TOKEN_ABI, userWallet);
+            const ownerWallet = new ethers.Wallet(ownerKey, provider);
+            const obxToken   = new ethers.Contract(obxTokenAddress, OBX_TOKEN_ABI, ownerWallet);
             const tx         = await obxToken.transfer(normalizeAddress(p.to), ethers.BigNumber.from(p.amount));
             const receipt    = await tx.wait(1);
             out({ txHash: tx.hash, blockNumber: receipt.blockNumber, gasUsed: receipt.gasUsed.toString(), rpcUrl, success: true });
@@ -242,10 +244,10 @@ async function main() {
         return;
     }
 
-    // -- Native gas transfer: uses SIGNER_PRIVATE_KEY, not OWNER_PRIVATE_KEY --
+    // -- Native gas transfer: uses OWNER_PRIVATE_KEY (owner-funded gas model) --
     if (payload.action === 'transferNative') {
-        const signerKey = normalizePrivateKey(process.env.SIGNER_PRIVATE_KEY);
-        if (!signerKey) { out({ error: 'SIGNER_PRIVATE_KEY not set for transferNative' }); process.exit(1); }
+        const ownerKey = normalizePrivateKey(process.env.OWNER_PRIVATE_KEY);
+        if (!ownerKey) { out({ error: 'OWNER_PRIVATE_KEY not set for transferNative' }); process.exit(1); }
         const p = payload.params || {};
         const chainId = resolveChainId(payload);
 
@@ -256,8 +258,8 @@ async function main() {
 
         try {
             const { provider, rpcUrl } = await resolveWorkingProvider(payload, chainId);
-            const signerWallet = new ethers.Wallet(signerKey, provider);
-            const tx = await signerWallet.sendTransaction({
+            const ownerWallet = new ethers.Wallet(ownerKey, provider);
+            const tx = await ownerWallet.sendTransaction({
                 to: normalizeAddress(p.to),
                 value: ethers.BigNumber.from(p.amount),
             });
@@ -271,7 +273,7 @@ async function main() {
     }
 
 
-    // â”€â”€ Utility â€” keccak helpers (no wallet needed) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    //  Utility  keccak helpers (no wallet needed) 
     if (payload.action === 'computeTopic0') {
         try {
             const iface  = new ethers.utils.Interface(PRESALE_ABI);
@@ -290,7 +292,7 @@ async function main() {
         return;
     }
 
-    // â”€â”€ All write actions require private key + RPC â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    //  All write actions require private key + RPC 
     const privateKey = normalizePrivateKey(process.env.OWNER_PRIVATE_KEY);
     if (!privateKey) {
         out({ error: 'OWNER_PRIVATE_KEY not set in environment' });
@@ -315,7 +317,7 @@ async function main() {
     try {
         switch (payload.action) {
 
-            // â”€â”€ Presale phase management â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            //  Presale phase management 
 
             case 'addPhase':
                 tx = await contract.addPhase(
@@ -346,7 +348,7 @@ async function main() {
                 tx = await contract.setPhaseActive(p.contractPhaseIndex, p.active);
                 break;
 
-            // â”€â”€ Liquidity management â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            //  Liquidity management 
 
             case 'flushLiquidity':
                 tx = await contract.flushLiquidity();
@@ -366,7 +368,7 @@ async function main() {
                 );
                 break;
 
-            // â”€â”€ Config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            //  Config 
 
             case 'setPaused':
                 tx = await contract.setPaused(p.paused);
@@ -391,7 +393,7 @@ async function main() {
                 tx = await contract.transferOwnership(normalizeAddress(p.newOwner));
                 break;
 
-            // â”€â”€ OBXToken operations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            //  OBXToken operations 
 
             case 'fundPresale': {
                 const obxTokenAddress = p.obxTokenAddress ? normalizeAddress(p.obxTokenAddress) : resolveContractAddress({ ...payload, contractType: 'token' });
@@ -440,3 +442,4 @@ main().catch(e => {
     out({ error: e.message });
     process.exit(1);
 });
+

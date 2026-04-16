@@ -9,9 +9,11 @@ return [
     |
     | Set these in your .env file. Never commit private keys to git.
     |
-    | PRESALE_CHAIN_ID:
-    |   56  = BSC Mainnet      97  = BSC Testnet
-    |   1   = Ethereum         137 = Polygon
+    | PRESALE_CHAIN_ID (Etherscan V2 supported in app):
+    |   1   = Ethereum Mainnet
+    |   56  = BSC Mainnet
+    |   97  = BSC Testnet
+    |   137 = Polygon Mainnet
     |
     */
 
