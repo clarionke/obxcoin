@@ -215,16 +215,26 @@ class CoinController extends Controller
     {
         $data['title'] = __('Payment Details');
 
-        // Look up by numeric DB id
-        if (is_numeric($address)) {
-            $coinAddress = BuyCoinHistory::where(['user_id' => Auth::id(), 'id' => $address])->first();
-        } else {
-            // NOWPayments payment_id (UUID string)
-            $coinAddress = BuyCoinHistory::where(['user_id' => Auth::id(), 'nowpayments_payment_id' => $address])->first();
-            // Fallback: plain address
-            if (!$coinAddress) {
-                $coinAddress = BuyCoinHistory::where(['user_id' => Auth::id(), 'address' => $address])->first();
-            }
+        // Always check NOWPayments payment_id first (it can be numeric as well).
+        $coinAddress = BuyCoinHistory::where([
+            'user_id' => Auth::id(),
+            'nowpayments_payment_id' => (string) $address,
+        ])->first();
+
+        // Fallback to local DB id only if the route param is numeric.
+        if (!$coinAddress && is_numeric($address)) {
+            $coinAddress = BuyCoinHistory::where([
+                'user_id' => Auth::id(),
+                'id' => (int) $address,
+            ])->first();
+        }
+
+        // Final fallback: plain address.
+        if (!$coinAddress) {
+            $coinAddress = BuyCoinHistory::where([
+                'user_id' => Auth::id(),
+                'address' => $address,
+            ])->first();
         }
 
         if (isset($coinAddress)) {
