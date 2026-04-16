@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Model\AdminSetting;
 use App\Model\BuyCoinHistory;
 use App\Model\Wallet;
+use App\Model\WalletAddressHistory;
 use App\Services\BlockchainService;
 use App\Services\NowPaymentsService;
 use App\User;
@@ -125,5 +126,77 @@ class NowPaymentsPaymentStatusSyncTest extends TestCase
 
         $this->assertNotNull($wallet);
         $this->assertSame(15.0, (float) $wallet->balance);
+    }
+
+    /** @test */
+    public function status_endpoint_uses_default_obx_wallet_history_when_bsc_wallet_is_missing(): void
+    {
+        $user = User::factory()->create([
+            'role' => 2,
+            'status' => 1,
+            'is_verified' => 1,
+            'bsc_wallet' => null,
+        ]);
+
+        $wallet = Wallet::create([
+            'user_id' => $user->id,
+            'coin_type' => DEFAULT_COIN_TYPE,
+            'is_primary' => 1,
+            'balance' => 0,
+            'name' => 'OBX Wallet',
+        ]);
+
+        WalletAddressHistory::create([
+            'wallet_id' => $wallet->id,
+            'address' => '0x7777777777777777777777777777777777777777',
+            'coin_type' => DEFAULT_COIN_TYPE,
+        ]);
+
+        DB::table('buy_coin_histories')->insert([
+            'address' => 'np-sync-order-2',
+            'type' => NOWPAYMENTS,
+            'user_id' => $user->id,
+            'coin' => 7,
+            'btc' => 0,
+            'doller' => 7,
+            'status' => STATUS_PENDING,
+            'admin_confirmation' => STATUS_PENDING,
+            'confirmations' => 0,
+            'coin_type' => 'BTC',
+            'requested_amount' => 7,
+            'buyer_wallet' => null,
+            'nowpayments_payment_id' => 'np-sync-002',
+            'obx_delivery_status' => 'pending',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $np = \Mockery::mock(NowPaymentsService::class);
+        $np->shouldReceive('getPaymentStatus')->once()->with('np-sync-002')->andReturn([
+            'payment_id' => 'np-sync-002',
+            'payment_status' => 'finished',
+            'payin_hash' => '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
+        ]);
+        $this->app->instance(NowPaymentsService::class, $np);
+
+        $txHash = '0xabababababababababababababababababababababababababababababababab';
+        $blockchain = \Mockery::mock(BlockchainService::class);
+        $blockchain->shouldReceive('transferObxOnChain')
+            ->once()
+            ->with('0x7777777777777777777777777777777777777777', '7')
+            ->andReturn(['txHash' => $txHash]);
+        $this->app->instance(BlockchainService::class, $blockchain);
+
+        $response = $this->actingAs($user)->get(route('buyCoinPaymentStatus', ['address' => 'np-sync-002']));
+        $response->assertOk();
+        $response->assertJson([
+            'success' => true,
+            'status_code' => STATUS_SUCCESS,
+            'obx_delivery_status' => 'success',
+            'credited' => true,
+            'remote_status' => 'finished',
+        ]);
+
+        $this->assertSame(7.0, (float) $wallet->fresh()->balance);
     }
 }

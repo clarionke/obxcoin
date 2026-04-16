@@ -427,10 +427,19 @@ class CoinController extends Controller
     {
         $purchase->loadMissing('user');
 
+        $historyAddress = '';
+        $primaryWallet = get_primary_wallet((int) $purchase->user_id, DEFAULT_COIN_TYPE);
+        if ($primaryWallet) {
+            $historyAddress = (string) WalletAddressHistory::where('wallet_id', (int) $primaryWallet->id)
+                ->orderByDesc('id')
+                ->value('address');
+        }
+
         $candidates = [
             strtolower(trim((string) ($purchase->buyer_wallet ?? ''))),
             strtolower(trim((string) ($purchase->wc_buyer_address ?? ''))),
             strtolower(trim((string) ($purchase->user->bsc_wallet ?? ''))),
+            strtolower(trim($historyAddress)),
         ];
 
         foreach ($candidates as $candidate) {
