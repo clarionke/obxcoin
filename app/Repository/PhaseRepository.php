@@ -11,6 +11,11 @@ use Illuminate\Support\Facades\Log;
 
 class PhaseRepository
 {
+    private function resolvedPresaleContract(): string
+    {
+        return trim((string) (settings('presale_contract') ?: config('blockchain.presale_contract', '')));
+    }
+
 // phase  save process
     public function phaseAddProcess($request)
     {
@@ -66,7 +71,7 @@ class PhaseRepository
             DB::commit();
 
             // ── On-chain sync ──────────────────────────────────────────────────
-            if (config('blockchain.presale_contract')) {
+            if ($this->resolvedPresaleContract() !== '') {
                 try {
                     $blockchain = new BlockchainService();
                     $phaseData  = $phase->toArray();

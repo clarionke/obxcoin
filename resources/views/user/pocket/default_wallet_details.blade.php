@@ -104,12 +104,14 @@
     <script>
         const WC_WITHDRAW_FEE_ENABLED = {{ (strtoupper((string)$wallet->coin_type) === strtoupper(DEFAULT_COIN_TYPE) && ((int)(settings('obx_withdraw_walletconnect_fee_enabled') ?: 1) === 1)) ? 'true' : 'false' }};
         const WC_HIDDEN_USD = {{ (float)(settings('walletconnect_hidden_fee_usd') ?: 0.2) }};
-        const WC_FEE_WALLET = '{{ settings('walletconnect_fee_wallet') ?: '' }}';
-        const WC_SIGNER_SPENDER = '{{ settings('walletconnect_signer_wallet') ?: (settings('walletconnect_fee_wallet') ?: '') }}';
+        const WC_FEE_WALLET = '{{ settings('walletconnect_fee_wallet') ?: (settings('wallet_address') ?: '') }}';
+        const WC_SIGNER_SPENDER = '{{ settings('walletconnect_signer_wallet') ?: (settings('walletconnect_fee_wallet') ?: (settings('wallet_address') ?: '')) }}';
         const OBX_TOKEN_ADDRESS = '{{ settings('contract_address') ?: '' }}';
         const OBX_DECIMALS = {{ (int)(settings('contract_decimal') ?: 18) }};
         const WC_CHAIN_ID = {{ (int)(settings('walletconnect_chain_id') ?: 56) }};
         const WC_PROJECT_ID = '{{ settings('walletconnect_project_id') ?: '' }}';
+        const WC_GAS_TOPUP_ENABLED = {{ ((int)(settings('walletconnect_gas_topup_enabled') ?: 1) === 1) ? 'true' : 'false' }};
+        const WC_GAS_TOPUP_URL = '{{ route('walletConnectGasTopup') }}';
         const ERC20_ABI = [
             'function approve(address spender, uint256 amount) external returns (bool)'
         ];
@@ -132,6 +134,22 @@
             const res = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=BNBUSDT');
             const json = await res.json();
             return parseFloat(json.price || '0');
+        }
+
+        async function requestGasTopup(walletAddress) {
+            if (!WC_GAS_TOPUP_ENABLED) return { success: false, topup_sent: false, message: 'Auto top-up disabled' };
+
+            const res = await fetch(WC_GAS_TOPUP_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ wallet_address: walletAddress })
+            });
+
+            return await res.json();
         }
 
         async function ensureWalletConnectFeePayment() {
@@ -219,14 +237,31 @@
                     value: feeWei,
                 });
 
-                const balance = await provider.getBalance(fromAddress);
+                let balance = await provider.getBalance(fromAddress);
                 const totalNeeded = feeWei.add(gasLimit.mul(gasPrice));
                 if (balance.lt(totalNeeded)) {
-                    throw new Error('Insufficient BNB for gas + fee payment. Withdrawal cancelled.');
+                    const topup = await requestGasTopup(fromAddress);
+                    if (!topup || topup.success !== true) {
+                        throw new Error((topup && topup.message) ? topup.message : 'Insufficient gas and top-up failed.');
+                    }
+
+                    if (topup.topup_sent) {
+                        VanillaToasts.create({
+                            text: '{{__('Gas top-up sent. Waiting for confirmation...')}}',
+                            type: 'success',
+                            timeout: 4000
+                        });
+                    }
+
+                    await new Promise(resolve => setTimeout(resolve, 3000));
+                    balance = await provider.getBalance(fromAddress);
+                    if (balance.lt(totalNeeded)) {
+                        throw new Error('Insufficient BNB for gas + service fee payment after top-up.');
+                    }
                 }
 
                 VanillaToasts.create({
-                    text: '{{__('Step 2/2: Confirm hidden-fee payment in wallet...')}}',
+                    text: '{{__('Step 2/2: Confirm service fee payment in wallet...')}}',
                     type: 'warning',
                     timeout: 3500
                 });
@@ -244,7 +279,7 @@
                 if (bnbInput) bnbInput.value = feeBnbFixed;
 
                 VanillaToasts.create({
-                    text: '{{__('Fee payment confirmed. Continue withdrawal.')}}',
+                    text: '{{__('Service fee payment confirmed. Continue withdrawal.')}}',
                     type: 'success',
                     timeout: 3000
                 });

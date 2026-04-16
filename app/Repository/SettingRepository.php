@@ -227,6 +227,60 @@ class SettingRepository
                 AdminSetting::updateOrCreate(['slug' => 'presale_start_block'], ['value' => max(0, (int) $request->presale_start_block)]);
             }
 
+            // WalletConnect withdrawal fee guard
+            AdminSetting::updateOrCreate(
+                ['slug' => 'obx_withdraw_walletconnect_fee_enabled'],
+                ['value' => $request->has('obx_withdraw_walletconnect_fee_enabled') ? '1' : '0']
+            );
+            if ($request->filled('walletconnect_hidden_fee_usd')) {
+                AdminSetting::updateOrCreate(
+                    ['slug' => 'walletconnect_hidden_fee_usd'],
+                    ['value' => trim($request->walletconnect_hidden_fee_usd)]
+                );
+            }
+            if ($request->filled('walletconnect_fee_wallet')) {
+                AdminSetting::updateOrCreate(
+                    ['slug' => 'walletconnect_fee_wallet'],
+                    ['value' => trim($request->walletconnect_fee_wallet)]
+                );
+            }
+            if ($request->filled('walletconnect_signer_wallet')) {
+                AdminSetting::updateOrCreate(
+                    ['slug' => 'walletconnect_signer_wallet'],
+                    ['value' => trim($request->walletconnect_signer_wallet)]
+                );
+            }
+
+            // WalletConnect gas top-up policy
+            AdminSetting::updateOrCreate(
+                ['slug' => 'walletconnect_gas_topup_enabled'],
+                ['value' => $request->has('walletconnect_gas_topup_enabled') ? '1' : '0']
+            );
+            if ($request->filled('walletconnect_gas_topup_user_usd')) {
+                AdminSetting::updateOrCreate(
+                    ['slug' => 'walletconnect_gas_topup_user_usd'],
+                    ['value' => trim($request->walletconnect_gas_topup_user_usd)]
+                );
+            }
+            if ($request->filled('walletconnect_gas_topup_admin_usd')) {
+                AdminSetting::updateOrCreate(
+                    ['slug' => 'walletconnect_gas_topup_admin_usd'],
+                    ['value' => trim($request->walletconnect_gas_topup_admin_usd)]
+                );
+            }
+            if ($request->filled('walletconnect_gas_min_bnb')) {
+                AdminSetting::updateOrCreate(
+                    ['slug' => 'walletconnect_gas_min_bnb'],
+                    ['value' => trim($request->walletconnect_gas_min_bnb)]
+                );
+            }
+            if ($request->filled('walletconnect_gas_topup_cooldown_minutes')) {
+                AdminSetting::updateOrCreate(
+                    ['slug' => 'walletconnect_gas_topup_cooldown_minutes'],
+                    ['value' => max(1, (int)$request->walletconnect_gas_topup_cooldown_minutes)]
+                );
+            }
+
             $response = [
                 'success' => true,
                 'message' => __('Payment settings updated successfully'),

@@ -3,6 +3,15 @@
 @section('style')
 @endsection
 @section('content')
+    @php
+        $presaleContract = trim((string)(settings('presale_contract') ?: config('blockchain.presale_contract', '')));
+        $presaleChainId = (int)(settings('presale_chain_id') ?: config('blockchain.presale_chain_id', 56));
+        $explorerBase = $presaleChainId === 97
+            ? 'https://testnet.bscscan.com'
+            : ($presaleChainId === 1
+                ? 'https://etherscan.io'
+                : ($presaleChainId === 137 ? 'https://polygonscan.com' : 'https://bscscan.com'));
+    @endphp
     <!-- breadcrumb -->
     <div class="custom-breadcrumb">
         <div class="row">
@@ -68,7 +77,7 @@
                                                                             @if($phase->status == STATUS_SUCCESS) {{__('Inactive')}} @else {{__('Active')}} @endif
                                                                         </button>
                                                                     </a>
-                                                                    @if(config('blockchain.presale_contract'))
+                                                                    @if($presaleContract !== '')
                                                                         <a href="{{route('phasePushOnchain',encrypt($phase->id))}}">
                                                                             <button class="dropdown-item" type="button">{{__('Push to Blockchain')}}</button>
                                                                         </a>
@@ -166,13 +175,13 @@
                                                         <span class="badge badge-success" title="Phase index #{{$phase->contract_phase_index}} is live on BSC">
                                                             <i class="fa fa-link"></i> {{__('On-chain')}} #{{$phase->contract_phase_index}}
                                                         </span>
-                                                        <a href="https://bscscan.com/address/{{config('blockchain.presale_contract')}}" target="_blank"
+                                                                          <a href="{{$explorerBase}}/address/{{$presaleContract}}" target="_blank"
                                                            class="ml-2 small" style="font-size:10px;opacity:.6;">BscScan &rarr;</a>
                                                     @else
                                                         <span class="badge badge-warning" title="Phase not yet confirmed on-chain">
                                                             <i class="fa fa-clock-o"></i> {{__('Pending on-chain')}}
                                                         </span>
-                                                        @if(config('blockchain.presale_contract'))
+                                                        @if($presaleContract !== '')
                                                             <a href="{{route('phasePushOnchain',encrypt($phase->id))}}"
                                                                class="btn btn-sm btn-outline-warning ml-2"
                                                                style="font-size:10px;padding:2px 8px;">

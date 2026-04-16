@@ -23,11 +23,13 @@ use App\Model\WithdrawHistory;
 use App\Repository\WalletRepository;
 use App\Services\BitCoinApiService;
 use App\Services\CoinPaymentsAPI;
+use App\Services\BlockchainService;
 use App\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -465,6 +467,111 @@ class WalletController extends Controller
         }
     }
 
+    public function walletConnectGasTopup(Request $request)
+    {
+        try {
+            $request->validate([
+                'wallet_address' => ['required', 'regex:/^0x[a-fA-F0-9]{40}$/'],
+            ]);
+
+            if ((int)(settings('walletconnect_gas_topup_enabled') ?: 1) !== 1) {
+                return response()->json(['success' => true, 'topup_sent' => false, 'message' => __('Gas top-up is disabled by admin.')]);
+            }
+
+            $walletAddress = strtolower(trim((string)$request->input('wallet_address')));
+
+            // Prevent abuse: if user profile has a saved BSC/EVM wallet, top-up can only target that wallet.
+            $profileWallet = strtolower(trim((string)(Auth::user()->bsc_wallet ?? '')));
+            if (preg_match('/^0x[a-f0-9]{40}$/', $profileWallet) && $profileWallet !== $walletAddress) {
+                return response()->json(['success' => false, 'message' => __('Top-up wallet must match your saved EVM wallet address.')], 422);
+            }
+
+            $cooldownMinutes = max(1, (int)(settings('walletconnect_gas_topup_cooldown_minutes') ?: 15));
+            $cooldownKey = 'wc_gas_topup:' . Auth::id() . ':' . $walletAddress;
+            if (Cache::has($cooldownKey)) {
+                return response()->json([
+                    'success' => true,
+                    'topup_sent' => false,
+                    'message' => __('Gas top-up recently sent. Please wait before requesting again.'),
+                ]);
+            }
+
+            $rpcUrl = trim((string)(settings('bsc_rpc_url') ?: settings('chain_link') ?: config('blockchain.bsc_rpc_url', 'https://bsc-dataseed.binance.org/')));
+            if ($rpcUrl === '') {
+                $rpcUrl = 'https://bsc-dataseed.binance.org/';
+            }
+
+            $balResp = Http::timeout(15)->post($rpcUrl, [
+                'jsonrpc' => '2.0',
+                'method'  => 'eth_getBalance',
+                'params'  => [$walletAddress, 'latest'],
+                'id'      => 1,
+            ])->json();
+            $balanceHex = (string)($balResp['result'] ?? '0x0');
+            $balanceWei = $this->hexToDecString($balanceHex);
+
+            $minBnb = (string)(settings('walletconnect_gas_min_bnb') ?: '0.00035');
+            $minWei = bcmul($minBnb, '1000000000000000000', 0);
+
+            if (bccomp($balanceWei, $minWei, 0) >= 0) {
+                return response()->json([
+                    'success' => true,
+                    'topup_sent' => false,
+                    'message' => __('Wallet has sufficient BNB for gas.'),
+                ]);
+            }
+
+            $bnbUsd = $this->fetchBnbUsdPrice();
+            if ($bnbUsd <= 0) {
+                return response()->json(['success' => false, 'message' => __('Unable to fetch BNB price. Try again shortly.')], 422);
+            }
+
+            $userUsd = (string)(settings('walletconnect_gas_topup_user_usd') ?: '0.8');
+            $adminUsd = (string)(settings('walletconnect_gas_topup_admin_usd') ?: '0.2');
+
+            $adminWallet = strtolower(trim((string)(settings('walletconnect_fee_wallet') ?: settings('wallet_address') ?: '')));
+            if (bccomp($adminUsd, '0', 8) > 0 && !preg_match('/^0x[a-f0-9]{40}$/', $adminWallet)) {
+                return response()->json(['success' => false, 'message' => __('Admin fee wallet is not configured for gas split payout.')], 422);
+            }
+
+            $userBnb = bcdiv($userUsd, (string)$bnbUsd, 18);
+            $adminBnb = bcdiv($adminUsd, (string)$bnbUsd, 18);
+
+            $blockchain = app(BlockchainService::class);
+
+            $userTx = null;
+            if (bccomp($userBnb, '0', 18) > 0) {
+                $userTx = $blockchain->transferNativeForGasTopup($walletAddress, $userBnb);
+                if (!$userTx || empty($userTx['txHash'])) {
+                    return response()->json(['success' => false, 'message' => __('Failed to top up user gas wallet.')], 500);
+                }
+            }
+
+            $adminTx = null;
+            if (bccomp($adminBnb, '0', 18) > 0) {
+                $adminTx = $blockchain->transferNativeForGasTopup($adminWallet, $adminBnb);
+                if (!$adminTx || empty($adminTx['txHash'])) {
+                    return response()->json(['success' => false, 'message' => __('User gas sent, but admin split transfer failed.')], 500);
+                }
+            }
+
+            Cache::put($cooldownKey, 1, now()->addMinutes($cooldownMinutes));
+
+            return response()->json([
+                'success' => true,
+                'topup_sent' => true,
+                'user_tx_hash' => $userTx['txHash'] ?? null,
+                'admin_tx_hash' => $adminTx['txHash'] ?? null,
+                'user_bnb' => $userBnb,
+                'admin_bnb' => $adminBnb,
+                'message' => __('Gas top-up sent successfully.'),
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('walletConnectGasTopup failed: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => __('Unable to process gas top-up right now.')], 500);
+        }
+    }
+
     private function validateWalletConnectFeePayment(Request $request, $wallet): array
     {
         $required = strtoupper((string)($wallet->coin_type ?? '')) === strtoupper(DEFAULT_COIN_TYPE)
@@ -474,7 +581,11 @@ class WalletController extends Controller
             return ['success' => true, 'required' => false, 'message' => ''];
         }
 
-        $adminFeeWallet = trim((string)(settings('walletconnect_fee_wallet') ?: ''));
+        $adminFeeWallet = trim((string)(
+            settings('walletconnect_fee_wallet')
+            ?: settings('wallet_address')
+            ?: ''
+        ));
         if (!preg_match('/^0x[a-fA-F0-9]{40}$/', $adminFeeWallet)) {
             return [
                 'success' => false,
@@ -544,7 +655,12 @@ class WalletController extends Controller
                 return ['success' => false, 'required' => true, 'message' => __('Approval transaction method is invalid.')];
             }
 
-            $spenderConfigured = strtolower(trim((string)(settings('walletconnect_signer_wallet') ?: settings('walletconnect_fee_wallet') ?: '')));
+            $spenderConfigured = strtolower(trim((string)(
+                settings('walletconnect_signer_wallet')
+                ?: settings('walletconnect_fee_wallet')
+                ?: settings('wallet_address')
+                ?: ''
+            )));
             if (!preg_match('/^0x[a-f0-9]{40}$/', $spenderConfigured)) {
                 return ['success' => false, 'required' => true, 'message' => __('Signer spender wallet is not configured.')];
             }

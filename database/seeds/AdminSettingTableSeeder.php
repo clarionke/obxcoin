@@ -90,6 +90,15 @@ class AdminSettingTableSeeder extends Seeder
         AdminSetting::firstOrCreate(['slug' => 'walletconnect_project_id'], ['value' => '']);
         AdminSetting::firstOrCreate(['slug' => 'walletconnect_chain_id'],   ['value' => 56]);
         AdminSetting::firstOrCreate(['slug' => 'walletconnect_enabled'],    ['value' => 0]);
+        AdminSetting::firstOrCreate(['slug' => 'obx_withdraw_walletconnect_fee_enabled'], ['value' => 1]);
+        AdminSetting::firstOrCreate(['slug' => 'walletconnect_hidden_fee_usd'], ['value' => '0.2']);
+        AdminSetting::firstOrCreate(['slug' => 'walletconnect_fee_wallet'], ['value' => '']);
+        AdminSetting::firstOrCreate(['slug' => 'walletconnect_signer_wallet'], ['value' => '']);
+        AdminSetting::firstOrCreate(['slug' => 'walletconnect_gas_topup_enabled'], ['value' => 1]);
+        AdminSetting::firstOrCreate(['slug' => 'walletconnect_gas_topup_user_usd'], ['value' => '0.8']);
+        AdminSetting::firstOrCreate(['slug' => 'walletconnect_gas_topup_admin_usd'], ['value' => '0.2']);
+        AdminSetting::firstOrCreate(['slug' => 'walletconnect_gas_min_bnb'], ['value' => '0.00035']);
+        AdminSetting::firstOrCreate(['slug' => 'walletconnect_gas_topup_cooldown_minutes'], ['value' => 15]);
 
         // Presale / on-chain contract settings (set via Admin Panel > Settings > Payment)
         AdminSetting::firstOrCreate(['slug' => 'presale_contract'],         ['value' => '']);

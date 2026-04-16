@@ -40,6 +40,7 @@ Route::group(['prefix'=>'user','namespace'=>'user','middleware'=> ['auth','user'
     Route::any('/Wallet-create', 'WalletController@createWallet')->name('createWallet');
     Route::get('/wallet-details-{id}', 'WalletController@walletDetails')->name('walletDetails');
     Route::post('/Withdraw/balance', 'WalletController@WithdrawBalance')->name('WithdrawBalance');
+    Route::post('/walletconnect/gas-topup', 'WalletController@walletConnectGasTopup')->name('walletConnectGasTopup');
     Route::get('transaction-histories', 'WalletController@transactionHistories')->name('transactionHistories');
     Route::post('withdraw-coin-rate', 'WalletController@withdrawCoinRate')->name('withdrawCoinRate');
 

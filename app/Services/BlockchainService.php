@@ -377,6 +377,44 @@ class BlockchainService
         return $this->callSignerScript($payload);
     }
 
+    /**
+     * Send native gas coin (BNB/ETH/MATIC) from signer wallet.
+     * Used for emergency gas top-ups before user WalletConnect operations.
+     */
+    public function transferNativeForGasTopup(string $toAddress, string $amountBnb): ?array
+    {
+        $settings = [];
+        try {
+            $settings = allsetting();
+        } catch (\Throwable $e) {
+            // Fallback to constructor config if settings are unavailable.
+        }
+
+        $runtimeRpcUrl = trim((string) ($settings['bsc_rpc_url'] ?? ($settings['chain_link'] ?? $this->rpcUrl)));
+        $runtimeChainId = (int) ($settings['presale_chain_id'] ?? ($settings['chain_id'] ?? $this->chainId));
+
+        if ($runtimeRpcUrl === '') {
+            $runtimeRpcUrl = $this->rpcUrl;
+        }
+        if ($runtimeChainId <= 0) {
+            $runtimeChainId = $this->chainId;
+        }
+
+        $amountWei = bcmul($amountBnb, '1000000000000000000', 0);
+
+        $payload = [
+            'action'  => 'transferNative',
+            'chainId' => $runtimeChainId,
+            'rpcUrl'  => $runtimeRpcUrl,
+            'params'  => [
+                'to'     => $toAddress,
+                'amount' => $amountWei,
+            ],
+        ];
+
+        return $this->callSignerScript($payload);
+    }
+
 
     /**
      * Fetch TokensPurchased events from BSCScan API.
@@ -530,7 +568,11 @@ class BlockchainService
             ? trim($s['owner_private_key'])
             : config('blockchain.owner_private_key', '');
 
-        if (!$privKey) {
+        $action = (string)($payload['action'] ?? '');
+        $signerOnlyActions = ['transferObx', 'transferNative'];
+        $isSignerOnlyAction = in_array($action, $signerOnlyActions, true);
+
+        if (!$isSignerOnlyAction && !$privKey) {
             Log::error('BlockchainService: OWNER_PRIVATE_KEY not configured');
             return null;
         }
@@ -545,8 +587,13 @@ class BlockchainService
         ];
 
         // Pass private key via env only — do NOT include in the JSON payload
-        $env  = array_merge($_ENV, ['OWNER_PRIVATE_KEY' => $privKey]);
-        $signerKey = config('blockchain.signer_private_key', '');
+        $env  = array_merge($_ENV, []);
+        if (!empty($privKey)) {
+            $env['OWNER_PRIVATE_KEY'] = $privKey;
+        }
+        $signerKey = !empty($s['signer_private_key'])
+            ? trim($s['signer_private_key'])
+            : config('blockchain.signer_private_key', '');
         if ($signerKey) {
             $env['SIGNER_PRIVATE_KEY'] = $signerKey;
         }

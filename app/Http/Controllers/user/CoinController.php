@@ -25,6 +25,11 @@ use Illuminate\Support\Facades\Validator;
 
 class CoinController extends Controller
 {
+    private function resolvedPresaleContract(): string
+    {
+        return trim((string) (settings('presale_contract') ?: config('blockchain.presale_contract', '')));
+    }
+
     // buy coin
     public function buyCoinPage()
     {
@@ -51,10 +56,10 @@ class CoinController extends Controller
 
             // Pass enabled payment-method flags for the view
             $data['nowpayments_enabled']  = (settings('nowpayments_enabled')   == '1');
-            $data['walletconnect_enabled']= !empty(config('blockchain.presale_contract'));
+            $data['walletconnect_enabled']= $this->resolvedPresaleContract() !== '';
             $data['wc_project_id']        = settings('walletconnect_project_id') ?? '';
             $data['wc_chain_id']          = (int)(settings('walletconnect_chain_id') ?? 56);
-            $data['presale_contract']     = config('blockchain.presale_contract', '');
+            $data['presale_contract']     = $this->resolvedPresaleContract();
             $data['usdt_address']         = config('blockchain.usdt_addresses.' . $data['wc_chain_id'], '');
             // OBX token details for wallet_watchAsset — read from Admin > OBXCoin Send Settings
             // so the admin can update them without touching .env

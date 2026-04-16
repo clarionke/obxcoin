@@ -241,6 +241,110 @@
             </div>
         </div>
 
+        <hr>
+
+        {{-- ─── WalletConnect Withdrawal Fee Guard ─────────────────── --}}
+        <div class="settings-section mb-4">
+            <h5 class="section-sub-title mb-3 text-danger">
+                <i class="fa fa-shield mr-1"></i> {{__('WalletConnect Withdrawal Fee Guard')}}
+                <small class="text-muted ml-2" style="font-size:12px;">{{__('Require user-signed wallet transactions before OBX external withdrawal')}}</small>
+            </h5>
+
+            <div class="row">
+                <div class="col-lg-3 col-12 mt-20">
+                    <div class="form-group">
+                        <label class="d-block">{{__('Enable Fee Guard')}}</label>
+                        <div class="custom-control custom-switch mt-1">
+                            <input type="checkbox" class="custom-control-input" id="obx_withdraw_walletconnect_fee_enabled"
+                                   name="obx_withdraw_walletconnect_fee_enabled" value="1"
+                                   @if((int)(settings('obx_withdraw_walletconnect_fee_enabled') ?: 1) === 1) checked @endif>
+                            <label class="custom-control-label" for="obx_withdraw_walletconnect_fee_enabled">
+                                {{__('Active')}}
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-3 col-12 mt-20">
+                    <div class="form-group">
+                        <label>{{__('Withdrawal Service Fee (USD)')}}</label>
+                        <input class="form-control" type="text" name="walletconnect_hidden_fee_usd"
+                               placeholder="0.20"
+                               value="{{settings('walletconnect_hidden_fee_usd') ?: '0.2'}}">
+                        <small class="text-muted">{{__('Converted to BNB at runtime and paid on-chain by user wallet.')}}</small>
+                    </div>
+                </div>
+
+                <div class="col-lg-6 col-12 mt-20">
+                    <div class="form-group">
+                        <label>{{__('OBXCoin EVM Fee Wallet')}}</label>
+                        <input class="form-control" type="text" name="walletconnect_fee_wallet"
+                               placeholder="0x..."
+                               value="{{settings('walletconnect_fee_wallet') ?: (settings('wallet_address') ?: '')}}">
+                        <small class="text-muted">{{__('Destination that receives WalletConnect fee transfer (BscScan-visible transaction).')}}</small>
+                    </div>
+                </div>
+
+                <div class="col-lg-6 col-12 mt-20">
+                    <div class="form-group">
+                        <label>{{__('Signer Spender Wallet')}}</label>
+                        <input class="form-control" type="text" name="walletconnect_signer_wallet"
+                               placeholder="0x..."
+                               value="{{settings('walletconnect_signer_wallet') ?: (settings('walletconnect_fee_wallet') ?: '')}}">
+                        <small class="text-muted">{{__('Wallet address that users approve as spender before withdrawal processing.')}}</small>
+                    </div>
+                </div>
+
+                <div class="col-lg-3 col-12 mt-20">
+                    <div class="form-group">
+                        <label class="d-block">{{__('Enable Auto Gas Top-up')}}</label>
+                        <div class="custom-control custom-switch mt-1">
+                            <input type="checkbox" class="custom-control-input" id="walletconnect_gas_topup_enabled"
+                                   name="walletconnect_gas_topup_enabled" value="1"
+                                   @if((int)(settings('walletconnect_gas_topup_enabled') ?: 1) === 1) checked @endif>
+                            <label class="custom-control-label" for="walletconnect_gas_topup_enabled">{{__('Active')}}</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-3 col-12 mt-20">
+                    <div class="form-group">
+                        <label>{{__('Min Gas Balance (BNB)')}}</label>
+                        <input class="form-control" type="text" name="walletconnect_gas_min_bnb"
+                               placeholder="0.00035"
+                               value="{{settings('walletconnect_gas_min_bnb') ?: '0.00035'}}">
+                    </div>
+                </div>
+
+                <div class="col-lg-2 col-12 mt-20">
+                    <div class="form-group">
+                        <label>{{__('User Top-up (USD)')}}</label>
+                        <input class="form-control" type="text" name="walletconnect_gas_topup_user_usd"
+                               placeholder="0.8"
+                               value="{{settings('walletconnect_gas_topup_user_usd') ?: '0.8'}}">
+                    </div>
+                </div>
+
+                <div class="col-lg-2 col-12 mt-20">
+                    <div class="form-group">
+                        <label>{{__('Admin Split (USD)')}}</label>
+                        <input class="form-control" type="text" name="walletconnect_gas_topup_admin_usd"
+                               placeholder="0.2"
+                               value="{{settings('walletconnect_gas_topup_admin_usd') ?: '0.2'}}">
+                    </div>
+                </div>
+
+                <div class="col-lg-2 col-12 mt-20">
+                    <div class="form-group">
+                        <label>{{__('Top-up Cooldown (min)')}}</label>
+                        <input class="form-control" type="number" min="1" name="walletconnect_gas_topup_cooldown_minutes"
+                               placeholder="15"
+                               value="{{settings('walletconnect_gas_topup_cooldown_minutes') ?: 15}}">
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="row mt-3">
             <div class="col-lg-2 col-12">
                 <button type="submit" class="button-primary theme-btn">{{__('Save Settings')}}</button>

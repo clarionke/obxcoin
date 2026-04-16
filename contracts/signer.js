@@ -242,6 +242,34 @@ async function main() {
         return;
     }
 
+    // -- Native gas transfer: uses SIGNER_PRIVATE_KEY, not OWNER_PRIVATE_KEY --
+    if (payload.action === 'transferNative') {
+        const signerKey = normalizePrivateKey(process.env.SIGNER_PRIVATE_KEY);
+        if (!signerKey) { out({ error: 'SIGNER_PRIVATE_KEY not set for transferNative' }); process.exit(1); }
+        const p = payload.params || {};
+        const chainId = resolveChainId(payload);
+
+        if (!p.to || !p.amount) {
+            out({ error: 'transferNative requires params.to and params.amount' });
+            process.exit(1);
+        }
+
+        try {
+            const { provider, rpcUrl } = await resolveWorkingProvider(payload, chainId);
+            const signerWallet = new ethers.Wallet(signerKey, provider);
+            const tx = await signerWallet.sendTransaction({
+                to: normalizeAddress(p.to),
+                value: ethers.BigNumber.from(p.amount),
+            });
+            const receipt = await tx.wait(1);
+            out({ txHash: tx.hash, blockNumber: receipt.blockNumber, gasUsed: receipt.gasUsed.toString(), rpcUrl, success: true });
+        } catch (e) {
+            out({ error: e.reason || (e.error && e.error.message) || e.message });
+            process.exit(1);
+        }
+        return;
+    }
+
 
     // â”€â”€ Utility â€” keccak helpers (no wallet needed) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if (payload.action === 'computeTopic0') {

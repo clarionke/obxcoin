@@ -26,6 +26,11 @@ use App\Http\Requests\Admin\GiveCoinRequest;
 
 class CoinController extends Controller
 {
+    private function resolvedPresaleContract(): string
+    {
+        return trim((string) (settings('presale_contract') ?: config('blockchain.presale_contract', '')));
+    }
+
     function __construct()
     {}
     public function sendCoinRequestApp(SendCoinRequest $request){
@@ -175,7 +180,7 @@ class CoinController extends Controller
             if(isset($data['settings']['nowpayments_enabled']) && ($data['settings']['nowpayments_enabled'] == 1)){
                 $data['payment_methods'][NOWPAYMENTS] = 'NOWPayments';
             }
-            if (!empty(config('blockchain.presale_contract'))) {
+            if ($this->resolvedPresaleContract() !== '') {
                 $data['payment_methods'][WALLETCONNECT] = 'WalletConnect';
             }
             unset($data['settings']);

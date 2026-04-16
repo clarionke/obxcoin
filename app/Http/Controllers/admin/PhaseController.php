@@ -12,6 +12,22 @@ use Illuminate\Support\Facades\Log;
 
 class PhaseController extends Controller
 {
+    private function resolvedPresaleContract(): string
+    {
+        return trim((string) (settings('presale_contract') ?: config('blockchain.presale_contract', '')));
+    }
+
+    private function explorerBaseUrl(): string
+    {
+        $chainId = (int) (settings('presale_chain_id') ?: config('blockchain.presale_chain_id', 56));
+        return match ($chainId) {
+            97 => 'https://testnet.bscscan.com',
+            1 => 'https://etherscan.io',
+            137 => 'https://polygonscan.com',
+            default => 'https://bscscan.com',
+        };
+    }
+
     // ico phase list
     public function adminPhaseList()
     {
@@ -129,7 +145,8 @@ class PhaseController extends Controller
                 return redirect()->back()->with(['dismiss' => __('Invalid phase')]);
             }
 
-            if (!config('blockchain.presale_contract')) {
+            $presaleContract = $this->resolvedPresaleContract();
+            if ($presaleContract === '') {
                 return redirect()->back()->with(['dismiss' => __('Presale contract is not configured.')]);
             }
 
@@ -158,8 +175,10 @@ class PhaseController extends Controller
             $phase->contract_synced = false;
             $phase->save();
 
+            $txUrl = $this->explorerBaseUrl() . '/tx/' . $result['txHash'];
+
             return redirect()->back()->with([
-                'success' => __('Phase pushed to blockchain. Pending tx: ') . $result['txHash']
+                'success' => __('Phase pushed to blockchain. Pending tx: ') . $result['txHash'] . ' | ' . $txUrl
             ]);
         } catch (\Exception $e) {
             Log::error('phasePushOnchain failed: ' . $e->getMessage());
