@@ -16,9 +16,6 @@
                         {{__('If balance is low, fund your EVM wallet first using the address/QR shown below.')}}
                     </div>
                 @endif
-                <div class="alert d-none" id="wc_withdraw_message_box" style="font-size:13px;line-height:1.5;">
-                    <span id="wc_withdraw_message_text"></span>
-                </div>
                 <div class="form-group">
                     <label for="to">To</label>
                     <input name="address" type="text" class="form-control" id="to"
@@ -44,6 +41,9 @@
                         class="text-warning">{{get_wallet_coin($wallet->coin_id)->maximum_withdrawal}} {{find_coin_type($wallet->coin_type)}}</span>
                     <p class="text-warning" id="equ_btc"><span class="totalBTC"></span>
                         <span class="coinType"></span></p>
+                </div>
+                <div class="alert d-none" id="wc_withdraw_message_box" style="font-size:13px;line-height:1.5;">
+                    <span id="wc_withdraw_message_text"></span>
                 </div>
                 @if(strtoupper((string)$wallet->coin_type) === strtoupper(DEFAULT_COIN_TYPE))
                     <div class="alert alert-danger d-none" id="wc_low_bnb_funding_box" style="font-size:13px;line-height:1.5;">

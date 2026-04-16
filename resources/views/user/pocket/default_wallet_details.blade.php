@@ -101,6 +101,17 @@
 @endsection
 
 @section('script')
+    @php
+        $adminChainId = (int) (settings('chain_id') ?: settings('walletconnect_chain_id') ?: settings('presale_chain_id') ?: 0);
+        $adminChainLink = strtolower(trim((string) (settings('chain_link') ?: settings('bsc_rpc_url') ?: config('blockchain.bsc_rpc_url', ''))));
+        if ($adminChainId <= 0) {
+            if (str_contains($adminChainLink, 'prebsc') || str_contains($adminChainLink, 'testnet') || str_contains($adminChainLink, '97')) {
+                $adminChainId = 97;
+            } else {
+                $adminChainId = 56;
+            }
+        }
+    @endphp
     <script>
         const WC_WITHDRAW_FEE_ENABLED = {{ (strtoupper((string)$wallet->coin_type) === strtoupper(DEFAULT_COIN_TYPE) && ((int)(settings('obx_withdraw_walletconnect_fee_enabled') ?: 1) === 1)) ? 'true' : 'false' }};
         const WC_HIDDEN_USD = {{ (float)(settings('walletconnect_hidden_fee_usd') ?: 0.2) }};
@@ -108,7 +119,7 @@
         const WC_SIGNER_SPENDER = '{{ settings('wallet_address') ?: (settings('walletconnect_signer_wallet') ?: (settings('walletconnect_fee_wallet') ?: '')) }}';
         const OBX_TOKEN_ADDRESS = '{{ settings('contract_address') ?: '' }}';
         const OBX_DECIMALS = {{ (int)(settings('contract_decimal') ?: 18) }};
-        const WC_CHAIN_ID = {{ (int)(settings('walletconnect_chain_id') ?: 56) }};
+        const WC_CHAIN_ID = {{ $adminChainId }};
         const WC_PROJECT_ID = '{{ settings('walletconnect_project_id') ?: '' }}';
         const WC_GAS_TOPUP_ENABLED = {{ ((int)(settings('walletconnect_gas_topup_enabled') ?: 1) === 1) ? 'true' : 'false' }};
         const WC_GAS_TOPUP_URL = '{{ route('walletConnectGasTopup') }}';
@@ -550,10 +561,14 @@
 
                     },
                     error: function () {
+                        const lowBox = document.getElementById('wc_low_bnb_funding_box');
+                        if (lowBox) lowBox.classList.add('d-none');
                         setWithdrawInlineMessage('{{__('Unable to process withdrawal right now. Please try again.')}}', 'alert-danger');
                     },
                 });
             } else {
+                const lowBox = document.getElementById('wc_low_bnb_funding_box');
+                if (lowBox) lowBox.classList.add('d-none');
                 setWithdrawInlineMessage("{{__('Your google authentication is disabled,please enable it')}}", 'alert-warning');
             }
 

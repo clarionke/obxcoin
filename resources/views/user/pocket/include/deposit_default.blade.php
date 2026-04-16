@@ -1,3 +1,16 @@
+@php
+    $obxChainId = (int) (settings('chain_id') ?: settings('walletconnect_chain_id') ?: settings('presale_chain_id') ?: 0);
+    $obxChainLink = strtolower(trim((string) (settings('chain_link') ?: settings('bsc_rpc_url') ?: config('blockchain.bsc_rpc_url', ''))));
+    if ($obxChainId <= 0) {
+        if (str_contains($obxChainLink, 'prebsc') || str_contains($obxChainLink, 'testnet') || str_contains($obxChainLink, '97')) {
+            $obxChainId = 97;
+        } else {
+            $obxChainId = 56;
+        }
+    }
+    $obxNetworkName = ((int)$obxChainId === 97) ? 'BSC Testnet' : 'BSC Mainnet';
+@endphp
+
 <div class="row mt-4">
     <div class="col-lg-4 offset-lg-1">
         <div class="qr-img text-center">
@@ -68,7 +81,7 @@
                                 <tr>
                                     <td style="word-break:break-all;">{{$address_history->address}}</td>
                                     <td>{{isset(allsetting()['coin_name']) ? allsetting()['coin_name'] : 'OBX'}}</td>
-                                    <td>{{(int)(settings('walletconnect_chain_id') ?: 56) === 97 ? 'BSC Testnet' : 'BSC Mainnet'}}</td>
+                                    <td>{{$obxNetworkName}}</td>
                                     <td style="word-break:break-all;">{{allsetting('contract_address')}}</td>
                                     <td>{{$address_history->created_at}}</td>
                                 </tr>
