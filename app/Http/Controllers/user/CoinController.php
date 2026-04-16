@@ -226,6 +226,27 @@ class CoinController extends Controller
         return redirect()->back()->with('dismiss', __('Payment record not found'));
     }
 
+    public function buyCoinCompleted($address)
+    {
+        $data['title'] = __('Payment Success');
+
+        $purchase = $this->resolvePurchaseForCurrentUser($address);
+        if (!$purchase) {
+            return redirect()->route('buyCoin')->with('dismiss', __('Payment record not found'));
+        }
+
+        if ((int) $purchase->status !== STATUS_SUCCESS) {
+            return redirect()
+                ->route('buyCoinByAddress', $purchase->nowpayments_payment_id ?: $purchase->id)
+                ->with('dismiss', __('Payment is not confirmed yet.'));
+        }
+
+        $data['coinAddress'] = $purchase;
+        $data['creditedAmount'] = (float) ($purchase->requested_amount ?? 0);
+
+        return view('user.buy_coin.payment_completed', $data);
+    }
+
     public function buyCoinPaymentStatus($address)
     {
         try {

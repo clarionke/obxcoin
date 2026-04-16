@@ -217,6 +217,7 @@
 (function(){
     @if($coinAddress->type == NOWPAYMENTS)
     var statusUrl = @json(route('buyCoinPaymentStatus', $coinAddress->nowpayments_payment_id ?: $coinAddress->id));
+    var successUrl = @json(route('buyCoinCompleted', $coinAddress->nowpayments_payment_id ?: $coinAddress->id));
     var pollHandle = null;
     var stopPolling = false;
 
@@ -264,6 +265,9 @@
 
                 if (Number(d.status_code) === {{ STATUS_SUCCESS }}) {
                     setNote('{{__('Success: OBX credited to your default OBX/EVM wallet.')}}');
+                    setTimeout(function(){
+                        window.location.href = successUrl;
+                    }, 1200);
                     return;
                 }
                 if (Number(d.status_code) === {{ STATUS_REJECTED }}) {

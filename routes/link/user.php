@@ -50,6 +50,7 @@ Route::group(['prefix'=>'user','namespace'=>'user','middleware'=> ['auth','user'
     Route::get('bank-details', 'CoinController@bankDetails')->name('bankDetails');
     Route::post('buy-coin', 'CoinController@buyCoin')->name('buyCoinProcess');
     Route::get('buy-coin-by-{address}', 'CoinController@buyCoinByAddress')->name('buyCoinByAddress');
+    Route::get('buy-coin-complete-{address}', 'CoinController@buyCoinCompleted')->name('buyCoinCompleted');
     Route::get('buy-coin-status-{address}', 'CoinController@buyCoinPaymentStatus')->name('buyCoinPaymentStatus');
     Route::get('buy-coin-history', 'CoinController@buyCoinHistory')->name('buyCoinHistory');
     Route::get('buy-coin-referral-history', 'CoinController@buyCoinReferralHistory')->name('buyCoinReferralHistory');
