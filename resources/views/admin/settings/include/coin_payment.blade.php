@@ -94,7 +94,7 @@
                 </div>
                 <div class="col-lg-4 col-12 mt-20">
                     <div class="form-group">
-                        <label>{{__('BSC Chain ID')}}</label>
+                        <label>{{__('WalletConnect Chain ID')}}</label>
                         <select class="form-control" name="walletconnect_chain_id">
                             <option value="56"  @if((settings('walletconnect_chain_id') ?? '56') == '56')  selected @endif>56 — BSC Mainnet</option>
                             <option value="97"  @if(settings('walletconnect_chain_id') == '97')  selected @endif>97 — BSC Testnet</option>
@@ -117,11 +117,125 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
 
-                <div class="col-12 mt-20">
-                    <div class="alert alert-info py-2">
-                        <strong>{{__('Presale Contract')}}:</strong>
-                        <code>{{ config('blockchain.presale_contract') ?: __('Not set — add PRESALE_CONTRACT to .env') }}</code>
+        <hr>
+
+        {{-- ─── On-Chain Contracts & Network ───────────────────────── --}}
+        <div class="settings-section mb-4">
+            <h5 class="section-sub-title mb-3 text-warning">
+                <i class="fa fa-cube mr-1"></i> {{__('On-Chain Contracts & Network')}}
+                <small class="text-muted ml-2" style="font-size:12px;">{{__('Primary source for all blockchain operations — overrides .env values')}}</small>
+            </h5>
+
+            {{-- Chain / RPC --}}
+            <div class="row">
+                <div class="col-lg-4 col-12 mt-20">
+                    <div class="form-group">
+                        <label>{{__('Chain ID')}}</label>
+                        @php $pChain = settings('presale_chain_id') ?: config('blockchain.presale_chain_id', 56); @endphp
+                        <select class="form-control" name="presale_chain_id">
+                            <option value="56"  @if($pChain == '56')  selected @endif>56 — BSC Mainnet</option>
+                            <option value="97"  @if($pChain == '97')  selected @endif>97 — BSC Testnet</option>
+                            <option value="1"   @if($pChain == '1')   selected @endif>1 — Ethereum</option>
+                            <option value="137" @if($pChain == '137') selected @endif>137 — Polygon</option>
+                        </select>
+                        <small class="text-muted">{{__('Network chain ID for all on-chain operations.')}}</small>
+                    </div>
+                </div>
+                <div class="col-lg-8 col-12 mt-20">
+                    <div class="form-group">
+                        <label>{{__('RPC URL')}}</label>
+                        <input class="form-control" type="text" name="bsc_rpc_url"
+                               placeholder="https://bsc-dataseed.binance.org/"
+                               value="{{settings('bsc_rpc_url') ?: config('blockchain.bsc_rpc_url', 'https://bsc-dataseed.binance.org/')}}">
+                        <small class="text-muted">{{__('JSON-RPC endpoint used for all eth_call and event polling.')}}</small>
+                    </div>
+                </div>
+            </div>
+
+            {{-- Contracts --}}
+            <div class="row">
+                <div class="col-lg-6 col-12 mt-20">
+                    <div class="form-group">
+                        <label>{{__('OBX Token Contract')}}</label>
+                        <input class="form-control" type="text" name="contract_address"
+                               placeholder="0x…"
+                               value="{{settings('contract_address') ?: config('blockchain.obx_token_contract')}}">
+                        <small class="text-muted">{{__('OBXToken.sol — used for withdrawals, transfers and presale funding.')}}</small>
+                    </div>
+                </div>
+                <div class="col-lg-6 col-12 mt-20">
+                    <div class="form-group">
+                        <label>{{__('Presale Contract')}}</label>
+                        <input class="form-control" type="text" name="presale_contract"
+                               placeholder="0x…"
+                               value="{{settings('presale_contract') ?: config('blockchain.presale_contract')}}">
+                        <small class="text-muted">{{__('OBXPresale.sol — handles ICO phases and token sales.')}}</small>
+                    </div>
+                </div>
+                <div class="col-lg-6 col-12 mt-20">
+                    <div class="form-group">
+                        <label>{{__('Airdrop Contract')}}</label>
+                        <input class="form-control" type="text" name="airdrop_contract"
+                               placeholder="0x…"
+                               value="{{settings('airdrop_contract') ?: ''}}">
+                        <small class="text-muted">{{__('OBXAirdrop.sol — used for airdrop distributions.')}}</small>
+                    </div>
+                </div>
+                <div class="col-lg-6 col-12 mt-20">
+                    <div class="form-group">
+                        <label>{{__('Staking Contract')}}</label>
+                        <input class="form-control" type="text" name="staking_contract"
+                               placeholder="0x…"
+                               value="{{settings('staking_contract') ?: ''}}">
+                        <small class="text-muted">{{__('OBXStaking.sol — used for staking pool management.')}}</small>
+                    </div>
+                </div>
+                <div class="col-lg-6 col-12 mt-20">
+                    <div class="form-group">
+                        <label>{{__('Treasury Wallet Address')}}</label>
+                        <input class="form-control" type="text" name="treasury_wallet"
+                               placeholder="0x…"
+                               value="{{settings('treasury_wallet') ?: ''}}">
+                        <small class="text-muted">{{__('Wallet that receives USDT from presale sales.')}}</small>
+                    </div>
+                </div>
+                <div class="col-lg-6 col-12 mt-20">
+                    <div class="form-group">
+                        <label>{{__('BSCScan API Key')}}</label>
+                        <input class="form-control" type="text" name="bscscan_api_key"
+                               autocomplete="off"
+                               placeholder="{{__('Get from bscscan.com → My Account → API Keys')}}"
+                               value="{{settings('bscscan_api_key') ?: ''}}">
+                        <small class="text-muted">{{__('Used for querying TokensPurchased events (presale sync).')}}</small>
+                    </div>
+                </div>
+            </div>
+
+            {{-- Admin wallet & scan start block --}}
+            <div class="row">
+                <div class="col-lg-8 col-12 mt-20">
+                    <div class="form-group">
+                        <label>{{__('Owner / Admin Private Key')}}</label>
+                        <input class="form-control" type="password" name="owner_private_key"
+                               autocomplete="new-password"
+                               placeholder="0x…"
+                               value="{{settings('owner_private_key') ?: ''}}">
+                        <small class="text-danger">
+                            <i class="fa fa-lock mr-1"></i>
+                            {{__('Keep this secret. Used to sign phase management transactions (addPhase, updatePhase, fundPresale).')}}
+                        </small>
+                    </div>
+                </div>
+                <div class="col-lg-4 col-12 mt-20">
+                    <div class="form-group">
+                        <label>{{__('Presale Start Block')}}</label>
+                        <input class="form-control number_only" type="text" name="presale_start_block"
+                               placeholder="0"
+                               value="{{settings('presale_start_block') ?? 0}}">
+                        <small class="text-muted">{{__('Block number at contract deployment — limits event scan range.')}}</small>
                     </div>
                 </div>
             </div>

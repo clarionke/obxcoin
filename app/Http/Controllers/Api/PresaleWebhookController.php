@@ -84,7 +84,8 @@ class PresaleWebhookController extends Controller
         }
 
         // Get last processed block from DB (stored in admin_settings)
-        $lastBlock = (int) settings('presale_last_block', config('blockchain.start_block', 0));
+        $startBlock  = (int) settings('presale_start_block', config('blockchain.start_block', 0));
+        $lastBlock   = (int) settings('presale_last_block', $startBlock);
 
         $events = $this->blockchain->getPurchaseEvents($lastBlock);
 

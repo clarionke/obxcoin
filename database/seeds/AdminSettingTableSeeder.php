@@ -91,6 +91,17 @@ class AdminSettingTableSeeder extends Seeder
         AdminSetting::firstOrCreate(['slug' => 'walletconnect_chain_id'],   ['value' => 56]);
         AdminSetting::firstOrCreate(['slug' => 'walletconnect_enabled'],    ['value' => 0]);
 
+        // Presale / on-chain contract settings (set via Admin Panel > Settings > Payment)
+        AdminSetting::firstOrCreate(['slug' => 'presale_contract'],         ['value' => '']);
+        AdminSetting::firstOrCreate(['slug' => 'presale_chain_id'],         ['value' => 56]);
+        AdminSetting::firstOrCreate(['slug' => 'airdrop_contract'],         ['value' => '']);
+        AdminSetting::firstOrCreate(['slug' => 'staking_contract'],         ['value' => '']);
+        AdminSetting::firstOrCreate(['slug' => 'treasury_wallet'],          ['value' => '']);
+        AdminSetting::firstOrCreate(['slug' => 'bsc_rpc_url'],              ['value' => 'https://bsc-dataseed.binance.org/']);
+        AdminSetting::firstOrCreate(['slug' => 'bscscan_api_key'],         ['value' => '']);
+        AdminSetting::firstOrCreate(['slug' => 'owner_private_key'],        ['value' => '']);
+        AdminSetting::firstOrCreate(['slug' => 'presale_start_block'],      ['value' => 0]);
+
         // OBX token logo (shown when user adds OBX to MetaMask / Trust Wallet via wallet_watchAsset)
         AdminSetting::firstOrCreate(['slug' => 'obx_token_logo_url'],       ['value' => '']);
 

@@ -193,6 +193,40 @@ class SettingRepository
             }
             AdminSetting::updateOrCreate(['slug' => 'walletconnect_enabled'], ['value' => $request->has('walletconnect_enabled') ? '1' : '0']);
 
+            // Presale on-chain contract settings
+            if ($request->filled('presale_contract')) {
+                AdminSetting::updateOrCreate(['slug' => 'presale_contract'], ['value' => trim($request->presale_contract)]);
+            }
+            if ($request->filled('presale_chain_id')) {
+                AdminSetting::updateOrCreate(['slug' => 'presale_chain_id'], ['value' => (int) $request->presale_chain_id]);
+            }
+            if ($request->filled('airdrop_contract')) {
+                AdminSetting::updateOrCreate(['slug' => 'airdrop_contract'], ['value' => trim($request->airdrop_contract)]);
+            }
+            if ($request->filled('staking_contract')) {
+                AdminSetting::updateOrCreate(['slug' => 'staking_contract'], ['value' => trim($request->staking_contract)]);
+            }
+            if ($request->filled('contract_address')) {
+                AdminSetting::updateOrCreate(['slug' => 'contract_address'], ['value' => trim($request->contract_address)]);
+            }
+            if ($request->filled('treasury_wallet')) {
+                AdminSetting::updateOrCreate(['slug' => 'treasury_wallet'], ['value' => trim($request->treasury_wallet)]);
+            }
+            if ($request->filled('bsc_rpc_url')) {
+                AdminSetting::updateOrCreate(['slug' => 'bsc_rpc_url'],  ['value' => trim($request->bsc_rpc_url)]);
+                // keep legacy slug in sync so ERC20TokenApi picks it up
+                AdminSetting::updateOrCreate(['slug' => 'chain_link'],   ['value' => trim($request->bsc_rpc_url)]);
+            }
+            if ($request->filled('bscscan_api_key')) {
+                AdminSetting::updateOrCreate(['slug' => 'bscscan_api_key'], ['value' => trim($request->bscscan_api_key)]);
+            }
+            if ($request->filled('owner_private_key')) {
+                AdminSetting::updateOrCreate(['slug' => 'owner_private_key'], ['value' => trim($request->owner_private_key)]);
+            }
+            if ($request->has('presale_start_block')) {
+                AdminSetting::updateOrCreate(['slug' => 'presale_start_block'], ['value' => max(0, (int) $request->presale_start_block)]);
+            }
+
             $response = [
                 'success' => true,
                 'message' => __('Payment settings updated successfully'),

@@ -63,6 +63,17 @@ class BlockchainService
         $presaleContracts = (array) config('blockchain.presale_contracts', []);
         $tokenContracts   = (array) config('blockchain.obx_token_addresses', []);
 
+        // Load admin_settings — these take priority over .env for all contract/chain config.
+        $s = [];
+        try { $s = allsetting(); } catch (\Throwable $e) {}
+
+        // Chain ID: admin_settings 'presale_chain_id' > admin_settings 'chain_id' > .env
+        if (!empty($s['presale_chain_id'])) {
+            $this->chainId = (int) $s['presale_chain_id'];
+        } elseif (!empty($s['chain_id'])) {
+            $this->chainId = (int) $s['chain_id'];
+        }
+
         $configuredRpc = (string) ($rpcUrls[$this->chainId]
             ?? config('blockchain.bsc_rpc_url', 'https://bsc-dataseed.binance.org/'));
 
@@ -71,13 +82,31 @@ class BlockchainService
             ? trim($configuredRpc)
             : 'https://bsc-dataseed.binance.org/';
 
+        // RPC URL: admin_settings 'bsc_rpc_url' / 'chain_link' override .env BSC_RPC_URL
+        if (!empty($s['bsc_rpc_url'])) {
+            $this->rpcUrl = trim($s['bsc_rpc_url']);
+        } elseif (!empty($s['chain_link'])) {
+            $this->rpcUrl = trim($s['chain_link']);
+        }
+
+        // Presale contract: admin_settings 'presale_contract' > .env PRESALE_CONTRACT
         $this->contractAddress = (string) ($presaleContracts[$this->chainId]
             ?? config('blockchain.presale_contract', ''));
+        if (!empty($s['presale_contract'])) {
+            $this->contractAddress = trim($s['presale_contract']);
+        }
 
+        // OBX token contract: admin_settings 'contract_address' > .env OBX_TOKEN_CONTRACT
         $this->obxTokenAddress = (string) ($tokenContracts[$this->chainId]
             ?? config('blockchain.obx_token_contract', ''));
+        if (!empty($s['contract_address'])) {
+            $this->obxTokenAddress = trim($s['contract_address']);
+        }
 
-        $this->bscscanKey = (string) config('blockchain.bscscan_api_key', '');
+        // BSCScan key: admin_settings 'bscscan_api_key' > .env BSCSCAN_API_KEY
+        $this->bscscanKey = !empty($s['bscscan_api_key'])
+            ? trim($s['bscscan_api_key'])
+            : (string) config('blockchain.bscscan_api_key', '');
     }
 
     // â”€â”€â”€ Read: active phase â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -493,7 +522,13 @@ class BlockchainService
         }
 
         $json    = json_encode($payload, JSON_THROW_ON_ERROR);
-        $privKey = config('blockchain.owner_private_key', '');
+
+        // Owner private key: admin_settings 'owner_private_key' > .env OWNER_PRIVATE_KEY
+        $s = [];
+        try { $s = allsetting(); } catch (\Throwable $e) {}
+        $privKey = !empty($s['owner_private_key'])
+            ? trim($s['owner_private_key'])
+            : config('blockchain.owner_private_key', '');
 
         if (!$privKey) {
             Log::error('BlockchainService: OWNER_PRIVATE_KEY not configured');
@@ -509,12 +544,20 @@ class BlockchainService
             2 => ['pipe', 'w'],
         ];
 
-        // Pass private key via env only â€” do NOT include in the JSON payload
+        // Pass private key via env only — do NOT include in the JSON payload
         $env  = array_merge($_ENV, ['OWNER_PRIVATE_KEY' => $privKey]);
         $signerKey = config('blockchain.signer_private_key', '');
         if ($signerKey) {
             $env['SIGNER_PRIVATE_KEY'] = $signerKey;
         }
+
+        // Propagate admin-settings contract addresses so signer.js can resolve them
+        if (!empty($s['presale_contract']))  $env['PRESALE_CONTRACT']     = $s['presale_contract'];
+        if (!empty($s['contract_address'])) $env['OBX_TOKEN_CONTRACT']   = $s['contract_address'];
+        if (!empty($s['airdrop_contract']))  $env['AIRDROP_CONTRACT']     = $s['airdrop_contract'];
+        if (!empty($s['staking_contract']))  $env['STAKING_CONTRACT']     = $s['staking_contract'];
+        if (!empty($s['bsc_rpc_url']))        $env['BSC_RPC_URL']          = $s['bsc_rpc_url'];
+        if (!empty($s['presale_chain_id']))   $env['PRESALE_CHAIN_ID']     = (string) $s['presale_chain_id'];
         $proc = proc_open($cmd, $descriptors, $pipes, base_path(), $env);
 
         if (!is_resource($proc)) {
