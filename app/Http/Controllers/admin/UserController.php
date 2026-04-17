@@ -377,4 +377,36 @@ class UserController extends Controller
         return true;
     }
 
+    /**
+     * Reconcile a user's OBX wallet balance from on-chain to system database.
+     * Detects and reconciles any missed deposits.
+     */
+    public function reconcileBalance(Request $request)
+    {
+        if (!$request->ajax()) {
+            return response()->json(['success' => false, 'message' => 'AJAX only'], 403);
+        }
+
+        try {
+            $userId = (int) $request->input('user_id');
+            if ($userId <= 0) {
+                return response()->json(['success' => false, 'message' => 'Invalid user ID']);
+            }
+
+            $user = User::find($userId);
+            if (!$user) {
+                return response()->json(['success' => false, 'message' => 'User not found']);
+            }
+
+            $balanceSync = new \App\Services\BalanceSyncService();
+            $result = $balanceSync->reconcileUserBalance($userId);
+
+            return response()->json($result);
+
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('reconcileBalance error: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
 }

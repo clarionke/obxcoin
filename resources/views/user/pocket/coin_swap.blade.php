@@ -106,7 +106,7 @@
 
         $(document).ready(function(){
             $('#payment_type').change(function() {
-                $('body').toggleClass('_toggle');
+                $('body').addClass('_toggle');
                 let id = $(this).val();
                 to_coin = id;
                 from_wallet_id = id;

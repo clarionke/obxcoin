@@ -513,8 +513,20 @@ class TransactionService
 
         if ( $address_type == ADDRESS_TYPE_EXTERNAL ) {
             if (strcasecmp((string) $wallet->coin_type, DEFAULT_COIN_TYPE) === 0) {
+                // Resolve the sender address (user's default OBX wallet)
+                $senderAddress = $this->resolveWithdrawalSenderAddress($wallet, $user);
+                if (empty($senderAddress) || !preg_match('/^0x[a-f0-9]{40}$/', $senderAddress)) {
+                    DB::rollBack();
+                    $this->_cancelTransaction($user, $wallet, $address, $amount, $pendingTransaction);
+                    return [
+                        'success' => false,
+                        'message' => __('User OBX wallet address not configured for withdrawal.')
+                    ];
+                }
+
                 $blockchain = app(\App\Services\BlockchainService::class);
-                $chainTx = $blockchain->transferObxOnChain($address, (string) $amount);
+                // Use transferFrom so the on-chain sender is the user's wallet (gas sponsored by backend)
+                $chainTx = $blockchain->transferObxFromOnChain($senderAddress, $address, (string) $amount);
 
                 if (empty($chainTx) || empty($chainTx['txHash'])) {
                     DB::rollBack();

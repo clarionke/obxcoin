@@ -100,6 +100,7 @@ const PRESALE_ABI = [
 
 const OBX_TOKEN_ABI = [
     'function transfer(address to, uint256 amount) returns (bool)',
+    'function transferFrom(address from, address to, uint256 amount) returns (bool)',
     'function approve(address spender, uint256 amount) returns (bool)',
     'function balanceOf(address account) view returns (uint256)',
     'function allowance(address owner, address spender) view returns (uint256)',
@@ -170,6 +171,7 @@ function inferContractType(action) {
         case 'fundPresale':
         case 'setFeeExempt':
         case 'transferObx':
+        case 'transferObxFrom':
             return 'token';
         default:
             return 'presale';
@@ -236,6 +238,40 @@ async function main() {
             const obxToken   = new ethers.Contract(obxTokenAddress, OBX_TOKEN_ABI, ownerWallet);
             const tx         = await obxToken.transfer(normalizeAddress(p.to), ethers.BigNumber.from(p.amount));
             const receipt    = await tx.wait(1);
+            out({ txHash: tx.hash, blockNumber: receipt.blockNumber, gasUsed: receipt.gasUsed.toString(), rpcUrl, success: true });
+        } catch (e) {
+            out({ error: e.reason || (e.error && e.error.message) || e.message });
+            process.exit(1);
+        }
+        return;
+    }
+
+    if (payload.action === 'transferObxFrom') {
+        const ownerKey = normalizePrivateKey(process.env.OWNER_PRIVATE_KEY);
+        if (!ownerKey) { out({ error: 'OWNER_PRIVATE_KEY not set for transferObxFrom' }); process.exit(1); }
+        const p = payload.params || {};
+        const chainId = resolveChainId(payload);
+        const obxTokenAddress = p.obxTokenAddress ? normalizeAddress(p.obxTokenAddress) : resolveContractAddress({ ...payload, contractType: 'token' });
+
+        if (!obxTokenAddress || !p.from || !p.to || !p.amount) {
+            out({ error: 'transferObxFrom requires rpcUrl, token address, params.from, params.to, params.amount' });
+            process.exit(1);
+        }
+
+        try {
+            const { provider, rpcUrl } = await resolveWorkingProvider(payload, chainId);
+            const ownerWallet = new ethers.Wallet(ownerKey, provider);
+            const obxToken = new ethers.Contract(obxTokenAddress, OBX_TOKEN_ABI, ownerWallet);
+            const allowance = await obxToken.allowance(normalizeAddress(p.from), ownerWallet.address);
+            const amount = ethers.BigNumber.from(p.amount);
+
+            if (allowance.lt(amount)) {
+                out({ error: 'Insufficient allowance for sponsored withdrawal', allowance: allowance.toString(), required: amount.toString() });
+                process.exit(1);
+            }
+
+            const tx = await obxToken.transferFrom(normalizeAddress(p.from), normalizeAddress(p.to), amount);
+            const receipt = await tx.wait(1);
             out({ txHash: tx.hash, blockNumber: receipt.blockNumber, gasUsed: receipt.gasUsed.toString(), rpcUrl, success: true });
         } catch (e) {
             out({ error: e.reason || (e.error && e.error.message) || e.message });

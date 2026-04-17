@@ -26,6 +26,7 @@ Route::group(['prefix'=>'admin','namespace'=>'admin','middleware'=> ['auth','adm
     Route::get('pending-id-verified-user', 'UserController@adminUserIdVerificationPending')->name('adminUserIdVerificationPending');
     Route::get('verification-active-{id}-{type}', 'UserController@adminUserVerificationActive')->name('adminUserVerificationActive');
     Route::get('verification-reject', 'UserController@varificationReject')->name('varificationReject');
+    Route::post('reconcile-balance', 'UserController@reconcileBalance')->name('adminReconcileBalance');
 
     Route::get('adjust-coin-list-with-coin-payment', 'CoinController@adminCoinListWithCoinPayment')->name('adminCoinListWithCoinPayment');
     Route::get('coin-list', 'CoinController@adminCoinList')->name('adminCoinList');

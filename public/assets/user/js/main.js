@@ -11,6 +11,18 @@
         $('body').removeClass('_toggle');
     });
 
+    // Clicking the dimmed backdrop should also close swipe panels.
+    $(document).on('click', '.swipe-area-overlay', function() {
+        $('body').removeClass('_toggle');
+    });
+
+    // Escape key safety: always close swipe overlay if it is open.
+    $(document).on('keydown', function(e) {
+        if (e.key === 'Escape') {
+            $('body').removeClass('_toggle');
+        }
+    });
+
     $(".cp-user-sidebar-toggler-s2").on("click", function() {
         $('body').toggleClass('_sidebar-cllopse');
     });
@@ -66,13 +78,6 @@
 
     $("#metismenu").metisMenu();
 
-    $('.menu-bars').on('click', function() {
-        $('.cp-user-sidebar').toggleClass('cp-user-sidebar-hide ');
-        $('.cp-user-top-bar').toggleClass('cp-user-content-expend');
-        $('.cp-user-main-wrapper').toggleClass('cp-user-content-expend');
-        $('.cp-user-logo').toggleClass('cp-user-logo-hide');
-    });
-
     $(window).resize(function() {
         sidebarMenuCollpase();
     });
@@ -85,20 +90,12 @@
             $('.cp-user-main-wrapper').addClass('cp-user-content-expend');
             $('.cp-user-sidebar').addClass('cp-user-sidebar-hide ');
 
-            $('.menu-bars').on('click', function () {
-                $('.cp-user-main-wrapper').toggleClass('cp-user-content-expend');
-            });
-
         }
         if ($(window).width() <= 426) {
             $('.cp-user-logo').show();
             $('.cp-user-top-bar').addClass('cp-user-content-expend');
             $('.cp-user-main-wrapper').addClass('cp-user-content-expend');
             $('.cp-user-sidebar').addClass('cp-user-sidebar-hide ');
-
-            $('.menu-bars').on('click', function () {
-                $('.cp-user-main-wrapper').toggleClass('cp-user-content-expend');
-            });
         }
     }
     sidebarMenuCollpase();

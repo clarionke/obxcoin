@@ -520,76 +520,8 @@ class WalletController extends Controller
 
     private function validateWalletConnectFeePayment(Request $request, $wallet): array
     {
-        $required = strtoupper((string)($wallet->coin_type ?? '')) === strtoupper(DEFAULT_COIN_TYPE)
-            && (int)(settings('obx_withdraw_walletconnect_fee_enabled') ?: 1) === 1;
-
-        if (!$required) {
-            return ['success' => true, 'required' => false, 'message' => ''];
-        }
-
-        try {
-            $rpcUrl = trim((string)(settings('chain_link') ?: config('blockchain.bsc_rpc_url', 'https://bsc-dataseed.binance.org/')));
-            if ($rpcUrl === '') {
-                $rpcUrl = 'https://bsc-dataseed.binance.org/';
-            }
-
-            $evmWallet = $this->resolveObxEvmWalletForWithdrawal($wallet);
-            if (!preg_match('/^0x[a-f0-9]{40}$/', $evmWallet)) {
-                return [
-                    'success' => false,
-                    'required' => true,
-                    'message' => __('Set your OBX EVM wallet address before withdrawing OBX.'),
-                ];
-            }
-
-            $balanceResp = $this->rpcPostWithFallback('eth_getBalance', [$evmWallet, 'latest'], $rpcUrl);
-            $balanceWei = $this->hexToDecString((string)($balanceResp['result'] ?? '0x0'));
-
-            $minGasBnb = (string)(settings('walletconnect_gas_min_bnb') ?: '0.00035');
-            $bnbPrice = $this->fetchBnbUsdPrice();
-
-            // Minimum funding target requested: 1 USDT equivalent in BNB.
-            // If live price is unavailable, fallback to configured min gas threshold.
-            $minOneUsdtBnb = ($bnbPrice > 0)
-                ? bcdiv('1', (string)$bnbPrice, 18)
-                : $minGasBnb;
-            $requiredBnb = bccomp($minOneUsdtBnb, $minGasBnb, 18) >= 0 ? $minOneUsdtBnb : $minGasBnb;
-            $requiredWei = bcmul($requiredBnb, '1000000000000000000', 0);
-
-            if (bccomp($balanceWei, $requiredWei, 0) < 0) {
-                return [
-                    'success' => false,
-                    'required' => true,
-                    'low_bnb' => true,
-                    'message' => __('Insufficient BNB gas. Send at least :bnb BNB (~$:usd) to your OBX EVM wallet and retry.', [
-                        'bnb' => number_format((float)$requiredBnb, 8, '.', ''),
-                        'usd' => number_format(1, 2, '.', ''),
-                    ]),
-                    'gas_wallet' => $evmWallet,
-                    'required_bnb' => number_format((float)$requiredBnb, 8, '.', ''),
-                    'required_usd' => '1.00',
-                ];
-            }
-        } catch (\Throwable $e) {
-            Log::warning('OBX withdrawal gas validation failed: ' . $e->getMessage());
-
-            $fallbackWallet = $this->resolveObxEvmWalletForWithdrawal($wallet);
-            $minGasBnb = (string)(settings('walletconnect_gas_min_bnb') ?: '0.00035');
-            $bnbPrice = $this->fetchBnbUsdPrice();
-            $minOneUsdtBnb = ($bnbPrice > 0)
-                ? bcdiv('1', (string)$bnbPrice, 18)
-                : $minGasBnb;
-            $requiredBnb = bccomp($minOneUsdtBnb, $minGasBnb, 18) >= 0 ? $minOneUsdtBnb : $minGasBnb;
-
-            return [
-                'success' => false,
-                'required' => true,
-                'low_bnb' => false,
-                'message' => __('Unable to verify EVM wallet gas balance right now. Please retry shortly.'),
-            ];
-        }
-
-        return ['success' => true, 'required' => true, 'message' => ''];
+        // Gas sponsorship is now handled entirely by backend. No WalletConnect validation needed.
+        return ['success' => true, 'required' => false, 'message' => ''];
     }
 
     private function resolveObxEvmWalletForWithdrawal($wallet): string

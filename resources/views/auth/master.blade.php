@@ -107,6 +107,23 @@
 
 <script src="{{ asset('assets/admin/js/jquery.min.js') }}"></script>
 <script src="{{ asset('assets/toast/vanillatoasts.js') }}"></script>
+<script>
+// Auth pages must remain click-safe even if prior page left stale overlay classes.
+window.addEventListener('load', function () {
+    try {
+        var body = document.body;
+        if (body) {
+            body.classList.remove('_toggle', 'modal-open', 'sidebar-hidden');
+        }
+        if (window.jQuery) {
+            $('.modal-backdrop').remove();
+            $('#sidebarOverlay').removeClass('active');
+        }
+    } catch (e) {
+        // no-op
+    }
+});
+</script>
 
 @if(session()->has('success'))
 <script>

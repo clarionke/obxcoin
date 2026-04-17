@@ -388,6 +388,47 @@ class BlockchainService
         return $this->callSignerScript($payload);
     }
 
+    public function transferObxFromOnChain(string $fromAddress, string $toAddress, string $amountHuman): ?array
+    {
+        $settings = [];
+        try {
+            $settings = allsetting();
+        } catch (\Throwable $e) {
+            // Fallback to constructor config if settings are unavailable.
+        }
+
+        $runtimeRpcUrl = trim((string) ($settings['chain_link'] ?? $this->rpcUrl));
+        $runtimeChainId = (int) ($settings['chain_id'] ?? $this->chainId);
+        $runtimeTokenAddress = trim((string) ($settings['contract_address'] ?? $this->obxTokenAddress));
+
+        if ($runtimeRpcUrl === '') {
+            $runtimeRpcUrl = $this->rpcUrl;
+        }
+        if ($runtimeChainId <= 0) {
+            $runtimeChainId = $this->chainId;
+        }
+        if ($runtimeTokenAddress === '') {
+            Log::error('BlockchainService::transferObxFromOnChain: contract_address not configured in settings');
+            return null;
+        }
+
+        $amountWei = bcmul($amountHuman, '1000000000000000000', 0);
+
+        $payload = [
+            'action' => 'transferObxFrom',
+            'chainId' => $runtimeChainId,
+            'rpcUrl' => $runtimeRpcUrl,
+            'params' => [
+                'obxTokenAddress' => $runtimeTokenAddress,
+                'from'            => $fromAddress,
+                'to'              => $toAddress,
+                'amount'          => $amountWei,
+            ],
+        ];
+
+        return $this->callSignerScript($payload);
+    }
+
     /**
      * Send native gas coin (BNB/ETH/MATIC) from signer wallet.
      * Used for emergency gas top-ups before user WalletConnect operations.
