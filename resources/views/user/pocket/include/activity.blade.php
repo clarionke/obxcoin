@@ -44,7 +44,8 @@
                             <table class="table">
                                 <thead>
                                 <tr>
-                                    <th>{{__('Address')}}</th>
+                                    <th>{{__('Sender')}}</th>
+                                    <th>{{__('Destination')}}</th>
                                     <th>{{__('Amount')}}</th>
                                     <th>{{__('Transaction Hash')}}</th>
                                     <th>{{__('Status')}}</th>
@@ -79,7 +80,8 @@
                             <table class="table">
                                 <thead>
                                 <tr>
-                                    <th>{{__('Address')}}</th>
+                                    <th>{{__('Sender')}}</th>
+                                    <th>{{__('Destination')}}</th>
                                     <th>{{__('Amount')}}</th>
                                     <th>{{__('Transaction Hash')}}</th>
                                     <th>{{__('Status')}}</th>
@@ -90,7 +92,8 @@
                                 @if(isset($withdraws[0]))
                                     @foreach($withdraws as $withdraw)
                                         <tr>
-                                            <td>{{$withdraw->address}}</td>
+                                            <td style="word-break:break-all;">{{ $default_wallet_sender_address ?: __('N/A') }}</td>
+                                            <td style="word-break:break-all;">{{$withdraw->address}}</td>
                                             <td>{{ number_format((float)$withdraw->amount, 2, '.', '') }}</td>
                                             <td>
                                                 @if(!empty($withdraw->transaction_hash) && str_starts_with($withdraw->transaction_hash, '0x'))
@@ -107,7 +110,7 @@
                                     @endforeach
                                 @else
                                     <tr>
-                                        <td colspan="5"
+                                        <td colspan="6"
                                             class="text-center">{{__('No data available')}}</td>
                                     </tr>
                                 @endif
