@@ -1122,6 +1122,7 @@ class TransactionService
         }
 
         $address = $request->address;
+        $senderAddress = $this->resolveWithdrawalSenderAddress($wallet, $user);
         if (filter_var($address, FILTER_VALIDATE_EMAIL)) {
             $receiverUser = User::where('email', $address)->first();
             if (empty($receiverUser)) {
@@ -1143,6 +1144,16 @@ class TransactionService
             $fees = 0;
 
         } else {
+            $normalizedAddress = strtolower(trim((string) $address));
+            if ($senderAddress !== '' && $normalizedAddress === $senderAddress) {
+                $data = [
+                    'data' => [],
+                    'success' => false,
+                    'message' => __('You can\'t withdraw to your own default wallet address.')
+                ];
+                return $data;
+            }
+
             $walletAddress = $this->isInternalAddress($address);
             if ($walletAddress) {
                 $receiverUser = $walletAddress->wallet->user;
@@ -1198,6 +1209,23 @@ class TransactionService
         }
 
         return $data;
+    }
+
+    private function resolveWithdrawalSenderAddress($wallet, $user): string
+    {
+        $primaryWallet = get_primary_wallet((int) ($user->id ?? 0), DEFAULT_COIN_TYPE);
+        $walletId = (int) ($primaryWallet->id ?? ($wallet->id ?? 0));
+        if ($walletId > 0) {
+            $historyAddress = strtolower(trim((string) WalletAddressHistory::where('wallet_id', $walletId)
+                ->orderBy('id', 'desc')
+                ->value('address')));
+
+            if (preg_match('/^0x[a-f0-9]{40}$/', $historyAddress)) {
+                return $historyAddress;
+            }
+        }
+
+        return '';
     }
 
     // ether chain transaction

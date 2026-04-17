@@ -260,11 +260,13 @@ class WalletController extends Controller
         }
 
         $exists = WalletAddressHistory::where('wallet_id',$id)->orderBy('created_at','desc')->first();
+        $primaryDefaultWallet = get_primary_wallet((int) Auth::id(), DEFAULT_COIN_TYPE);
+        $primaryDefaultWalletId = (int) ($primaryDefaultWallet->id ?? 0);
         $data['histories'] = DepositeTransaction::where('receiver_wallet_id', $id)->orderBy('id','desc')->get();
         $data['withdraws'] = WithdrawHistory::where('wallet_id', $id)->orderBy('id','desc')->get();
-        $data['default_wallet_sender_address'] = (!empty($exists) && !empty($exists->address))
-            ? strtolower((string) $exists->address)
-            : strtolower((string) (Auth::user()->bsc_wallet ?? ''));
+        $data['default_wallet_sender_address'] = strtolower((string) WalletAddressHistory::where('wallet_id', $primaryDefaultWalletId)
+            ->orderBy('id', 'desc')
+            ->value('address'));
         $data['active'] = $request->q;
         $data['ac_tab'] = $request->q;
         $data['title'] = $request->q;
@@ -273,9 +275,9 @@ class WalletController extends Controller
             $repo = new WalletRepository();
             $repo->generateTokenAddress($data['wallet']->id);
             $data['wallet_address'] = WalletAddressHistory::where('wallet_id',$id)->orderBy('created_at','desc')->first();
-            $data['default_wallet_sender_address'] = !empty($data['wallet_address']->address)
-                ? strtolower((string) $data['wallet_address']->address)
-                : $data['default_wallet_sender_address'];
+            $data['default_wallet_sender_address'] = strtolower((string) WalletAddressHistory::where('wallet_id', $primaryDefaultWalletId)
+                ->orderBy('id', 'desc')
+                ->value('address'));
             $data['address_histories'] = WalletAddressHistory::where('wallet_id', $id)
                 ->orderBy('id', 'desc')
                 ->paginate(10);
