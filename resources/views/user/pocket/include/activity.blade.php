@@ -56,16 +56,25 @@
                                 @if(isset($histories[0]))
                                     @foreach($histories as $history)
                                         <tr>
-                                            <td>{{$history->address}}</td>
+                                            <td style="word-break:break-all;">{{ $history->from_address ?: __('N/A') }}</td>
+                                            <td style="word-break:break-all;">{{ $history->address }}</td>
                                             <td>{{ number_format((float)$history->amount, 2, '.', '') }}</td>
-                                            <td>{{$history->transaction_id}}</td>
+                                            <td>
+                                                @if(!empty($history->transaction_id) && str_starts_with($history->transaction_id, '0x'))
+                                                    <a href="https://bscscan.com/tx/{{$history->transaction_id}}" target="_blank" rel="noopener noreferrer">
+                                                        {{$history->transaction_id}}
+                                                    </a>
+                                                @else
+                                                    {{$history->transaction_id}}
+                                                @endif
+                                            </td>
                                             <td>{{deposit_status($history->status)}}</td>
                                             <td>{{$history->created_at}}</td>
                                         </tr>
                                     @endforeach
                                 @else
                                     <tr>
-                                        <td colspan="5"
+                                        <td colspan="6"
                                             class="text-center">{{__('No data available')}}</td>
                                     </tr>
                                 @endif
