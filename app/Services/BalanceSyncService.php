@@ -6,6 +6,7 @@ use App\Model\DepositeTransaction;
 use App\Model\Wallet;
 use App\Model\WalletAddressHistory;
 use App\User;
+use App\Repository\CustomTokenRepository;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -56,23 +57,19 @@ class BalanceSyncService
                 return ['success' => false, 'message' => 'User wallet address not properly configured'];
             }
 
-            // Query on-chain balance
-            $onChainBalance = $this->blockchain->getObxBalance($walletAddress);
-            $onChainBalanceDec = (string) $onChainBalance;
+            // Query on-chain and system balances first
+            $onChainBalanceDec = (string) $this->blockchain->getObxBalance($walletAddress);
+            $systemBalanceBefore = (string) $primaryWallet->balance;
 
-            // Get system balance
-            $systemBalance = (string) $primaryWallet->balance;
-
-            // Log the reconciliation
             Log::info('BalanceSyncService: Reconciling user ' . $userId, [
                 'wallet_id' => $primaryWallet->id,
                 'address' => $walletAddress,
                 'on_chain_balance' => $onChainBalanceDec,
-                'system_balance' => $systemBalance,
+                'system_balance_before' => $systemBalanceBefore,
             ]);
 
-            // If balances match, no action needed
-            if (bccomp($onChainBalanceDec, $systemBalance, 18) === 0) {
+            // If already in sync, no action needed.
+            if (bccomp($onChainBalanceDec, $systemBalanceBefore, 18) === 0) {
                 return [
                     'success' => true,
                     'message' => 'Balances already synchronized',
@@ -80,21 +77,42 @@ class BalanceSyncService
                         'wallet_id' => $primaryWallet->id,
                         'address' => $walletAddress,
                         'on_chain_balance' => $onChainBalanceDec,
-                        'system_balance' => $systemBalance,
+                        'system_balance' => $systemBalanceBefore,
                         'action' => 'none',
                     ]
                 ];
             }
 
-            // If on-chain balance is HIGHER, reconcile by creating a reconciliation deposit
-            if (bccomp($onChainBalanceDec, $systemBalance, 18) > 0) {
-                $difference = bcsub($onChainBalanceDec, $systemBalance, 18);
-                return $this->reconcileDepositDifference($primaryWallet, $walletAddress, $difference, $onChainBalanceDec, $systemBalance);
+            // Import missed deposits transaction-by-transaction into deposite_transactions.
+            $syncStats = $this->syncMissingDepositTransactions($primaryWallet, $walletAddress);
+
+            // Reload wallet balance after per-transaction sync.
+            $primaryWallet->refresh();
+            $systemBalanceAfter = (string) $primaryWallet->balance;
+
+            // If still lower than on-chain, report remaining mismatch without creating lump-sum rows.
+            if (bccomp($onChainBalanceDec, $systemBalanceAfter, 18) > 0) {
+                $remaining = bcsub($onChainBalanceDec, $systemBalanceAfter, 18);
+                return [
+                    'success' => true,
+                    'message' => 'Per-transaction reconciliation completed with remaining unmatched on-chain balance.',
+                    'data' => [
+                        'wallet_id' => $primaryWallet->id,
+                        'address' => $walletAddress,
+                        'on_chain_balance' => $onChainBalanceDec,
+                        'system_balance_before' => $systemBalanceBefore,
+                        'system_balance_after' => $systemBalanceAfter,
+                        'created_transactions' => $syncStats['created_transactions'],
+                        'credited_amount' => $syncStats['credited_amount'],
+                        'remaining_unmatched' => $remaining,
+                        'action' => 'partial_transaction_sync',
+                    ]
+                ];
             }
 
-            // If on-chain balance is LOWER, this indicates a withdrawal issue or burn
-            if (bccomp($onChainBalanceDec, $systemBalance, 18) < 0) {
-                $difference = bcsub($systemBalance, $onChainBalanceDec, 18);
+            // If system exceeds on-chain after sync, flag for investigation (withdrawals/burn/manual edits).
+            if (bccomp($onChainBalanceDec, $systemBalanceAfter, 18) < 0) {
+                $difference = bcsub($systemBalanceAfter, $onChainBalanceDec, 18);
                 return [
                     'success' => false,
                     'message' => 'System balance exceeds on-chain balance. Possible withdrawal or burn issue.',
@@ -102,14 +120,30 @@ class BalanceSyncService
                         'wallet_id' => $primaryWallet->id,
                         'address' => $walletAddress,
                         'on_chain_balance' => $onChainBalanceDec,
-                        'system_balance' => $systemBalance,
+                        'system_balance_before' => $systemBalanceBefore,
+                        'system_balance_after' => $systemBalanceAfter,
+                        'created_transactions' => $syncStats['created_transactions'],
+                        'credited_amount' => $syncStats['credited_amount'],
                         'discrepancy' => $difference,
                         'action' => 'requires_investigation',
                     ]
                 ];
             }
 
-            return ['success' => false, 'message' => 'Unknown reconciliation state'];
+            return [
+                'success' => true,
+                'message' => 'Per-transaction reconciliation completed successfully',
+                'data' => [
+                    'wallet_id' => $primaryWallet->id,
+                    'address' => $walletAddress,
+                    'on_chain_balance' => $onChainBalanceDec,
+                    'system_balance_before' => $systemBalanceBefore,
+                    'system_balance_after' => $systemBalanceAfter,
+                    'created_transactions' => $syncStats['created_transactions'],
+                    'credited_amount' => $syncStats['credited_amount'],
+                    'action' => 'transaction_sync_applied',
+                ]
+            ];
 
         } catch (\Exception $e) {
             Log::error('BalanceSyncService::reconcileUserBalance failed: ' . $e->getMessage());
@@ -118,68 +152,67 @@ class BalanceSyncService
     }
 
     /**
-     * Reconcile by creating a deposit record for the missing balance.
-     * This brings the system balance in sync with the on-chain balance.
-     * 
-     * @param Wallet $wallet
-     * @param string $address
-     * @param string $difference
-     * @param string $onChainBalance
-     * @param string $systemBalance
-     * @return array
+     * Pull token transfer events and store each missing incoming transaction
+     * as a distinct deposite_transactions row (no lump-sum reconciliation row).
      */
-    private function reconcileDepositDifference(Wallet $wallet, string $address, string $difference, string $onChainBalance, string $systemBalance): array
+    private function syncMissingDepositTransactions(Wallet $wallet, string $walletAddress): array
     {
+        $created = 0;
+        $credited = '0';
+
         try {
-            DB::beginTransaction();
+            $repo = new CustomTokenRepository();
+            $events = $repo->getLatestTransactionFromBlock();
 
-            // Create a reconciliation deposit record
-            $reconciliationDeposit = DepositeTransaction::create([
-                'address' => strtolower($address),
-                'from_address' => 'RECONCILIATION',  // Special marker for system-created reconciliation
-                'receiver_wallet_id' => $wallet->id,
-                'address_type' => ADDRESS_TYPE_EXTERNAL,
-                'type' => self::DEFAULT_COIN_TYPE_CONST,
-                'amount' => floatval($difference),
-                'doller' => bcmul($difference, (string) settings('coin_price'), 8),
-                'transaction_id' => 'RECONCILIATION-' . time(),
-                'coin_id' => $wallet->coin_id,
-                'status' => STATUS_ACTIVE,  // Mark as active immediately
-                'unique_code' => uniqid() . date('Y-m-d-H-i-s') . time(),
-            ]);
+            if (($events['success'] ?? false) !== true) {
+                return ['created_transactions' => 0, 'credited_amount' => '0'];
+            }
 
-            // Update wallet balance to match on-chain
-            $wallet->update(['balance' => floatval($onChainBalance)]);
+            $targetAddress = strtolower(trim($walletAddress));
+            $rows = $events['data'] ?? [];
 
-            DB::commit();
+            foreach ($rows as $row) {
+                $toAddress = strtolower(trim((string) ($row->to_address ?? '')));
+                $txHash = strtolower(trim((string) ($row->tx_hash ?? '')));
 
-            Log::info('BalanceSyncService: Reconciliation successful', [
-                'wallet_id' => $wallet->id,
-                'reconciliation_deposit_id' => $reconciliationDeposit->id,
-                'difference' => $difference,
-                'new_system_balance' => $onChainBalance,
-            ]);
+                if ($toAddress === '' || $txHash === '' || $toAddress !== $targetAddress) {
+                    continue;
+                }
 
-            return [
-                'success' => true,
-                'message' => 'Balance reconciliation completed successfully',
-                'data' => [
-                    'wallet_id' => $wallet->id,
-                    'address' => $address,
-                    'on_chain_balance' => $onChainBalance,
-                    'system_balance_before' => $systemBalance,
-                    'system_balance_after' => $onChainBalance,
-                    'reconciliation_deposit_id' => $reconciliationDeposit->id,
-                    'difference_credited' => $difference,
-                    'action' => 'reconciliation_applied',
-                ]
-            ];
+                $exists = DepositeTransaction::where('receiver_wallet_id', $wallet->id)
+                    ->where('transaction_id', $txHash)
+                    ->exists();
+                if ($exists) {
+                    continue;
+                }
+
+                $amountRaw = (string) ($row->amount ?? '0');
+                $amount = (float) $amountRaw;
+                if ($amount <= 0) {
+                    continue;
+                }
+
+                $result = $repo->checkAddressAndDeposit(
+                    $toAddress,
+                    $txHash,
+                    $amount,
+                    (string) ($row->from_address ?? '')
+                );
+
+                if (($result['success'] ?? false) === true) {
+                    $created++;
+                    $credited = bcadd($credited, (string) $amount, 18);
+                }
+            }
 
         } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('BalanceSyncService::reconcileDepositDifference failed: ' . $e->getMessage());
-            return ['success' => false, 'message' => $e->getMessage()];
+            Log::error('BalanceSyncService::syncMissingDepositTransactions failed: ' . $e->getMessage());
         }
+
+        return [
+            'created_transactions' => $created,
+            'credited_amount' => $credited,
+        ];
     }
 
     /**
