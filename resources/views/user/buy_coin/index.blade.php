@@ -95,7 +95,7 @@
                         @if($nowpayments_enabled)
                         <div class="payment-card dark-bg2" id="pm_nowpayments" onclick="selectPayment('nowpayments')">
                             <span class="pm-icon">💳</span>
-                            <span class="pm-label">NOWPayments</span>
+                            <span class="pm-label">USDT Payment</span>
                             <span class="pm-desc d-block mt-1">{{__('Pay with BTC, ETH, USDT, or 300+ cryptocurrencies')}}</span>
                         </div>
                         @endif
@@ -105,7 +105,7 @@
                         @endif
                     </div>
 
-                    {{-- NOWPayments panel --}}
+                    {{-- USDT Payment panel --}}
                     <div id="np-panel">
                         <div class="form-group">
                             <label>{{__('Currency to pay with')}}</label>
@@ -115,15 +115,15 @@
                                 <option value="usdtbsc" selected>USDT (BEP-20)</option>
                                 <option value="usdterc20">USDT (ERC-20)</option>
                                 <option value="bnbbsc">BNB</option>
-                                <option value="ltc">LTC — Litecoin</option>
+                                <!-- <option value="ltc">LTC — Litecoin</option>
                                 <option value="trx">TRX — Tron</option>
                                 <option value="sol">SOL — Solana</option>
                                 <option value="doge">DOGE</option>
-                                <option value="xrp">XRP</option>
+                                <option value="xrp">XRP</option> -->
                             </select>
                         </div>
                         <button type="submit" class="btn theme-btn">
-                            <i class="fa fa-credit-card mr-1"></i> {{__('Pay with NOWPayments')}}
+                            <i class="fa fa-credit-card mr-1"></i> {{__('Pay with USDT')}}
                         </button>
                     </div>
 

@@ -8,13 +8,34 @@
             $obxChainId = 56;
         }
     }
-    $obxNetworkName = ((int)$obxChainId === 97) ? 'BSC Testnet' : 'BSC Mainnet';
+    $obxNetworkName  = ((int)$obxChainId === 97) ? 'BSC Testnet' : 'BSC Mainnet';
+    $bscscanBase     = ((int)$obxChainId === 97) ? 'https://testnet.bscscan.com' : 'https://bscscan.com';
+    $contractAddr    = settings('contract_address') ?: '';
+    $depositAddress  = isset($wallet_address) ? $wallet_address->address : '';
 @endphp
+
+{{-- ── Critical network warning ── --}}
+<div class="alert alert-warning d-flex align-items-start mb-3" style="border-left:4px solid #f6c23e;border-radius:6px;">
+    <i class="fa fa-exclamation-triangle mr-2 mt-1" style="color:#f6c23e;font-size:1.2rem;flex-shrink:0;"></i>
+    <div>
+        <strong>{{__('Important — send OBX on BSC only')}}</strong><br>
+        {{__('Only send')}} <strong>OBX (BEP-20)</strong> {{__('to this address on')}} <strong>{{$obxNetworkName}}</strong>.
+        {{__('Sending any other token or using a different network will result in permanent loss of funds.')}}
+    </div>
+</div>
 
 <div class="row mt-4">
     <div class="col-lg-4 offset-lg-1">
         <div class="qr-img text-center">
-            @if(!empty($wallet_address) && !empty($wallet_address->address))  {!! QrCode::size(300)->generate($wallet_address->address); !!}
+            @if(!empty($depositAddress))
+                {!! QrCode::size(300)->generate($depositAddress); !!}
+                @if($contractAddr)
+                    <p class="mt-2 mb-0" style="font-size:11px;opacity:.7;">
+                        <a href="{{$bscscanBase}}/token/{{$contractAddr}}?a={{$depositAddress}}" target="_blank" rel="noopener noreferrer">
+                            <i class="fa fa-external-link-alt"></i> {{__('View on')}} BSCScan
+                        </a>
+                    </p>
+                @endif
             @else
                 {!! QrCode::size(300)->generate('0'); !!}
             @endif
@@ -27,7 +48,7 @@
                     <div class="input-group-prepend">
                         <button type="button" class="copy_to_clip btn">{{__('Copy')}}</button>
                     </div>
-                    <input readonly value="{{isset($wallet_address) ? $wallet_address->address : 0}}"
+                    <input readonly value="{{$depositAddress}}"
                            type="text" class="form-control" id="addressVal">
                 </div>
             </form>
@@ -38,32 +59,33 @@
                         <p><label>{{__('Token Symbol')}} :</label></p>
                         <p><label>{{isset(allsetting()['coin_name']) ? allsetting()['coin_name'] : 'OBX'}}</label></p>
                         <p><label>{{__('Network')}} :</label></p>
-                        <p><label>{{$obxNetworkName}}</label></p>
+                        <p><label>{{$obxNetworkName}} (Chain ID: {{$obxChainId}})</label></p>
                         <p><label>{{__('Contract')}} :</label></p>
-                        <p><label style="word-break:break-all;">{{allsetting('contract_address')}}</label></p>
+                        <p>
+                            <label style="word-break:break-all;">
+                                @if($contractAddr)
+                                    <a href="{{$bscscanBase}}/token/{{$contractAddr}}" target="_blank" rel="noopener noreferrer" style="word-break:break-all;">
+                                        {{$contractAddr}} <i class="fa fa-external-link-alt" style="font-size:11px;"></i>
+                                    </a>
+                                @else
+                                    {{__('Not configured')}}
+                                @endif
+                            </label>
+                        </p>
+                        <p><label>{{__('Token Standard')}} :</label></p>
+                        <p><label>BEP-20</label></p>
+                        @if($depositAddress)
+                            <p><label>{{__('Verify incoming transfers')}} :</label></p>
+                            <p>
+                                <label>
+                                    <a href="{{$bscscanBase}}/token/{{$contractAddr}}?a={{$depositAddress}}" target="_blank" rel="noopener noreferrer">
+                                        {{__('View wallet on BSCScan')}} <i class="fa fa-external-link-alt" style="font-size:11px;"></i>
+                                    </a>
+                                </label>
+                            </p>
+                        @endif
                     </div>
                 </div>
-            </div>
-        </div>
-        <div class="card mt-4">
-            <h5 class="card-header">{{__("Token Info")}}</h5>
-            <div class="card-body">
-                <p> <label for="">{{__('Chain link')}} : </label></p>
-                <p>
-                    <label for="">{{allsetting('chain_link')}}</label>
-                </p>
-                <p><label for="">{{__('Contract address')}} :</label></p>
-                <p>
-                    <label for="">
-                        {{allsetting('contract_address')}}
-                    </label>
-                </p>
-                <p><label for="">{{__('Token Symbol')}} :</label></p>
-                <p>
-                    <label for="">
-                        {{isset(allsetting()['coin_name']) ? allsetting()['coin_name'] : ''}}
-                    </label>
-                </p>
             </div>
         </div>
 

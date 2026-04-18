@@ -1,3 +1,7 @@
+@php
+    $actChainId = (int) (settings('chain_id') ?: settings('presale_chain_id') ?: 56);
+    $actBscscanBase = ($actChainId === 97) ? 'https://testnet.bscscan.com' : 'https://bscscan.com';
+@endphp
 <div class="row">
     <div class="col-lg-12">
         <div class="activity-area">
@@ -61,11 +65,12 @@
                                             <td>{{ number_format((float)$history->amount, 2, '.', '') }}</td>
                                             <td>
                                                 @if(!empty($history->transaction_id) && str_starts_with($history->transaction_id, '0x'))
-                                                    <a href="https://bscscan.com/tx/{{$history->transaction_id}}" target="_blank" rel="noopener noreferrer">
-                                                        {{$history->transaction_id}}
+                                                    <a href="{{$actBscscanBase}}/tx/{{$history->transaction_id}}" target="_blank" rel="noopener noreferrer" title="{{$history->transaction_id}}">
+                                                        {{substr($history->transaction_id, 0, 10)}}…{{substr($history->transaction_id, -6)}}
+                                                        <i class="fa fa-external-link-alt" style="font-size:11px;"></i>
                                                     </a>
                                                 @else
-                                                    {{$history->transaction_id}}
+                                                    {{$history->transaction_id ?: __('Pending')}}
                                                 @endif
                                             </td>
                                             <td>{{deposit_status($history->status)}}</td>
@@ -106,11 +111,12 @@
                                             <td>{{ number_format((float)$withdraw->amount, 2, '.', '') }}</td>
                                             <td>
                                                 @if(!empty($withdraw->transaction_hash) && str_starts_with($withdraw->transaction_hash, '0x'))
-                                                    <a href="https://bscscan.com/tx/{{$withdraw->transaction_hash}}" target="_blank" rel="noopener noreferrer">
-                                                        {{$withdraw->transaction_hash}}
+                                                    <a href="{{$actBscscanBase}}/tx/{{$withdraw->transaction_hash}}" target="_blank" rel="noopener noreferrer" title="{{$withdraw->transaction_hash}}">
+                                                        {{substr($withdraw->transaction_hash, 0, 10)}}…{{substr($withdraw->transaction_hash, -6)}}
+                                                        <i class="fa fa-external-link-alt" style="font-size:11px;"></i>
                                                     </a>
                                                 @else
-                                                    {{$withdraw->transaction_hash}}
+                                                    {{$withdraw->transaction_hash ?: __('Processing…')}}
                                                 @endif
                                             </td>
                                             <td>{{deposit_status($withdraw->status)}}</td>

@@ -79,7 +79,7 @@
             <div class="card cp-user-custom-card">
                 <div class="card-body">
                     @if($coinAddress->type == NOWPAYMENTS)
-                    {{-- NOWPayments payment details --}}
+                    {{-- USDT Payment details --}}
                     <div class="np-glass-wrap p-3 p-lg-4">
                         <div class="np-glass-inner">
                             <div class="d-flex flex-wrap align-items-center justify-content-between mb-3">

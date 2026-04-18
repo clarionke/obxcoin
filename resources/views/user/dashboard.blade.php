@@ -342,7 +342,7 @@ if (!function_exists('fmtBigNum')) {
             </div>
             <div class="dsc-body">
                 <div class="dsc-label">{{__('Available OBXCoin')}}</div>
-                <div class="dsc-value">{{number_format($balance['available_coin'],2)}}</div>
+                <div class="dsc-value"><i class="fa fa-wallet" style="margin-right:8px;font-size:15px;opacity:.9;"></i>{{number_format($balance['available_coin'],2)}}</div>
                 <div class="dsc-sub">{{__('Used')}}: {{number_format($balance['available_used'],2)}}</div>
             </div>
         </div>
@@ -350,12 +350,12 @@ if (!function_exists('fmtBigNum')) {
     <div class="col-xl-4 col-md-6 col-12 mb-3 mb-xl-0">
         <div class="dash-stat-card">
             <div class="dsc-icon dsc-icon-green">
-                <i class="fa fa-lock"></i>
+                <i class="fa fa-arrow-up"></i>
             </div>
             <div class="dsc-body">
-                <div class="dsc-label">{{__('Blocked Coin')}}</div>
-                <div class="dsc-value">{{number_format(get_blocked_coin(Auth::id()),2)}}</div>
-                <div class="dsc-sub">{{__('Pending / locked funds')}}</div>
+                <div class="dsc-label">{{__('Total Withdraws')}}</div>
+                <div class="dsc-value">{{number_format($completed_withdraw,2)}}</div>
+                <div class="dsc-sub">{{__('All-time completed withdrawals')}}</div>
             </div>
         </div>
     </div>

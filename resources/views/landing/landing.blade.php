@@ -626,11 +626,12 @@
 @if(($content['landing_show_token_info'] ?? '1') == '1')
 @php
     $tibContract  = $content['contract_address'] ?? '';
-    $tibChain     = $content['coin_blockchain_name'] ?? '';
+    $tibChain     = $content['coin_blockchain_name'] ?? 'BSC (Binance Smart Chain)';
     $tibSupply    = $content['obx_total_supply'] ?? '';
     $tibLaunch    = $content['coin_launch_date'] ?? '';
     $tibChainLink = $content['chain_link'] ?? '';
     $tibCoinName  = settings('coin_name') ?: 'OBXCoin';
+    $tibSupported = $content['supported_payment_coins'] ?? 'USDT (BEP-20), USDT (ERC-20)';
 @endphp
 <div id="token-info">
     <div class="container">
@@ -643,6 +644,12 @@
             <div class="tib-item">
                 <span class="tib-label">{{ __('Blockchain') }}</span>
                 <span class="tib-value">{{ $tibChain }}</span>
+            </div>
+            @endif
+            @if($tibSupported)
+            <div class="tib-item">
+                <span class="tib-label">{{ __('Supported Payments') }}</span>
+                <span class="tib-value">{{ $tibSupported }}</span>
             </div>
             @endif
             @if($tibSupply)
@@ -799,38 +806,30 @@
     <div class="container">
         <div class="text-center reveal">
             <p class="section-label">{{ __('Why Choose Us') }}</p>
-            <h2 class="section-title">
-                @if(isset($content['landing_feature_title'])) {!! clean($content['landing_feature_title']) !!}
-                @else {{ __('Built for the Modern Trader') }}
-                @endif
-            </h2>
-            <p class="section-sub">
-                @if(isset($content['landing_feature_subtitle'])) {!! clean($content['landing_feature_subtitle']) !!}
-                @else {{ __('Everything you need to manage your crypto portfolio with confidence and ease.') }}
-                @endif
-            </p>
+            <h2 class="section-title">{{ __('Built for the OBX Ecosystem') }}</h2>
+            <p class="section-sub">{{ __('Everything you need to buy, hold, stake, and spend OBX with confidence on Binance Smart Chain.') }}</p>
         </div>
         <div class="features-grid">
             <div class="feature-card reveal">
                 <div class="feature-icon-wrap">
                     <img src="{{ landingPageImage('1st_feature_icon','images/feature/1.svg') }}" alt="">
                 </div>
-                <h3>@if(isset($content['1st_feature_title'])) {!! clean($content['1st_feature_title']) !!} @else {{ __('Instant Exchange') }} @endif</h3>
-                <p>@if(isset($content['1st_feature_subtitle'])) {!! clean($content['1st_feature_subtitle']) !!} @else {{ __('Swap between supported assets instantly with no hidden fees and market-rate pricing.') }} @endif</p>
+                <h3>{{ __('Buy OBX with USDT') }}</h3>
+                <p>{{ __('Purchase OBXCoin directly using USDT on BEP-20 or ERC-20 — no hidden fees, transparent on-chain delivery at every step.') }}</p>
             </div>
             <div class="feature-card reveal">
                 <div class="feature-icon-wrap">
                     <img src="{{ landingPageImage('2nd_feature_icon','images/feature/2.svg') }}" alt="">
                 </div>
-                <h3>@if(isset($content['2nd_feature_title'])) {!! clean($content['2nd_feature_title']) !!} @else {{ __('Instant Cashout') }} @endif</h3>
-                <p>@if(isset($content['2nd_feature_subtitle'])) {!! clean($content['2nd_feature_subtitle']) !!} @else {{ __('Withdraw your earnings to your bank or crypto wallet instantly, 24/7.') }} @endif</p>
+                <h3>{{ __('Stake & Earn OBX') }}</h3>
+                <p>{{ __('Lock your OBX tokens in staking pools to earn rewards while contributing to the long-term growth of the OBX ecosystem.') }}</p>
             </div>
             <div class="feature-card reveal">
                 <div class="feature-icon-wrap">
                     <img src="{{ landingPageImage('3rd_feature_icon','images/feature/3.svg') }}" alt="">
                 </div>
-                <h3>@if(isset($content['3rd_feature_title'])) {!! clean($content['3rd_feature_title']) !!} @else {{ __('Safe & Secure') }} @endif</h3>
-                <p>@if(isset($content['3rd_feature_subtitle'])) {!! clean($content['3rd_feature_subtitle']) !!} @else {{ __('Military-grade encryption and multi-factor authentication keep your assets safe.') }} @endif</p>
+                <h3>{{ __('On-Chain & Transparent') }}</h3>
+                <p>{{ __('Every OBX transaction is recorded on Binance Smart Chain. Verify any transfer, wallet balance, or burn event live on BSCScan at any time.') }}</p>
             </div>
         </div>
     </div>
@@ -879,7 +878,7 @@
             <div class="about-text">
                 <p class="section-label">{{ __('About Us') }}</p>
                 <h2>@if(isset($content['about_1st_title'])) {!! clean($content['about_1st_title']) !!} @else {{ __("We've Built a Platform You Can Trust") }} @endif</h2>
-                <p>@if(isset($content['about_1st_description'])) {!! clean($content['about_1st_description']) !!} @else {{ __('While existing solutions offer to solve just one problem at a time, our team built a secure, useful, and easy-to-use product based on private blockchain technology.') }} @endif</p>
+                <p>@if(isset($content['about_1st_description'])) {!! clean($content['about_1st_description']) !!} @else {{ __('OBXCoin is a utility-first token ecosystem built on BSC, with transparent on-chain delivery, deflationary token mechanics, and practical products including wallet, staking, and payment settlement flows.') }} @endif</p>
                 <div class="badge-row">
                     <span class="badge">{{ __('Non-Custodial') }}</span>
                     <span class="badge">{{ __('Open Source') }}</span>
@@ -894,7 +893,7 @@
             <div class="about-text" style="direction:ltr">
                 <p class="section-label">{{ __('Our Mission') }}</p>
                 <h2>@if(isset($content['about_2nd_title'])) {!! clean($content['about_2nd_title']) !!} @else {{ __('Empowering Everyone in the Digital Economy') }} @endif</h2>
-                <p>@if(isset($content['about_2nd_description'])) {!! clean($content['about_2nd_description']) !!} @else {{ __('We aim to integrate all companies, employees, and business assets into a unified blockchain ecosystem, making business truly efficient, transparent, and reliable.') }} @endif</p>
+                <p>@if(isset($content['about_2nd_description'])) {!! clean($content['about_2nd_description']) !!} @else {{ __('Our mission is to make OBX usable in daily crypto operations: buy with supported rails like USDT BEP-20 and ERC-20, stake for long-term participation, and expand merchant and card-based real-world utility.') }} @endif</p>
                 <div class="badge-row">
                     <span class="badge">{{ __('Decentralized') }}</span>
                     <span class="badge">{{ __('Global') }}</span>
@@ -1054,46 +1053,53 @@
     <div class="container">
         <div class="text-center reveal" style="margin-bottom:64px">
             <p class="section-label">{{ __('Our Journey') }}</p>
-            <h2 class="section-title">@if(isset($content['landing_roadmap_title'])) {{ $content['landing_roadmap_title'] }} @else {{ __('Project Roadmap') }} @endif</h2>
-            <p class="section-sub">@if(isset($content['landing_roadmap_subtitle'])) {!! clean($content['landing_roadmap_subtitle']) !!} @else {{ __('Track our milestones and see what\'s planned for the future.') }} @endif</p>
+            <h2 class="section-title">@if(isset($content['landing_roadmap_title'])) {{ $content['landing_roadmap_title'] }} @else {{ __('OBX 2026-2027 Roadmap') }} @endif</h2>
+            <p class="section-sub">@if(isset($content['landing_roadmap_subtitle'])) {!! clean($content['landing_roadmap_subtitle']) !!} @else {{ __('From airdrops to exchange launch, these are the next utility milestones for the OBX ecosystem.') }} @endif</p>
         </div>
 
         @php
         $rms = [
             [
-                'date'   => $content['roadmap_1st_date']     ?? 'Q3 2020',
-                'title'  => $content['roadmap_1st_title']    ?? __('Project Concept'),
-                'sub'    => $content['roadmap_1st_subtitle'] ?? __('Initial concept, whitepaper, and team formation.'),
+                'date'   => $content['roadmap_1st_date']     ?? 'December 2025',
+                'title'  => $content['roadmap_1st_title']    ?? __('OBX Crowdfunding (OBXMarkets)'),
+                'sub'    => $content['roadmap_1st_subtitle'] ?? __('Roadmap kickoff with crowdfunding rollout through OBXMarkets to bootstrap ecosystem participation and market visibility.'),
                 'status' => 'done',
-                'items'  => [__('Core whitepaper drafted'), __('Founding team assembled'), __('Vision & tokenomics defined')],
+                'items'  => [__('Crowdfunding campaign opened'), __('OBXMarkets community activation'), __('Initial fundraising milestone')],
             ],
             [
-                'date'   => $content['roadmap_2nd_date']     ?? 'Q1 2021',
-                'title'  => $content['roadmap_2nd_title']    ?? __('Platform Launch'),
-                'sub'    => $content['roadmap_2nd_subtitle'] ?? __('Public launch of the core wallet and trading platform.'),
-                'status' => 'done',
-                'items'  => [__('Wallet platform live'), __('KYC & onboarding'), __('First 1,000 users')],
-            ],
-            [
-                'date'   => $content['roadmap_3rd_date']     ?? 'Q3 2021',
-                'title'  => $content['roadmap_3rd_title']    ?? __('Exchange Integration'),
-                'sub'    => $content['roadmap_3rd_subtitle'] ?? __('Token exchange features, liquidity pools, and DEX listing.'),
-                'status' => 'done',
-                'items'  => [__('DEX listing'), __('Liquidity pools'), __('P2P trading')],
-            ],
-            [
-                'date'   => $content['roadmap_4th_date']     ?? 'Q2 2024',
-                'title'  => $content['roadmap_4th_title']    ?? __('Staking & Burn'),
-                'sub'    => $content['roadmap_4th_subtitle'] ?? __('Staking pools with competitive APY and deflationary burn mechanism.'),
-                'status' => 'active',
-                'items'  => [__('Staking pools launched'), __('Burn on stake/unstake'), __('Live supply tracking')],
-            ],
-            [
-                'date'   => $content['roadmap_5th_date']     ?? '2025–2026',
-                'title'  => $content['roadmap_5th_title']    ?? __('Global Expansion'),
-                'sub'    => $content['roadmap_5th_subtitle'] ?? __('Multi-chain support, DeFi integrations, and global community growth.'),
+                'date'   => $content['roadmap_2nd_date']     ?? 'End of July 2026',
+                'title'  => $content['roadmap_2nd_title']    ?? __('OBX Staking'),
+                'sub'    => $content['roadmap_2nd_subtitle'] ?? __('Staking pools go live with lock durations, APY, and burn-aware mechanics.'),
                 'status' => 'planned',
-                'items'  => [__('Multi-chain bridge'), __('DeFi lending'), __('Mobile app')],
+                'items'  => [__('Pool activation'), __('Reward reserve operations'), __('Staking dashboard updates')],
+            ],
+            [
+                'date'   => $content['roadmap_3rd_date']     ?? 'End of September 2026',
+                'title'  => $content['roadmap_3rd_title']    ?? __('OBX Wallet V2'),
+                'sub'    => $content['roadmap_3rd_subtitle'] ?? __('Second-generation wallet release with improved UX, performance, and security controls.'),
+                'status' => 'planned',
+                'items'  => [__('Wallet UX refresh'), __('Enhanced address management'), __('Expanded transaction insights')],
+            ],
+            [
+                'date'   => $content['roadmap_4th_date']     ?? 'End of October 2026',
+                'title'  => $content['roadmap_4th_title']    ?? __('Merchant API Integration'),
+                'sub'    => $content['roadmap_4th_subtitle'] ?? __('API release for merchant checkout and settlement integration using OBX ecosystem rails.'),
+                'status' => 'planned',
+                'items'  => [__('Merchant endpoints'), __('Settlement callbacks'), __('Integration documentation')],
+            ],
+            [
+                'date'   => $content['roadmap_5th_date']     ?? 'End of December 2026',
+                'title'  => $content['roadmap_5th_title']    ?? __('OBX Crypto Visa / Mastercard'),
+                'sub'    => $content['roadmap_5th_subtitle'] ?? __('Card program rollout to extend OBX utility into everyday spending flows.'),
+                'status' => 'planned',
+                'items'  => [__('Card infrastructure setup'), __('User card onboarding'), __('Spend and settlement monitoring')],
+            ],
+            [
+                'date'   => $content['roadmap_6th_date']     ?? 'End of March 2027',
+                'title'  => $content['roadmap_6th_title']    ?? __('OBX Exchange'),
+                'sub'    => $content['roadmap_6th_subtitle'] ?? __('Launch of OBX exchange platform to expand trading depth and ecosystem liquidity.'),
+                'status' => 'planned',
+                'items'  => [__('Exchange core release'), __('Trading and liquidity modules'), __('Market expansion')],
             ],
         ];
         $statusLabels = ['done' => __('Completed'), 'active' => __('In Progress'), 'planned' => __('Planned')];
@@ -1261,8 +1267,8 @@
         <div class="integration-grid reveal">
             <div class="integration-text">
                 <p class="section-label">{{ __('Integrations') }}</p>
-                <h2>@if(isset($content['landing_integration_title'])) {!! clean($content['landing_integration_title']) !!} @else {{ __('Easy Customization & Secure Payment System') }} @endif</h2>
-                <p>@if(isset($content['landing_integration_description'])) {!! clean($content['landing_integration_description']) !!} @else {{ __('Connect with the tools and exchanges you already use. Our open API makes integration simple for businesses of any size.') }} @endif</p>
+                <h2>@if(isset($content['landing_integration_title'])) {!! clean($content['landing_integration_title']) !!} @else {{ __('Merchant API and Secure Payment Integration') }} @endif</h2>
+                <p>@if(isset($content['landing_integration_description'])) {!! clean($content['landing_integration_description']) !!} @else {{ __('Build OBX checkout into your business with merchant-ready APIs and webhook settlement flows. Current supported rails include USDT (BEP-20) and USDT (ERC-20), with BSC as the primary chain environment.') }} @endif</p>
                 <a href="{{ $content['landing_integration_button_link'] ?? '#contact' }}" class="btn btn-primary">{{ __('Know More') }}</a>
             </div>
             <div class="integration-visual">
@@ -1293,7 +1299,7 @@
                 @endforeach
             @else
                 @foreach([
-                    [__('What cryptocurrencies are supported?'), __('We support OBX and other major tokens. Check the platform for the full list of ').$stats['total_coins'].__(' active assets.')],
+                    [__('Which blockchain and payment networks are supported?'), __('OBX runs on BSC (Binance Smart Chain). Current buy rails include USDT (BEP-20) and USDT (ERC-20).')],
                     [__('How do I create a wallet?'), __('Sign up, verify your email, and your wallet is created automatically.')],
                     [__('Is my information secure?'), __('Yes — we use industry-standard encryption and 2FA for all accounts.')],
                     [__('How do I stake my tokens?'), __('Navigate to the Staking section in your dashboard and choose from one of our active pools.')],
@@ -1322,27 +1328,53 @@
         <div class="contact-grid">
             <div>
                 <div class="contact-info-list">
+                    {{-- Address item hidden until real address is configured --}}
+                    @if(isset($content['address_field_details']) && $content['address_field_details'])
                     <div class="ci-item reveal">
                         <div class="ci-icon"><img src="{{ landingPageImage('address_icon','images/feature/pin.svg') }}" alt=""></div>
                         <div>
-                            <h4>@if(isset($content['address_field_title'])) {{ $content['address_field_title'] }} @else {{ __('Address') }} @endif</h4>
-                            <p>@if(isset($content['address_field_details'])) {!! clean($content['address_field_details']) !!} @else {{ __('245 King Street, Victoria 8520') }} @endif</p>
+                            <h4>{{ $content['address_field_title'] ?? __('Address') }}</h4>
+                            <p>{!! clean($content['address_field_details']) !!}</p>
                         </div>
                     </div>
+                    @endif
+                    {{-- Phone item hidden until real phone is configured --}}
+                    @if(isset($content['phone_field_details']) && $content['phone_field_details'])
                     <div class="ci-item reveal">
                         <div class="ci-icon"><img src="{{ landingPageImage('phone_icon','images/feature/call.svg') }}" alt=""></div>
                         <div>
-                            <h4>@if(isset($content['phone_field_title'])) {{ $content['phone_field_title'] }} @else {{ __('Phone') }} @endif</h4>
-                            <p>@if(isset($content['phone_field_details'])) {!! clean($content['phone_field_details']) !!} @else {{ __('0-123-456-7890') }} @endif</p>
+                            <h4>{{ $content['phone_field_title'] ?? __('Phone') }}</h4>
+                            <p>{!! clean($content['phone_field_details']) !!}</p>
                         </div>
                     </div>
+                    @endif
+                    {{-- Email item: show only when configured in admin --}}
+                    @if(isset($content['email_field_details']) && $content['email_field_details'])
                     <div class="ci-item reveal">
                         <div class="ci-icon"><img src="{{ landingPageImage('email_icon','images/feature/email.svg') }}" alt=""></div>
                         <div>
-                            <h4>@if(isset($content['email_field_title'])) {{ $content['email_field_title'] }} @else {{ __('Email') }} @endif</h4>
-                            <p>@if(isset($content['email_field_details'])) {!! clean($content['email_field_details']) !!} @else {{ __('support@platform.com') }} @endif</p>
+                            <h4>{{ $content['email_field_title'] ?? __('Email') }}</h4>
+                            <p>{!! clean($content['email_field_details']) !!}</p>
                         </div>
                     </div>
+                    @endif
+                    {{-- Fallback: show OBX community links when no contact details configured --}}
+                    @if(!isset($content['address_field_details']) && !isset($content['phone_field_details']) && !isset($content['email_field_details']))
+                    <div class="ci-item reveal">
+                        <div class="ci-icon"><img src="{{ landingPageImage('email_icon','images/feature/email.svg') }}" alt=""></div>
+                        <div>
+                            <h4>{{ __('OBX Community') }}</h4>
+                            <p>{{ __('Join the OBX community on Telegram and follow updates on our social channels.') }}</p>
+                        </div>
+                    </div>
+                    <div class="ci-item reveal">
+                        <div class="ci-icon"><img src="{{ landingPageImage('address_icon','images/feature/pin.svg') }}" alt=""></div>
+                        <div>
+                            <h4>{{ __('OBX on BSC') }}</h4>
+                            <p>{{ __('OBXCoin runs on Binance Smart Chain (BEP-20). Fast, low-cost, and fully on-chain.') }}</p>
+                        </div>
+                    </div>
+                    @endif
                 </div>
             </div>
             <div class="contact-form-wrap reveal">

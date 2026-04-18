@@ -8,16 +8,16 @@
     <form action="{{route('adminSavePaymentSettings')}}" method="post" enctype="multipart/form-data">
         @csrf
 
-        {{-- ─── NOWPayments ─────────────────────────────────────────── --}}
+        {{-- ─── USDT Payment ─────────────────────────────────────────── --}}
         <div class="settings-section mb-4">
             <h5 class="section-sub-title mb-3 text-info">
-                <i class="fa fa-credit-card mr-1"></i> {{__('NOWPayments')}}
-                <small class="text-muted ml-2" style="font-size:12px;">{{__('Accept any crypto via NOWPayments')}}</small>
+                <i class="fa fa-credit-card mr-1"></i> {{__('USDT Payment')}}
+                <small class="text-muted ml-2" style="font-size:12px;">{{__('Accept USDT payments via NOWPayments')}}</small>
             </h5>
             <div class="row">
                 <div class="col-lg-6 col-12 mt-20">
                     <div class="form-group">
-                        <label>{{__('NOWPayments API Key')}}</label>
+                        <label>{{__('USDT Payment API Key')}}</label>
                         <input class="form-control" type="text" name="nowpayments_api_key"
                                autocomplete="off"
                                placeholder="{{__('Get from nowpayments.io → Stores → API Keys')}}"
@@ -27,7 +27,7 @@
                 </div>
                 <div class="col-lg-6 col-12 mt-20">
                     <div class="form-group">
-                        <label>{{__('NOWPayments IPN Secret')}}</label>
+                        <label>{{__('USDT Payment IPN Secret')}}</label>
                         <input class="form-control" type="password" name="nowpayments_ipn_secret"
                                autocomplete="off"
                                placeholder="{{__('IPN secret for webhook signature verification')}}"
@@ -41,7 +41,7 @@
 
                 <div class="col-lg-3 col-12 mt-20">
                     <div class="form-group">
-                        <label class="d-block">{{__('Enable NOWPayments')}}</label>
+                        <label class="d-block">{{__('Enable USDT Payment')}}</label>
                         <div class="custom-control custom-switch mt-1">
                             <input type="checkbox" class="custom-control-input" id="nowpayments_enabled"
                                    name="nowpayments_enabled" value="1"

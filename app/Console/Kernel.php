@@ -22,6 +22,8 @@ class Kernel extends ConsoleKernel
         Commands\PresaleSyncEvents::class,
         Commands\RetryFailedObxDeliveries::class,
         Commands\SyncNowPaymentsStatus::class,
+        Commands\FetchObxTotalSupply::class,
+        Commands\ScanObxDeposits::class,
     ];
 
     /**
@@ -39,6 +41,25 @@ class Kernel extends ConsoleKernel
 
         $schedule->command('adjust-token-deposit')
             ->everyThirtyMinutes();
+
+        // Scan on-chain OBX deposits (BSCScan API — no Node.js required) every 2 minutes
+        $schedule->command('obx:scan-deposits')
+            ->everyTwoMinutes()
+            ->withoutOverlapping()
+            ->runInBackground();
+
+        // Full on-chain balance reconciliation for all users — runs every 30 minutes
+        // catches any deposits missed by the 2-minute scanner (e.g., during downtime)
+        $schedule->command('balance:reconcile')
+            ->everyThirtyMinutes()
+            ->withoutOverlapping()
+            ->runInBackground();
+
+        // Fetch live OBX totalSupply() from the BEP-20 contract every 5 minutes
+        $schedule->command('obx:fetch-total-supply')
+            ->everyFiveMinutes()
+            ->withoutOverlapping()
+            ->runInBackground();
 
         // Fetch live OBX price from CoinMarketCap every 5 minutes
         $schedule->command('cmc:fetch-price')
