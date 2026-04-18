@@ -231,47 +231,47 @@ class AuthController extends Controller
                                 $data['message'] = __('Your email is not verified yet. Please verify your mail.');
                                 Auth::logout();
 
-                                return redirect()->back()->with('dismiss',$data['message']);
+                                return redirect()->route('login')->with('dismiss',$data['message']);
                             } catch (\Exception $e) {
                                 $data['success'] = false;
                                 $data['message'] = $e->getMessage();
                                 Auth::logout();
 
-                                return redirect()->back()->with('dismiss',$data['message']);
+                                return redirect()->route('login')->with('dismiss',$data['message']);
                             }
                         }
                     } elseif ($user->status == STATUS_SUSPENDED) {
                         $data['success'] = false;
                         $data['message'] = __("Your account has been suspended. please contact support team to active again");
                         Auth::logout();
-                        return redirect()->back()->with('dismiss',$data['message']);
+                        return redirect()->route('login')->with('dismiss',$data['message']);
                     } elseif ($user->status == STATUS_DELETED) {
                         $data['success'] = false;
                         $data['message'] = __("Your account has been deleted. please contact support team to active again");
                         Auth::logout();
-                        return redirect()->back()->with('dismiss',$data['message']);
+                        return redirect()->route('login')->with('dismiss',$data['message']);
                     } elseif ($user->status == STATUS_PENDING) {
                         $data['success'] = false;
                         $data['message'] = __("Your account has been pending for admin approval. please contact support team to active again");
                         Auth::logout();
-                        return redirect()->back()->with('dismiss',$data['message']);
+                        return redirect()->route('login')->with('dismiss',$data['message']);
                     }
 
                 } else {
                     $data['success'] = false;
                     $data['message'] = __("Email or Password doesn't match");
-                    return redirect()->back()->with('dismiss',$data['message']);
+                    return redirect()->route('login')->with('dismiss',$data['message']);
                 }
             } else {
                 $data['success'] = false;
                 $data['message'] = __("You have no login access");
                 Auth::logout();
-                return redirect()->back()->with('dismiss',$data['message']);
+                return redirect()->route('login')->with('dismiss',$data['message']);
             }
         } else {
             $data['success'] = false;
             $data['message'] = __("You have no account,please register new account");
-            return redirect()->back()->with('dismiss',$data['message']);
+            return redirect()->route('login')->with('dismiss',$data['message']);
         }
     }
 
