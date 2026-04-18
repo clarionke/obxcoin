@@ -185,30 +185,26 @@ class ReferralController extends Controller
 
     private function buildMonthlyReferralEarnings(int $userId): array
     {
-        $monthExpr = "DATE_FORMAT(created_at, '%Y-%m')";
-
-        $signupMonthly = ReferralSignBonusHistory::query()
+        $signupRows = ReferralSignBonusHistory::query()
             ->where('parent_id', $userId)
-            ->selectRaw("{$monthExpr} as year_month")
-            ->selectRaw('SUM(amount) as total_amount')
-            ->groupByRaw($monthExpr)
-            ->get()
-            ->mapWithKeys(function ($row) {
-                return [(string) $row->year_month => (float) $row->total_amount];
-            })
-            ->toArray();
+            ->get(['created_at', 'amount']);
 
-        $buyMonthly = BuyCoinReferralHistory::query()
+        $buyRows = BuyCoinReferralHistory::query()
             ->where('user_id', $userId)
             ->where('status', STATUS_ACTIVE)
-            ->selectRaw("{$monthExpr} as year_month")
-            ->selectRaw('SUM(amount) as total_amount')
-            ->groupByRaw($monthExpr)
-            ->get()
-            ->mapWithKeys(function ($row) {
-                return [(string) $row->year_month => (float) $row->total_amount];
-            })
-            ->toArray();
+            ->get(['created_at', 'amount']);
+
+        $signupMonthly = [];
+        foreach ($signupRows as $row) {
+            $month = date('Y-m', strtotime((string) $row->created_at));
+            $signupMonthly[$month] = (float) ($signupMonthly[$month] ?? 0) + (float) ($row->amount ?? 0);
+        }
+
+        $buyMonthly = [];
+        foreach ($buyRows as $row) {
+            $month = date('Y-m', strtotime((string) $row->created_at));
+            $buyMonthly[$month] = (float) ($buyMonthly[$month] ?? 0) + (float) ($row->amount ?? 0);
+        }
 
         $allMonths = array_unique(array_merge(array_keys($signupMonthly), array_keys($buyMonthly)));
         rsort($allMonths);
