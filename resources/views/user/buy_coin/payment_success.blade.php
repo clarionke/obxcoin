@@ -102,10 +102,11 @@
                                 </div>
                                 <div class="col-lg-8">
                                     <div class="np-row d-flex align-items-center justify-content-between">
-                                        <div>
+                                        <div style="min-width:0;">
                                             <div class="np-label">{{__('Pay Amount')}}</div>
-                                            <div class="np-value" id="npPayAmount">{{$coinAddress->nowpayments_pay_amount}} {{strtoupper($coinAddress->nowpayments_pay_currency)}}</div>
+                                            <div class="np-value"><span id="npPayAmount">{{$coinAddress->nowpayments_pay_amount}}</span> {{strtoupper($coinAddress->nowpayments_pay_currency)}}</div>
                                         </div>
+                                        <button type="button" class="np-copy-btn ml-2" data-copy-target="npPayAmount">{{__('Copy')}}</button>
                                     </div>
 
                                     <div class="np-row d-flex align-items-center justify-content-between">
