@@ -16,8 +16,9 @@
                                 <thead>
                                 <tr>
                                     <th>{{__('Address')}}</th>
-                                    <th>{{__('Coin Amount')}}</th>
-                                    <th>{{__('Coin Name')}}</th>
+                                    <th>{{__('OBX Amount')}}</th>
+                                    <th>{{__('Coin')}}</th>
+                                    <th>{{__('Paid With')}}</th>
                                     <th>{{__('Payment Type')}}</th>
                                     <th>{{__('TX Hash')}}</th>
                                     <th>{{__('Status')}}</th>
@@ -57,7 +58,8 @@
             columns: [
                 {"data": "address","orderable": false},
                 {"data": "coin","orderable": false},
-                {"data": "coin_type","orderable": false},
+                {"data": "coin_name","orderable": false},
+                {"data": "pay_currency","orderable": false},
                 {"data": "type","orderable": false},
                 {"data": "tx_hash","orderable": false, "render": function(data, type, row) {
                     if (!data) return '&mdash;';

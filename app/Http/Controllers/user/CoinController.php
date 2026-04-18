@@ -538,6 +538,12 @@ class CoinController extends Controller
         if ($request->ajax()) {
             $items = BuyCoinHistory::where(['user_id'=>Auth::id()]);
             return datatables($items)
+                ->addColumn('coin_name', function ($item) {
+                    return DEFAULT_COIN_TYPE;
+                })
+                ->addColumn('pay_currency', function ($item) {
+                    return strtoupper($item->coin_type ?? '');
+                })
                 ->addColumn('type', function ($item) {
                     return byCoinType($item->type);
                 })
