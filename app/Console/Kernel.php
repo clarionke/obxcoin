@@ -21,6 +21,7 @@ class Kernel extends ConsoleKernel
         Commands\CancelExpiredCoWalletWithdrawals::class,
         Commands\PresaleSyncEvents::class,
         Commands\RetryFailedObxDeliveries::class,
+        Commands\SyncNowPaymentsStatus::class,
     ];
 
     /**
@@ -63,6 +64,13 @@ class Kernel extends ConsoleKernel
 
         // Retry failed NOWPayments OBX on-chain deliveries.
         $schedule->command('nowpayments:retry-obx-delivery --limit=100')
+            ->everyMinute()
+            ->withoutOverlapping()
+            ->runInBackground();
+
+        // Sync pending NOWPayments statuses in background so credit finalizes
+        // even when user leaves the payment page.
+        $schedule->command('nowpayments:sync-status --limit=200')
             ->everyMinute()
             ->withoutOverlapping()
             ->runInBackground();
