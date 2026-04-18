@@ -389,6 +389,88 @@ class BlockchainService
     }
 
     /**
+     * Read exact OBX received by a wallet from a tx receipt by parsing
+     * ERC20 Transfer logs for the OBX token contract.
+     *
+     * Returns human-readable amount with 18 decimals, or "0" if not found.
+     */
+    public function getObxReceivedAmountFromTx(string $txHash, string $toAddress): string
+    {
+        $txHash = strtolower(trim($txHash));
+        $toAddress = strtolower(trim($toAddress));
+        if (!preg_match('/^0x[a-f0-9]{64}$/', $txHash) || !preg_match('/^0x[a-f0-9]{40}$/', $toAddress)) {
+            return '0';
+        }
+
+        $settings = [];
+        try {
+            $settings = allsetting();
+        } catch (\Throwable $e) {
+            // Use constructor defaults.
+        }
+
+        $runtimeRpcUrl = trim((string) ($settings['chain_link'] ?? $this->rpcUrl));
+        $runtimeTokenAddress = strtolower(trim((string) ($settings['contract_address'] ?? $this->obxTokenAddress)));
+        if ($runtimeRpcUrl === '' || !preg_match('/^0x[a-f0-9]{40}$/', $runtimeTokenAddress)) {
+            return '0';
+        }
+
+        // keccak256("Transfer(address,address,uint256)")
+        $transferTopic = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+        $toTopic = '0x' . str_pad(substr($toAddress, 2), 64, '0', STR_PAD_LEFT);
+
+        try {
+            $receipt = Http::timeout(15)->post($runtimeRpcUrl, [
+                'jsonrpc' => '2.0',
+                'method' => 'eth_getTransactionReceipt',
+                'params' => [$txHash],
+                'id' => 1,
+            ])->json();
+
+            $logs = $receipt['result']['logs'] ?? [];
+            if (!is_array($logs)) {
+                return '0';
+            }
+
+            $sumRaw = '0';
+            foreach ($logs as $log) {
+                $logAddress = strtolower(trim((string) ($log['address'] ?? '')));
+                $topics = $log['topics'] ?? [];
+                $data = strtolower(trim((string) ($log['data'] ?? '0x0')));
+
+                if ($logAddress !== $runtimeTokenAddress || !is_array($topics) || count($topics) < 3) {
+                    continue;
+                }
+
+                $topic0 = strtolower((string) ($topics[0] ?? ''));
+                $topic2 = strtolower((string) ($topics[2] ?? ''));
+                if (!str_starts_with($topic0, $transferTopic) || $topic2 !== strtolower($toTopic)) {
+                    continue;
+                }
+
+                $hex = str_starts_with($data, '0x') ? substr($data, 2) : $data;
+                if (!preg_match('/^[a-f0-9]+$/', $hex)) {
+                    continue;
+                }
+                $valueRaw = $this->hexToDecimal($hex);
+                $sumRaw = bcadd($sumRaw, $valueRaw, 0);
+            }
+
+            if (bccomp($sumRaw, '0', 0) <= 0) {
+                return '0';
+            }
+
+            return bcdiv($sumRaw, '1000000000000000000', 18);
+        } catch (\Throwable $e) {
+            Log::warning('BlockchainService::getObxReceivedAmountFromTx failed: ' . $e->getMessage(), [
+                'tx_hash' => $txHash,
+                'to' => $toAddress,
+            ]);
+            return '0';
+        }
+    }
+
+    /**
      * Transfer OBX from a specific wallet address using ERC20 transferFrom.
      * This is used by withdrawal flow when backend signs and sponsors gas
      * after the source wallet has granted allowance to the signer.

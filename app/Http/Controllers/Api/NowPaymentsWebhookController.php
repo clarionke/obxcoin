@@ -123,9 +123,19 @@ class NowPaymentsWebhookController extends Controller
 
             try {
                 $blockchain = app(BlockchainService::class);
+                $beforeBalance = $blockchain->getObxBalance($targetWallet);
                 $tx = $blockchain->transferObxOnChain($targetWallet, (string) $purchase->requested_amount);
 
                 if ($tx && !empty($tx['txHash'])) {
+                    $afterBalance = $blockchain->getObxBalance($targetWallet);
+                    $deliveredAmount = '0';
+                    if (is_string($beforeBalance) && is_string($afterBalance) && bccomp($afterBalance, $beforeBalance, 18) >= 0) {
+                        $deliveredAmount = bcsub($afterBalance, $beforeBalance, 18);
+                    }
+                    if (bccomp($deliveredAmount, '0', 18) <= 0) {
+                        $deliveredAmount = $blockchain->getObxReceivedAmountFromTx($tx['txHash'], $targetWallet);
+                    }
+
                     $updates = [
                         'obx_delivery_status' => 'success',
                         'obx_delivery_tx_hash' => $tx['txHash'],
@@ -168,8 +178,9 @@ class NowPaymentsWebhookController extends Controller
             $wallet = $this->resolveOrCreatePrimaryObxWallet((int) $purchase->user_id);
 
             if ($wallet && !$wasAlreadyCredited) {
-                $wallet->increment('balance', (float) $purchase->requested_amount);
-                Log::info("NowPaymentsIPN: credited {$purchase->requested_amount} OBX to user #{$purchase->user_id} after on-chain delivery");
+                $creditedAmount = $this->resolveDeliveredAmountForCredit($purchase);
+                $wallet->increment('balance', $creditedAmount);
+                Log::info("NowPaymentsIPN: credited {$creditedAmount} OBX to user #{$purchase->user_id} after on-chain delivery");
             } elseif (!$wallet) {
                 Log::warning("NowPaymentsIPN: no primary OBX wallet for user #{$purchase->user_id}");
             }
@@ -246,5 +257,31 @@ class NowPaymentsWebhookController extends Controller
                 'balance' => 0,
             ]
         );
+    }
+
+    private function resolveDeliveredAmountForCredit(BuyCoinHistory $purchase): float
+    {
+        $requested = (string) ($purchase->requested_amount ?? '0');
+        if (!preg_match('/^\d+(\.\d+)?$/', $requested)) {
+            return 0.0;
+        }
+
+        $targetWallet = $this->resolveTargetWallet($purchase);
+        $txHash = strtolower(trim((string) ($purchase->obx_delivery_tx_hash ?: $purchase->tx_hash ?: '')));
+
+        if ($targetWallet && preg_match('/^0x[a-f0-9]{40}$/', $targetWallet) && preg_match('/^0x[a-f0-9]{64}$/', $txHash)) {
+            try {
+                $amount = app(BlockchainService::class)->getObxReceivedAmountFromTx($txHash, $targetWallet);
+                if (preg_match('/^\d+(\.\d+)?$/', (string) $amount) && bccomp((string) $amount, '0', 18) > 0) {
+                    return (float) $amount;
+                }
+            } catch (\Throwable $e) {
+                // Fallback below.
+            }
+        }
+
+        // Conservative fallback to contract burn model (0.05%) if tx parsing is unavailable.
+        $fallback = bcmul($requested, '0.9995', 8);
+        return (float) $fallback;
     }
 }

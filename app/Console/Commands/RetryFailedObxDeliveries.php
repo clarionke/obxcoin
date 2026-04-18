@@ -64,6 +64,7 @@ class RetryFailedObxDeliveries extends Command
             }
 
             try {
+                $beforeBalance = $blockchain->getObxBalance($targetWallet);
                 $tx = $blockchain->transferObxOnChain($targetWallet, (string) $purchase->requested_amount);
 
                 if (!$tx || empty($tx['txHash'])) {
@@ -92,7 +93,19 @@ class RetryFailedObxDeliveries extends Command
                     $updates['status'] = STATUS_SUCCESS;
                     $wallet = get_primary_wallet((int) $purchase->user_id, DEFAULT_COIN_TYPE);
                     if ($wallet) {
-                        $wallet->increment('balance', (float) $purchase->requested_amount);
+                        $afterBalance = $blockchain->getObxBalance($targetWallet);
+                        $creditedAmount = '0';
+                        if (is_string($beforeBalance) && is_string($afterBalance) && bccomp($afterBalance, $beforeBalance, 18) >= 0) {
+                            $creditedAmount = bcsub($afterBalance, $beforeBalance, 18);
+                        }
+                        if (bccomp($creditedAmount, '0', 18) <= 0) {
+                            $creditedAmount = $blockchain->getObxReceivedAmountFromTx($tx['txHash'], $targetWallet);
+                        }
+                        if (bccomp((string) $creditedAmount, '0', 18) <= 0) {
+                            $creditedAmount = bcmul((string) ($purchase->requested_amount ?? '0'), '0.9995', 8);
+                        }
+
+                        $wallet->increment('balance', (float) $creditedAmount);
                     } else {
                         Log::warning('RetryFailedObxDeliveries: no primary OBX wallet for user', [
                             'user_id' => $purchase->user_id,
@@ -136,7 +149,6 @@ class RetryFailedObxDeliveries extends Command
 
         $candidates = [
             strtolower(trim((string) ($purchase->buyer_wallet ?? ''))),
-            strtolower(trim((string) ($purchase->wc_buyer_address ?? ''))),
             strtolower(trim((string) (($purchase->user->bsc_wallet ?? '')))),
             strtolower(trim($historyAddress)),
         ];
