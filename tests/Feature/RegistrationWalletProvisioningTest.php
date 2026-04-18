@@ -28,18 +28,6 @@ class RegistrationWalletProvisioningTest extends TestCase
             ]
         );
 
-        Coin::firstOrCreate(
-            ['type' => 'LTCT'],
-            [
-                'name' => 'Litecoin Test',
-                'status' => STATUS_ACTIVE,
-                'is_withdrawal' => 1,
-                'is_deposit' => 1,
-                'is_buy' => 1,
-                'is_sell' => 1,
-            ]
-        );
-
         $email = 'signup-xpocket-' . uniqid() . '@example.com';
 
         $result = app(AuthService::class)->signUpProcess([

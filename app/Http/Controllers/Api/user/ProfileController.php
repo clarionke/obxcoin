@@ -13,7 +13,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use PragmaRX\Google2FA\Google2FA;
+use PragmaRX\Google2FAQRCode\Google2FA;
 
 class ProfileController extends Controller
 {
@@ -376,18 +376,18 @@ class ProfileController extends Controller
         try{
             $data['languages'] = langName();
             $user = Auth::user();
+            $default = allsetting();
             if(empty($user->google2fa_secret)){
                 $google2fa = new Google2FA();
                 if (method_exists($google2fa, 'setAllowInsecureCallToGoogleApis')) {
                     $google2fa->setAllowInsecureCallToGoogleApis(true);
                 }
                 $data['google2fa_secret'] = $google2fa->generateSecretKey();
-                $google2fa_url = $google2fa->getQRCodeGoogleUrl(
+                $data['qrcode'] = $google2fa->getQRCodeInline(
                     isset($default['app_title']) && !empty($default['app_title']) ? $default['app_title'] : 'cpocket',
                     isset(Auth::user()->email) && !empty(Auth::user()->email) ? Auth::user()->email : 'cpocket@email.com',
                     $data['google2fa_secret']
                 );
-                $data['qrcode'] = $google2fa_url;
             }
             else{
                 $data['user'] = $user;

@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Session;
-use PragmaRX\Google2FA\Google2FA;
+use PragmaRX\Google2FAQRCode\Google2FA;
 
 class SettingController extends Controller
 {
@@ -22,12 +22,11 @@ class SettingController extends Controller
         }
         $data['google2fa_secret'] = $google2fa->generateSecretKey();
 
-        $google2fa_url = $google2fa->getQRCodeGoogleUrl(
+        $data['qrcode'] = $google2fa->getQRCodeInline(
             isset($default['app_title']) && !empty($default['app_title']) ? $default['app_title'] : 'cPoket',
             isset(Auth::user()->email) && !empty(Auth::user()->email) ? Auth::user()->email : 'cpoket@email.com',
             $data['google2fa_secret']
         );
-        $data['qrcode'] = $google2fa_url;
 
         return view('user.setting.setting', $data);
     }

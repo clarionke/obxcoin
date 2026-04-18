@@ -69,30 +69,3 @@
         });
     </script>
 @endsection
-*** Add File: c:\xampp\htdocs\obxcoin\database\migrations\2026_04_18_180000_add_tx_hash_to_buy_coin_referral_histories.php
-<?php
-
-use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
-
-return new class extends Migration
-{
-    public function up(): void
-    {
-        Schema::table('buy_coin_referral_histories', function (Blueprint $table) {
-            if (!Schema::hasColumn('buy_coin_referral_histories', 'tx_hash')) {
-                $table->string('tx_hash', 66)->nullable()->after('amount');
-            }
-        });
-    }
-
-    public function down(): void
-    {
-        Schema::table('buy_coin_referral_histories', function (Blueprint $table) {
-            if (Schema::hasColumn('buy_coin_referral_histories', 'tx_hash')) {
-                $table->dropColumn('tx_hash');
-            }
-        });
-    }
-};
