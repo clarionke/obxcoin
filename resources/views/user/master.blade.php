@@ -1162,72 +1162,73 @@ window.addEventListener('load', function () {
         }
     }
 
-    // ── Sidebar toggle ────────────────────────────────────────────────────────
+    // ── Sidebar toggle (self-contained, no dependency on theme JS) ───────────
+    var $body = $('body');
+    var $sidebar = $('.cp-user-sidebar');
+    var $topbar = $('.cp-user-top-bar');
+    var $main = $('.cp-user-main-wrapper');
+    var $overlay = $('#sidebarOverlay');
+    var $openBtn = $('.topbar-left .menu-bars').first();
+    var $closeBtn = $('.sidebar-close-btn');
+
     function setSidebarState(hidden) {
-        if (hidden) {
-            $('body').addClass('sidebar-hidden');
-        } else {
-            $('body').removeClass('sidebar-hidden');
+        $body.toggleClass('sidebar-hidden', !!hidden);
+    }
+
+    function openSidebar() {
+        $sidebar.removeClass('cp-user-sidebar-hide');
+        $topbar.removeClass('cp-user-content-expend');
+        $main.removeClass('cp-user-content-expend');
+        setSidebarState(false);
+        if ($(window).width() <= 991) {
+            $overlay.addClass('active');
         }
     }
 
-    // Read initial state (theme may have collapsed it on load)
-    setSidebarState($('.cp-user-sidebar').hasClass('cp-user-sidebar-hide'));
+    function closeSidebar() {
+        $sidebar.addClass('cp-user-sidebar-hide');
+        $topbar.addClass('cp-user-content-expend');
+        $main.addClass('cp-user-content-expend');
+        $overlay.removeClass('active');
+        setSidebarState(true);
+    }
 
     function syncOverlayState() {
         var isMobile = $(window).width() <= 991;
-        var sidebarHidden = $('.cp-user-sidebar').hasClass('cp-user-sidebar-hide');
-
-        // Overlay is only valid on mobile while sidebar is visible.
+        var sidebarHidden = $sidebar.hasClass('cp-user-sidebar-hide');
         if (isMobile && !sidebarHidden) {
-            $('#sidebarOverlay').addClass('active');
+            $overlay.addClass('active');
         } else {
-            $('#sidebarOverlay').removeClass('active');
+            $overlay.removeClass('active');
         }
+        setSidebarState(sidebarHidden);
     }
 
-    // Sidebar overlay for mobile
-    $('.menu-bars').on('click', function(){
-        var sidebarHidden = $('.cp-user-sidebar').hasClass('cp-user-sidebar-hide');
-        if($(window).width() <= 991){
-            if(sidebarHidden){
-                $('#sidebarOverlay').addClass('active');
-            } else {
-                $('#sidebarOverlay').removeClass('active');
-            }
-        }
-        // Small timeout to let theme JS toggle the class first, then sync
-        setTimeout(function(){
-            setSidebarState($('.cp-user-sidebar').hasClass('cp-user-sidebar-hide'));
-            syncOverlayState();
-        }, 50);
-    });
-    $('#sidebarOverlay').on('click', function(){
-        $('.cp-user-sidebar').addClass('cp-user-sidebar-hide');
-        $('.cp-user-top-bar, .cp-user-main-wrapper').addClass('cp-user-content-expend');
-        $(this).removeClass('active');
-        setSidebarState(true);
-    });
-    // Auto-close sidebar when a leaf nav link is tapped on mobile
-        // Sidebar close button click handler
-        $('.sidebar-close-btn').on('click', function(){
-            $('.cp-user-sidebar').addClass('cp-user-sidebar-hide');
-            $('.cp-user-top-bar, .cp-user-main-wrapper').addClass('cp-user-content-expend');
-            $('#sidebarOverlay').removeClass('active');
-            setSidebarState(true);
-        });
-    
-        // Auto-close sidebar when a leaf nav link is tapped on mobile
-    $('#metismenu a:not(.arrow-icon)').on('click', function(){
-        if($(window).width() <= 991){
-            $('.cp-user-sidebar').addClass('cp-user-sidebar-hide');
-            $('.cp-user-top-bar, .cp-user-main-wrapper').addClass('cp-user-content-expend');
-            $('#sidebarOverlay').removeClass('active');
-            setSidebarState(true);
+    $openBtn.on('click', function(e){
+        e.preventDefault();
+        if ($sidebar.hasClass('cp-user-sidebar-hide')) {
+            openSidebar();
+        } else {
+            closeSidebar();
         }
     });
 
-    // Clear any stale overlay when switching viewport or after script init.
+    $closeBtn.on('click', function(e){
+        e.preventDefault();
+        closeSidebar();
+    });
+
+    $overlay.on('click', function(){
+        closeSidebar();
+    });
+
+    // Auto-close sidebar when a leaf nav link is tapped on mobile
+    $('#metismenu a:not(.arrow-icon)').on('click', function(){
+        if($(window).width() <= 991){
+            closeSidebar();
+        }
+    });
+
     $(window).on('resize orientationchange', function(){
         syncOverlayState();
     });

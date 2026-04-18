@@ -82,6 +82,7 @@
             pointer-events:none;
         }
         .mobile-menu.open { transform:translateY(0); opacity:1; pointer-events:auto; }
+        body.mobile-menu-open { overflow: hidden; }
         .mobile-menu-price {
             display:flex; align-items:center; gap:10px;
             background:rgba(108,99,255,.12); border:1px solid rgba(108,99,255,.25);
@@ -1495,15 +1496,49 @@
     });
 
     /* ── Mobile menu ───────────────────────────── */
-    function closeMenu() {
-        document.getElementById('hamburger').classList.remove('open');
-        document.getElementById('mobileMenu').classList.remove('open');
+    var hamburgerBtn = document.getElementById('hamburger');
+    var mobileMenu = document.getElementById('mobileMenu');
+    var mobileCloseBtn = document.getElementById('mobileClose');
+
+    function openMenu() {
+        if (!hamburgerBtn || !mobileMenu) return;
+        hamburgerBtn.classList.add('open');
+        mobileMenu.classList.add('open');
+        document.body.classList.add('mobile-menu-open');
     }
-    document.getElementById('hamburger').addEventListener('click', function () {
-        this.classList.toggle('open');
-        document.getElementById('mobileMenu').classList.toggle('open');
+
+    function closeMenu() {
+        if (!hamburgerBtn || !mobileMenu) return;
+        hamburgerBtn.classList.remove('open');
+        mobileMenu.classList.remove('open');
+        document.body.classList.remove('mobile-menu-open');
+    }
+
+    if (hamburgerBtn && mobileMenu) {
+        hamburgerBtn.addEventListener('click', function () {
+            if (mobileMenu.classList.contains('open')) {
+                closeMenu();
+            } else {
+                openMenu();
+            }
+        });
+    }
+
+    if (mobileCloseBtn) {
+        mobileCloseBtn.addEventListener('click', closeMenu);
+    }
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') {
+            closeMenu();
+        }
     });
-    document.getElementById('mobileClose').addEventListener('click', closeMenu);
+
+    window.addEventListener('resize', function () {
+        if (window.innerWidth > 768) {
+            closeMenu();
+        }
+    });
 
     /* ── Scroll to top ─────────────────────────── */
     document.getElementById('scrollTop').addEventListener('click', function () {
