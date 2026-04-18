@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Model\AdminSetting;
 use App\Model\BuyCoinHistory;
 use App\Model\IcoPhase;
+use App\Repository\AffiliateRepository;
 use App\Services\BlockchainService;
 use App\User;
 use Illuminate\Http\Request;
@@ -227,6 +228,19 @@ class PresaleWebhookController extends Controller
             }
 
             DB::commit();
+
+            if ($user && !empty($history->phase_id)) {
+                try {
+                    app(AffiliateRepository::class)->storeAffiliationHistoryForBuyCoin($history->fresh());
+                } catch (\Throwable $e) {
+                    Log::warning('PresaleWebhook: buy referral distribution failed', [
+                        'buy_id' => $history->id,
+                        'tx_hash' => $txHash,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+
             Log::info("PresaleWebhook: processed purchase tx=$txHash buyer=$buyerAddress obx=$obxAmount");
             return true;
 

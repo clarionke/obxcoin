@@ -242,13 +242,29 @@ class AffiliateRepository
     public function storeAffiliationHistoryForBuyCoin($transaction)
     {
         if ($transaction) {
+            if (BuyCoinReferralHistory::where('buy_id', (int) $transaction->id)->exists()) {
+                return 1;
+            }
+
             $adminSettings = $this->checkAdminSettings();
-            $user_id = $transaction->user_id;
+            $user_id = (int) $transaction->user_id;
+            if ($user_id <= 0) {
+                return 1;
+            }
+
             $maxReferralLevel = $this->normalizeReferralLevel($transaction->referral_level);
             try {
                 $userAffiliation = $this->parentReferrals($maxReferralLevel, $user_id);
                 if (!empty($userAffiliation)) {
-                    $this->calculateReferralFeesForBuyCoin($adminSettings, $transaction, $userAffiliation, $transaction->bonus,  $maxReferralLevel);
+                    $baseAmount = (float) ($transaction->requested_amount ?? 0);
+                    if ($baseAmount <= 0) {
+                        $baseAmount = (float) ($transaction->coin ?? 0);
+                    }
+                    if ($baseAmount <= 0) {
+                        $baseAmount = (float) ($transaction->bonus ?? 0);
+                    }
+
+                    $this->calculateReferralFeesForBuyCoin($adminSettings, $transaction, $userAffiliation, $baseAmount,  $maxReferralLevel);
                 }
             } catch (\Exception $e) {
                 Log::info($e->getMessage());

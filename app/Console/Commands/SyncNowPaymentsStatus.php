@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Model\BuyCoinHistory;
 use App\Model\Wallet;
 use App\Model\WalletAddressHistory;
+use App\Repository\AffiliateRepository;
 use App\Repository\WalletRepository;
 use App\Services\BlockchainService;
 use App\Services\NowPaymentsService;
@@ -101,6 +102,8 @@ class SyncNowPaymentsStatus extends Command
 
     private function finalizeFinishedOrder(BuyCoinHistory $purchase): void
     {
+        $wasAlreadyCredited = ((int) $purchase->status === STATUS_SUCCESS);
+
         $isDelivered = (($purchase->obx_delivery_status ?? 'pending') === 'success');
         if (!$isDelivered) {
             $targetWallet = $this->resolveTargetWallet($purchase);
@@ -114,7 +117,7 @@ class SyncNowPaymentsStatus extends Command
             }
 
             $blockchain = app(BlockchainService::class);
-            $beforeBalance = $blockchain->getObxBalance($targetWallet);
+            $beforeBalance = $this->safeGetObxBalance($blockchain, $targetWallet);
             $tx = $blockchain->transferObxOnChain($targetWallet, (string) $purchase->requested_amount);
 
             if (!$tx || empty($tx['txHash'])) {
@@ -126,7 +129,7 @@ class SyncNowPaymentsStatus extends Command
                 return;
             }
 
-            $afterBalance = $blockchain->getObxBalance($targetWallet);
+            $afterBalance = $this->safeGetObxBalance($blockchain, $targetWallet);
             $deliveredAmount = '0';
             if (is_string($beforeBalance) && is_string($afterBalance) && bccomp($afterBalance, $beforeBalance, 18) >= 0) {
                 $deliveredAmount = bcsub($afterBalance, $beforeBalance, 18);
@@ -160,6 +163,17 @@ class SyncNowPaymentsStatus extends Command
                 $wallet->increment('balance', $this->resolveDeliveredAmountForCredit($locked));
             }
         });
+
+        if (!$wasAlreadyCredited && !empty($purchase->phase_id)) {
+            try {
+                app(AffiliateRepository::class)->storeAffiliationHistoryForBuyCoin($purchase->fresh());
+            } catch (\Throwable $e) {
+                Log::warning('nowpayments:sync-status buy referral distribution failed', [
+                    'buy_id' => $purchase->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
     }
 
     private function resolveTargetWallet(BuyCoinHistory $purchase): ?string
@@ -247,5 +261,15 @@ class SyncNowPaymentsStatus extends Command
 
         $fallback = bcmul($requested, '0.9995', 8);
         return (float) $fallback;
+    }
+
+    private function safeGetObxBalance(BlockchainService $blockchain, string $address): ?string
+    {
+        try {
+            $balance = $blockchain->getObxBalance($address);
+            return is_string($balance) ? $balance : null;
+        } catch (\Throwable $e) {
+            return null;
+        }
     }
 }

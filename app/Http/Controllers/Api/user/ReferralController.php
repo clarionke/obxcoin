@@ -2,7 +2,8 @@
 
 namespace App\Http\Controllers\Api\user;
 
-use App\Model\AffiliationHistory;
+use App\Model\BuyCoinReferralHistory;
+use App\Model\ReferralSignBonusHistory;
 use App\Repository\AffiliateRepository;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
@@ -158,14 +159,36 @@ class ReferralController extends Controller
             if(isset($request->limit)){
                 $limit = $request->limit;
             }
-            $monthlyEarnings = AffiliationHistory::select(
-                DB::raw('DATE_FORMAT(`created_at`,\'%Y-%m\') as "year_month"'),
-                DB::raw('SUM(amount) AS total_amount'),
-                DB::raw('COUNT(DISTINCT(child_id)) AS total_child'))
-                ->where('user_id', Auth::id())
-                ->where('status', 1)
+
+            $userId = (int) Auth::id();
+            $signupMonthly = ReferralSignBonusHistory::query()
+                ->where('parent_id', $userId)
+                ->selectRaw("DATE_FORMAT(created_at, '%Y-%m') as year_month")
+                ->selectRaw('SUM(amount) as total_amount')
                 ->groupBy('year_month')
-                ->get()->toArray();
+                ->pluck('total_amount', 'year_month')
+                ->toArray();
+
+            $buyMonthly = BuyCoinReferralHistory::query()
+                ->where('user_id', $userId)
+                ->where('status', STATUS_ACTIVE)
+                ->selectRaw("DATE_FORMAT(created_at, '%Y-%m') as year_month")
+                ->selectRaw('SUM(amount) as total_amount')
+                ->groupBy('year_month')
+                ->pluck('total_amount', 'year_month')
+                ->toArray();
+
+            $months = array_unique(array_merge(array_keys($signupMonthly), array_keys($buyMonthly)));
+            rsort($months);
+
+            $monthlyEarnings = [];
+            foreach ($months as $month) {
+                $monthlyEarnings[] = [
+                    'year_month' => $month,
+                    'total_amount' => (float) ($signupMonthly[$month] ?? 0) + (float) ($buyMonthly[$month] ?? 0),
+                ];
+            }
+
             $monthlyEarningData = [];
             foreach ($monthlyEarnings as $index=>$monthlyEarning) {
                 foreach ($monthlyEarning as $key=>$earning) {

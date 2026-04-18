@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\user;
 
 use App\Model\AffiliationCode;
-use App\Model\AffiliationHistory;
 use App\Model\ReferralSignBonusHistory;
 use App\Model\BuyCoinReferralHistory;
 use App\Repository\AffiliateRepository;
@@ -61,24 +60,7 @@ class ReferralController extends Controller
         $data['select'] = 'affiliate';
         $data['max_referral_level'] = $maxReferralLevel;
 
-        //calculate per users monthly earning from their 3 level Children
-        //'level',
-
-        $monthlyEarnings = AffiliationHistory::select(
-            DB::raw('DATE_FORMAT(`created_at`,\'%Y-%m\') as "year_month"'),
-            DB::raw('SUM(amount) AS total_amount'),
-            DB::raw('COUNT(DISTINCT(child_id)) AS total_child'))
-            ->where('user_id', $data['user']->id)
-            ->where('status', 1)
-            ->groupBy('year_month')
-//            ->groupBy('year_month', 'level')
-            ->get();
-        $monthlyEarningData = [];
-        foreach ($monthlyEarnings as $monthlyEarning) {
-            $monthlyEarningData[$monthlyEarning->year_month]['year_month'] = $monthlyEarning->year_month;
-            $monthlyEarningData[$monthlyEarning->year_month]['total_amount'] = $monthlyEarning->total_amount;
-
-        }
+        $monthlyEarningData = $this->buildMonthlyReferralEarnings((int) $data['user']->id);
         $affiliationKeys = array_flip(array_keys($monthlyEarningData));
         $data['monthArray'] = $affiliationKeys;
         $data['monthlyEarningHistories'] = $monthlyEarningData;
@@ -199,5 +181,40 @@ class ReferralController extends Controller
         }
 
         return $rows;
+    }
+
+    private function buildMonthlyReferralEarnings(int $userId): array
+    {
+        $signupMonthly = ReferralSignBonusHistory::query()
+            ->where('parent_id', $userId)
+            ->selectRaw("DATE_FORMAT(created_at, '%Y-%m') as year_month")
+            ->selectRaw('SUM(amount) as total_amount')
+            ->groupBy('year_month')
+            ->pluck('total_amount', 'year_month')
+            ->toArray();
+
+        $buyMonthly = BuyCoinReferralHistory::query()
+            ->where('user_id', $userId)
+            ->where('status', STATUS_ACTIVE)
+            ->selectRaw("DATE_FORMAT(created_at, '%Y-%m') as year_month")
+            ->selectRaw('SUM(amount) as total_amount')
+            ->groupBy('year_month')
+            ->pluck('total_amount', 'year_month')
+            ->toArray();
+
+        $allMonths = array_unique(array_merge(array_keys($signupMonthly), array_keys($buyMonthly)));
+        rsort($allMonths);
+
+        $result = [];
+        foreach ($allMonths as $month) {
+            $signup = (float) ($signupMonthly[$month] ?? 0);
+            $buy = (float) ($buyMonthly[$month] ?? 0);
+            $result[$month] = [
+                'year_month' => $month,
+                'total_amount' => $signup + $buy,
+            ];
+        }
+
+        return $result;
     }
 }

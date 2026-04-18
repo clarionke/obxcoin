@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Model\BuyCoinHistory;
 use App\Model\Wallet;
 use App\Model\WalletAddressHistory;
+use App\Repository\AffiliateRepository;
 use App\Repository\WalletRepository;
 use App\Services\BlockchainService;
 use App\Services\NowPaymentsService;
@@ -123,11 +124,11 @@ class NowPaymentsWebhookController extends Controller
 
             try {
                 $blockchain = app(BlockchainService::class);
-                $beforeBalance = $blockchain->getObxBalance($targetWallet);
+                $beforeBalance = $this->safeGetObxBalance($blockchain, $targetWallet);
                 $tx = $blockchain->transferObxOnChain($targetWallet, (string) $purchase->requested_amount);
 
                 if ($tx && !empty($tx['txHash'])) {
-                    $afterBalance = $blockchain->getObxBalance($targetWallet);
+                    $afterBalance = $this->safeGetObxBalance($blockchain, $targetWallet);
                     $deliveredAmount = '0';
                     if (is_string($beforeBalance) && is_string($afterBalance) && bccomp($afterBalance, $beforeBalance, 18) >= 0) {
                         $deliveredAmount = bcsub($afterBalance, $beforeBalance, 18);
@@ -191,6 +192,17 @@ class NowPaymentsWebhookController extends Controller
             Log::error('NowPaymentsIPN: DB error for payment_id=' . $paymentId . ': ' . $e->getMessage());
             // Return 200 so NOWPayments does not retry; alert is in logs
             return response('OK', 200);
+        }
+
+        if (!$wasAlreadyCredited && !empty($purchase->phase_id)) {
+            try {
+                app(AffiliateRepository::class)->storeAffiliationHistoryForBuyCoin($purchase->fresh());
+            } catch (\Throwable $e) {
+                Log::warning('NowPaymentsIPN: buy referral distribution failed', [
+                    'buy_id' => $purchase->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
         }
 
         return response('OK', 200);
@@ -283,5 +295,15 @@ class NowPaymentsWebhookController extends Controller
         // Conservative fallback to contract burn model (0.05%) if tx parsing is unavailable.
         $fallback = bcmul($requested, '0.9995', 8);
         return (float) $fallback;
+    }
+
+    private function safeGetObxBalance(BlockchainService $blockchain, string $address): ?string
+    {
+        try {
+            $balance = $blockchain->getObxBalance($address);
+            return is_string($balance) ? $balance : null;
+        } catch (\Throwable $e) {
+            return null;
+        }
     }
 }
