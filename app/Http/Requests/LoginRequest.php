@@ -7,6 +7,15 @@ use Illuminate\Foundation\Http\FormRequest;
 class LoginRequest extends FormRequest
 {
     /**
+     * Always redirect validation failures back to the login page (GET),
+     * never to the previous URL which may be the POST-only login-process route.
+     */
+    protected function getRedirectUrl(): string
+    {
+        return route('login');
+    }
+
+    /**
      * Determine if the user is authorized to make this request.
      *
      * @return bool
