@@ -75,6 +75,11 @@ return [
         137 => env('STAKING_CONTRACT_POLYGON', ''),
     ],
 
+    // DEX pair used for automatic OBX market data fallback (DexScreener).
+    // Example: OBX/USDT pair on PancakeSwap V2 (BSC) => obx_dex_chain=bsc
+    'obx_dex_pair' => env('OBX_DEX_PAIR', ''),
+    'obx_dex_chain' => env('OBX_DEX_CHAIN', 'bsc'),
+
     // Block number to start scanning for TokensPurchased events (set to deployment block)
     // OBXToken name, contract address, decimals and logo are managed via
     // Admin Panel > Settings > OBXCoin Send Settings (stored in admin_settings table).

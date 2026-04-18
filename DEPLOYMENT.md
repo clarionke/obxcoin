@@ -38,6 +38,7 @@ php artisan key:generate
 # - APP_ENV=production
 # - DB_* credentials
 # - PRESALE_CONTRACT, OBX_TOKEN_CONTRACT, STAKING_CONTRACT, AIRDROP_CONTRACT
+# - OBX_DEX_PAIR, OBX_DEX_CHAIN (for DEX-based auto price fallback)
 # - PRESALE_WEBHOOK_SECRET (generate: openssl rand -hex 32)
 # - PRESALE_SYNC_API_KEY (generate: openssl rand -hex 32)
 # - OWNER_PRIVATE_KEY (from secure vault)
@@ -64,6 +65,10 @@ composer install --no-dev --optimize-autoloader
 # Install frontend dependencies (if needed)
 npm install --production
 npm run prod
+
+# Optional: deploy contracts and seed first OBX/USDT liquidity so DEX price is discoverable
+# INITIAL_LP_OBX and INITIAL_LP_USDT can be set in .env before this step
+npx hardhat run scripts/deploy.js --network bsc_mainnet
 
 # Clear all caches
 php artisan cache:clear
@@ -124,6 +129,9 @@ ps aux | grep "node /path/to/cpocket-EVM_Based_node-file/src/app.js"
 php artisan tinker
 > $bs = app(\App\Services\BlockchainService::class);
 > $bs->getActivePhaseIndex();        # should return int >= 0
+
+# Test market data sync (CMC primary, DexScreener fallback via OBX_DEX_PAIR)
+php artisan cmc:fetch-price
 
 # Test webhook endpoint
 curl -X POST https://your-site.com/api/presale/webhook \

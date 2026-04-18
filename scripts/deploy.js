@@ -68,13 +68,23 @@ const CHAIN_ROUTER = {
     31337:    ethers.ZeroAddress,
 };
 
+const DEX_CHAIN_SLUG = {
+    56: 'bsc',
+    97: 'bsc',
+    1: 'ethereum',
+    137: 'polygon',
+};
+
 const INITIAL_SUPPLY        = BigInt(process.env.INITIAL_SUPPLY       || '100000000');
 const PRESALE_ALLOC         = BigInt(process.env.PRESALE_ALLOCATION    || '20000000');  // 20% of total supply
 const AIRDROP_ALLOC         = BigInt(process.env.AIRDROP_ALLOCATION    || '5000000');   //  5% of total supply
 const STAKING_ALLOC         = BigInt(process.env.STAKING_ALLOCATION    || '5000000');   //  5% — reward reserve
 const BURN_ON_STAKE_BPS     = parseInt(process.env.BURN_ON_STAKE_BPS   || '100');       //  1% default
 const BURN_ON_UNSTAKE_BPS   = parseInt(process.env.BURN_ON_UNSTAKE_BPS || '200');       //  2% default
+const INITIAL_LP_OBX        = BigInt(process.env.INITIAL_LP_OBX         || '0');
+const INITIAL_LP_USDT       = BigInt(process.env.INITIAL_LP_USDT        || '0');
 const DECIMALS              = BigInt(10 ** 18);
+const USDT_DECIMALS         = BigInt(10 ** 6);
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -274,9 +284,73 @@ async function main() {
     }
 
     // ═════════════════════════════════════════
-    // 13. Verify balances
+    // 13. Optionally seed initial OBX/USDT liquidity (recommended for price discovery)
     // ═════════════════════════════════════════
-    console.log('\n13. Verifying balances …');
+    let dexPairAddress = ethers.ZeroAddress;
+    if (routerAddress && routerAddress !== ethers.ZeroAddress) {
+        const router = new ethers.Contract(routerAddress, [
+            'function factory() external view returns (address)',
+            'function addLiquidity(address tokenA,address tokenB,uint amountADesired,uint amountBDesired,uint amountAMin,uint amountBMin,address to,uint deadline) external returns (uint amountA,uint amountB,uint liquidity)'
+        ], deployer);
+
+        const factoryAddress = await router.factory();
+        const factory = new ethers.Contract(factoryAddress, [
+            'function getPair(address tokenA, address tokenB) external view returns (address)'
+        ], deployer);
+
+        const lpObxWei  = INITIAL_LP_OBX * DECIMALS;
+        const lpUsdtWei = INITIAL_LP_USDT * USDT_DECIMALS;
+
+        if (lpObxWei > 0n && lpUsdtWei > 0n) {
+            console.log(`\n13. Seeding initial liquidity: ${INITIAL_LP_OBX.toLocaleString()} OBX + ${INITIAL_LP_USDT.toLocaleString()} USDT …`);
+            const usdt = new ethers.Contract(usdtAddress, [
+                'function approve(address spender, uint256 amount) external returns (bool)',
+                'function balanceOf(address account) external view returns (uint256)'
+            ], deployer);
+
+            const deployerUsdt = await usdt.balanceOf(deployer.address);
+            const deployerObx  = await obxToken.balanceOf(deployer.address);
+
+            if (deployerUsdt < lpUsdtWei || deployerObx < lpObxWei) {
+                console.log('   ⚠ Skipped LP seed: insufficient deployer balances for configured INITIAL_LP_OBX/INITIAL_LP_USDT.');
+            } else {
+                const tx13a = await obxToken.approve(routerAddress, lpObxWei);
+                await tx13a.wait();
+                const tx13b = await usdt.approve(routerAddress, lpUsdtWei);
+                await tx13b.wait();
+
+                const deadline = Math.floor(Date.now() / 1000) + 60 * 15;
+                const tx13c = await router.addLiquidity(
+                    obxTokenAddress,
+                    usdtAddress,
+                    lpObxWei,
+                    lpUsdtWei,
+                    0,
+                    0,
+                    treasury,
+                    deadline
+                );
+                await tx13c.wait();
+                console.log(`   ✔ Initial liquidity added (tx: ${tx13c.hash})`);
+            }
+        } else {
+            console.log('\n13. Initial LP seed skipped (set INITIAL_LP_OBX and INITIAL_LP_USDT to enable).');
+        }
+
+        dexPairAddress = await factory.getPair(obxTokenAddress, usdtAddress);
+        if (dexPairAddress && dexPairAddress !== ethers.ZeroAddress) {
+            console.log(`   ✔ DEX pair discovered: ${dexPairAddress}`);
+        } else {
+            console.log('   ⚠ DEX pair not created yet. Pair appears after first liquidity add.');
+        }
+    } else {
+        console.log('\n13. DEX pair lookup skipped (router not configured for this network).');
+    }
+
+    // ═════════════════════════════════════════
+    // 14. Verify balances
+    // ═════════════════════════════════════════
+    console.log('\n14. Verifying balances …');
     const deployerBal = await obxToken.balanceOf(deployer.address);
     const presaleBal  = await obxToken.balanceOf(presaleAddress);
     const airdropBal  = await obxToken.balanceOf(airdropAddress);
@@ -287,7 +361,7 @@ async function main() {
     console.log(`    Staking  OBX balance: ${ethers.formatUnits(stakingBal,  18)} ( 5% rewards reserve)`);
 
     // ═════════════════════════════════════════
-    // 14. Print .env / config summary
+    // 15. Print .env / config summary
     // ═════════════════════════════════════════
     console.log('\n══════════════════════════════════════════════════════════');
     console.log(' ✅  DEPLOYMENT COMPLETE (Multichain OBXCoin v3 + Airdrop + Staking)');
@@ -301,6 +375,10 @@ async function main() {
     console.log(`PRESALE_CONTRACT=${presaleAddress}`);
     console.log(`AIRDROP_CONTRACT=${airdropAddress}`);
     console.log(`STAKING_CONTRACT=${stakingAddress}`);
+    if (dexPairAddress && dexPairAddress !== ethers.ZeroAddress) {
+        console.log(`OBX_DEX_PAIR=${dexPairAddress}`);
+        console.log(`OBX_DEX_CHAIN=${DEX_CHAIN_SLUG[chainId] || 'bsc'}`);
+    }
 
     if (chainId === 56) {
         console.log(`OBX_TOKEN_BSC=${obxTokenAddress}`);

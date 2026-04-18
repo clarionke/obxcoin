@@ -39,9 +39,8 @@ class FetchCMCPrice extends Command
         $apiKey = settings('coinmarketcap_api_key');
 
         if (empty($apiKey)) {
-            $this->warn('CoinMarketCap API key is not configured (Admin → Settings → CoinMarketCap). Skipping.');
-            Log::info('[FetchCMCPrice] No API key configured — skipping price fetch.');
-            return self::SUCCESS;
+            $this->warn('CoinMarketCap API key is not configured (Admin → Settings → CoinMarketCap). Trying DEX fallback.');
+            return $this->fetchFromDex();
         }
 
         $obxId     = settings('coinmarketcap_obx_id');
@@ -128,6 +127,95 @@ class FetchCMCPrice extends Command
         } catch (\Throwable $e) {
             Log::error('[FetchCMCPrice] Exception: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
             $this->error('Exception: ' . $e->getMessage());
+            $this->warn('Falling back to DEX pricing.');
+            return $this->fetchFromDex();
+        }
+    }
+
+    /**
+     * Fallback price source using DexScreener pair data.
+     *
+     * Required configuration (admin setting or .env fallback):
+     * - obx_dex_pair_address / OBX_DEX_PAIR
+     * - obx_dex_chain / OBX_DEX_CHAIN (default: bsc)
+     */
+    private function fetchFromDex(): int
+    {
+        $pairAddress = trim((string) (settings('obx_dex_pair_address') ?: config('blockchain.obx_dex_pair', '')));
+        $chain       = strtolower(trim((string) (settings('obx_dex_chain') ?: config('blockchain.obx_dex_chain', 'bsc'))));
+
+        if ($pairAddress === '') {
+            Log::warning('[FetchCMCPrice] DEX fallback skipped — missing pair address.');
+            $this->warn('DEX fallback skipped: set obx_dex_pair_address in settings (or OBX_DEX_PAIR in .env).');
+            return self::SUCCESS;
+        }
+
+        $url = sprintf('https://api.dexscreener.com/latest/dex/pairs/%s/%s', $chain, $pairAddress);
+
+        try {
+            $response = Http::timeout(15)->get($url);
+            if (!$response->successful()) {
+                Log::error('[FetchCMCPrice] DexScreener API returned HTTP ' . $response->status() . ': ' . $response->body());
+                $this->error('DexScreener API error: HTTP ' . $response->status());
+                return self::FAILURE;
+            }
+
+            $body  = $response->json();
+            $pairs = $body['pairs'] ?? [];
+            $pair  = is_array($pairs) ? ($pairs[0] ?? null) : null;
+
+            if (!$pair) {
+                Log::warning('[FetchCMCPrice] DexScreener returned no pair data.', ['chain' => $chain, 'pair' => $pairAddress]);
+                $this->warn('DexScreener returned no pair data yet.');
+                return self::SUCCESS;
+            }
+
+            $price             = (string) round((float) ($pair['priceUsd']                ?? 0), 8);
+            $change24h         = (string) round((float) ($pair['priceChange']['h24']       ?? 0), 4);
+            $marketCapRaw      = (float) ($pair['marketCap'] ?? 0);
+            $fdvRaw            = (float) ($pair['fdv']       ?? 0);
+            $volume24h         = (string) round((float) ($pair['volume']['h24']            ?? 0), 2);
+            $lastUpdated       = now()->toISOString();
+            $circulatingSupply = (float) (settings('obx_circulating_supply') ?: settings('obx_total_supply') ?: 0);
+
+            if ($circulatingSupply <= 0 && (float) $price > 0) {
+                // If supply isn't configured, infer a best-effort supply from fdv/price.
+                $circulatingSupply = $fdvRaw > 0 ? ($fdvRaw / (float) $price) : 0;
+            }
+
+            $marketCap = $marketCapRaw > 0
+                ? $marketCapRaw
+                : ($fdvRaw > 0
+                    ? $fdvRaw
+                    : ((float) $price * max($circulatingSupply, 0)));
+
+            $this->upsertSetting('coin_price',              $price);
+            $this->upsertSetting('obx_price_change_24h',    $change24h);
+            $this->upsertSetting('obx_market_cap',          (string) round($marketCap, 2));
+            $this->upsertSetting('obx_volume_24h',          $volume24h);
+            $this->upsertSetting('obx_circulating_supply',  (string) round($circulatingSupply, 0));
+            $this->upsertSetting('obx_price_last_updated',  $lastUpdated);
+
+            if (function_exists('cache')) {
+                cache()->forget('admin_settings');
+                cache()->forget('all_settings');
+            }
+
+            $this->info("[FetchCMCPrice] DEX fallback updated OBX price: \${$price} ({$change24h}% 24h) — MarketCap: $" . round($marketCap, 2));
+            Log::info('[FetchCMCPrice] DEX fallback price updated.', [
+                'price'        => $price,
+                'change24h'    => $change24h,
+                'marketCap'    => round($marketCap, 2),
+                'volume24h'    => $volume24h,
+                'chain'        => $chain,
+                'pair_address' => $pairAddress,
+            ]);
+
+            return self::SUCCESS;
+
+        } catch (\Throwable $e) {
+            Log::error('[FetchCMCPrice] DEX fallback exception: ' . $e->getMessage());
+            $this->error('DEX fallback exception: ' . $e->getMessage());
             return self::FAILURE;
         }
     }
