@@ -8,6 +8,8 @@ use App\Model\BuyCoinReferralHistory;
 use App\Model\ReferralSignBonusHistory;
 use App\Model\ReferralUser;
 use App\Model\Wallet;
+use App\Model\WalletAddressHistory;
+use App\Services\BlockchainService;
 use App\User;
 use Carbon\Carbon;
 use Illuminate\Database\QueryException;
@@ -17,22 +19,32 @@ use Illuminate\Support\Facades\Log;
 
 class AffiliateRepository
 {
+    public const MAX_REFERRAL_LEVELS = 5;
+
     // create affiliation code
     public function create($userId)
     {
-        $affiliateCodeInput['user_id'] = $userId;
-        $affiliateCodeInput['code'] = uniqid($userId);
-        $affiliateCodeInput['status'] = 1;
+        $existing = AffiliationCode::where('user_id', $userId)->first();
+        if ($existing) {
+            return $existing->id;
+        }
 
-        try {
-            $created = AffiliationCode::create($affiliateCodeInput)->id;
-        } catch (QueryException $e) {
-            $errorCode = $e->errorInfo[1];
-            if ($errorCode == '1062') {
-                $this->create($userId);
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            try {
+                return AffiliationCode::create([
+                    'user_id' => $userId,
+                    'code' => uniqid((string) $userId, true),
+                    'status' => 1,
+                ])->id;
+            } catch (QueryException $e) {
+                $errorCode = $e->errorInfo[1] ?? null;
+                if ((string) $errorCode !== '1062') {
+                    throw $e;
+                }
             }
         }
-        return $created;
+
+        return 0;
 
     }
 
@@ -44,14 +56,57 @@ class AffiliateRepository
             $data['user_id'] = $userId;
             $data['parent_id'] = $parentId;
             $created = ReferralUser::create($data)->id;
-            $signUpBonus = isset(allsetting()['referral_signup_reward']) ? allsetting()['referral_signup_reward'] : 0;
-            $wallet = Wallet::where(['user_id' => $userId, 'is_primary' => STATUS_ACTIVE, 'coin_type' => DEFAULT_COIN_TYPE])->first();
-            if (isset($wallet)) {
-                $wallet->increment('balance', $signUpBonus);
-                ReferralSignBonusHistory::create(['parent_id'=>$parentId, 'user_id'=>$userId, 'wallet_id'=>$wallet->id, 'amount'=>$signUpBonus]);
+            $signUpBonus = (float) (allsetting()['referral_signup_reward'] ?? 0);
+            if ($signUpBonus <= 0) {
+                return $created;
+            }
+
+            $maxReferralLevel = $this->normalizeReferralLevel(max_level());
+            $userAffiliation = $this->parentReferrals($maxReferralLevel, $userId);
+            if (empty($userAffiliation)) {
+                return $created;
+            }
+
+            $adminSettings = $this->checkAdminSettings();
+            for ($i = 1; $i <= $maxReferralLevel; $i++) {
+                $parentLevel = 'parent_level_user_' . $i;
+                $feesLevel = 'fees_level' . $i;
+                if (empty($userAffiliation->{$parentLevel})) {
+                    break;
+                }
+
+                $amount = round(($signUpBonus * ((float) ($adminSettings[$feesLevel] ?? 0))) / 100, 8);
+                if ($amount <= 0) {
+                    continue;
+                }
+
+                $wallet = get_primary_wallet($userAffiliation->{$parentLevel}, DEFAULT_COIN_TYPE);
+                if (!isset($wallet)) {
+                    continue;
+                }
+
+                $payout = $this->payoutReferralOnChain($wallet, (string) $amount, 'signup');
+                if ($payout['success'] !== true) {
+                    Log::warning('Referral signup bonus payout failed', [
+                        'child_id' => $userId,
+                        'parent_id' => $userAffiliation->{$parentLevel},
+                        'level' => $i,
+                        'amount' => $amount,
+                        'reason' => $payout['message'] ?? 'unknown',
+                    ]);
+                    continue;
+                }
+
+                $wallet->increment('balance', $amount);
+                ReferralSignBonusHistory::create([
+                    'parent_id' => $userAffiliation->{$parentLevel},
+                    'user_id' => $userId,
+                    'wallet_id' => $wallet->id,
+                    'amount' => $amount,
+                ]);
             }
         } catch (\Exception $e) {
-
+            Log::warning('createReferralUser failed', ['message' => $e->getMessage()]);
         }
         return $created;
     }
@@ -59,33 +114,14 @@ class AffiliateRepository
     // store data to affiliation history
     public function storeAffiliationHistory($transaction = null)
     {
-        if ($transaction != null && $transaction->wallet->type == PERSONAL_WALLET) {
-            $adminSettings = $this->checkAdminSettings();
-            $withdrawalUser = $transaction->wallet->user->id;
-            $transactionId = $transaction->transaction_hash;
-            $coinType = $transaction->coin_type;
-            $maxReferralLevel = max_level();
-            try {
-                $userAffiliation = $this->parentReferrals($maxReferralLevel, $withdrawalUser);
-                if (!empty($userAffiliation)) {
-                    $this->calculateReferralFees($adminSettings, $transactionId, $userAffiliation, $transaction->fees,  $maxReferralLevel, $coinType);
-                }
-            } catch (\Exception $e) {
-//                dd($e);
-                Log::info($e->getMessage());
-            }
-//            $logger = app(Logger::class);
-            Log::info("DistributeAffiliationBonus[$transactionId]");
-            Log::info('distributing affiliation bonus ends');
-        }
-
+        Log::info('Withdrawal referral bonuses are disabled; signup and buy bonuses are on-chain only');
         return 1;
     }
 
     // check referral fees setting
     public function checkAdminSettings()
     {
-        $adminSettings = allsetting(['fees_level1', 'fees_level2', 'fees_level3', 'fees_level4', 'fees_level5', 'fees_level6', 'fees_level7', 'fees_level8', 'fees_level9', 'fees_level10']);
+        $adminSettings = allsetting(['fees_level1', 'fees_level2', 'fees_level3', 'fees_level4', 'fees_level5']);
         if (empty($adminSettings['fees_level1'])) {
             $adminSettings['fees_level1'] = 10;
         }
@@ -101,21 +137,6 @@ class AffiliateRepository
         if (empty($adminSettings['fees_level5'])) {
             $adminSettings['fees_level5'] = 0;
         }
-        if (empty($adminSettings['fees_level6'])) {
-            $adminSettings['fees_level6'] = 0;
-        }
-        if (empty($adminSettings['fees_level7'])) {
-            $adminSettings['fees_level7'] = 0;
-        }
-        if (empty($adminSettings['fees_level8'])) {
-            $adminSettings['fees_level8'] = 0;
-        }
-        if (empty($adminSettings['fees_level9'])) {
-            $adminSettings['fees_level9'] = 0;
-        }
-        if (empty($adminSettings['fees_level10'])) {
-            $adminSettings['fees_level10'] = 0;
-        }
         return $adminSettings;
     }
 
@@ -124,6 +145,7 @@ class AffiliateRepository
     // get parent referral
     public function parentReferrals($maxReferralLevel = 1, $user_id)
     {
+        $maxReferralLevel = $this->normalizeReferralLevel($maxReferralLevel);
         $affiliation = DB::table('referral_users AS ru1')
             ->where('ru1.user_id', $user_id);
 
@@ -143,42 +165,6 @@ class AffiliateRepository
     // calculate referral fees
     protected function calculateReferralFees($adminSettings, $transactionId, $affiliateUsers, $systemFees, $maxReferralLevel = 1, $coinType)
     {
-        try {
-
-        } catch (\Exception $e) {
-            return 1;
-        }
-
-        $affiliationHistoryData['system_fees'] = $systemFees;
-        $affiliationHistoryData['child_id'] = $affiliateUsers->user_id;
-        $affiliationHistoryData['status'] = STATUS_ACTIVE;
-        $affiliationHistoryData['transaction_id'] = $transactionId;
-        $affiliationHistoryData['order_type'] = 1;
-        $affiliationHistoryData['coin_type'] = $coinType;
-
-
-        for ($i = 1; $i <= $maxReferralLevel; $i++) {
-            $parent_level = 'parent_level_user_' . $i;
-            $fees_level = 'fees_level' . $i;
-            if ($affiliateUsers->{$parent_level}) {
-                try {
-                    $affiliationHistoryData['user_id'] = $affiliateUsers->{$parent_level};
-                    $fees_percent = isset($adminSettings[$fees_level]) ? $adminSettings[$fees_level] : '0';
-                    $affiliationHistoryData['amount'] = ($systemFees * $fees_percent) / 100;
-                    $affiliationHistoryData['level'] = $i;
-                    $userWallet = get_primary_wallet($affiliationHistoryData['user_id'], $coinType);
-                    if (isset($userWallet)) {
-                        $affiliationHistoryData['wallet_id'] = $userWallet->id;
-                        $userWallet->increment('balance',$affiliationHistoryData['amount']);
-                    }
-                    AffiliationHistory::create($affiliationHistoryData);
-                } catch (\Exception $e) {
-                    return false;
-                }
-            } else {
-                break;
-            }
-        }
         return 1;
     }
 
@@ -228,6 +214,7 @@ class AffiliateRepository
     // referral children
     public function childrenReferralQuery($maxReferralLevel = 1)
     {
+        $maxReferralLevel = $this->normalizeReferralLevel($maxReferralLevel);
 
 //        $maxReferralLevel = 3;
         $referralAll = DB::table('referral_users AS ru1')->where('ru1.deleted_at', null);
@@ -257,7 +244,7 @@ class AffiliateRepository
         if ($transaction) {
             $adminSettings = $this->checkAdminSettings();
             $user_id = $transaction->user_id;
-            $maxReferralLevel = $transaction->referral_level ;
+            $maxReferralLevel = $this->normalizeReferralLevel($transaction->referral_level);
             try {
                 $userAffiliation = $this->parentReferrals($maxReferralLevel, $user_id);
                 if (!empty($userAffiliation)) {
@@ -275,6 +262,7 @@ class AffiliateRepository
     protected function calculateReferralFeesForBuyCoin($adminSettings, $transaction, $affiliateUsers, $systemFees, $maxReferralLevel= 1 )
     {
         try {
+            $maxReferralLevel = $this->normalizeReferralLevel($maxReferralLevel);
             $affiliationHistoryData['buy_id'] = $transaction->id;
             $affiliationHistoryData['phase_id'] = $transaction->phase_id;
             $affiliationHistoryData['system_fees'] = $systemFees;
@@ -291,13 +279,32 @@ class AffiliateRepository
                     try {
                         $affiliationHistoryData['user_id'] = $affiliateUsers->{$parent_level};
                         $fees_percent = isset($adminSettings[$fees_level]) ? $adminSettings[$fees_level] : '0';
-                        $affiliationHistoryData['amount'] = ($systemFees * $fees_percent)/ 100;
+                        $affiliationHistoryData['amount'] = round(($systemFees * $fees_percent) / 100, 8);
                         $affiliationHistoryData['level'] = $i;
                         $userWallet = get_primary_wallet($affiliationHistoryData['user_id'], DEFAULT_COIN_TYPE);
-                        if (isset($userWallet)) {
+                        if (isset($userWallet) && (float) $affiliationHistoryData['amount'] > 0) {
+                            $payout = $this->payoutReferralOnChain($userWallet, (string) $affiliationHistoryData['amount'], 'buy');
+                            if ($payout['success'] !== true) {
+                                Log::warning('Buy referral payout failed', [
+                                    'user_id' => $affiliationHistoryData['user_id'],
+                                    'child_id' => $affiliateUsers->user_id,
+                                    'buy_id' => $transaction->id,
+                                    'level' => $i,
+                                    'amount' => $affiliationHistoryData['amount'],
+                                    'reason' => $payout['message'] ?? 'unknown',
+                                ]);
+                                continue;
+                            }
                             $affiliationHistoryData['wallet_id'] = $userWallet->id;
-                            $userWallet->increment('balance',$affiliationHistoryData['amount']);
-                            Log::info('parent user referral balance data updated');
+                            $userWallet->increment('balance', $affiliationHistoryData['amount']);
+                            Log::info('Buy referral reward paid on-chain', [
+                                'user_id' => $affiliationHistoryData['user_id'],
+                                'child_id' => $affiliateUsers->user_id,
+                                'buy_id' => $transaction->id,
+                                'level' => $i,
+                                'amount' => $affiliationHistoryData['amount'],
+                                'tx_hash' => $payout['tx_hash'] ?? null,
+                            ]);
                         }
                         BuyCoinReferralHistory::create($affiliationHistoryData);
                     } catch (\Exception $e) {
@@ -310,6 +317,107 @@ class AffiliateRepository
             return 1;
         } catch (\Exception $e) {
             return 1;
+        }
+    }
+
+    public function getUpline(int $userId, int $maxLevels = self::MAX_REFERRAL_LEVELS): array
+    {
+        $upline = [];
+        $currentUserId = $userId;
+        $maxLevels = $this->normalizeReferralLevel($maxLevels);
+
+        for ($level = 1; $level <= $maxLevels; $level++) {
+            $referral = ReferralUser::where('user_id', $currentUserId)->first();
+            if (!$referral || !$referral->parent_id) {
+                break;
+            }
+
+            $user = User::find($referral->parent_id);
+            if (!$user) {
+                break;
+            }
+
+            $upline[] = [
+                'level' => $level,
+                'user' => $user,
+            ];
+            $currentUserId = $user->id;
+        }
+
+        return $upline;
+    }
+
+    public function getDownlineTree(int $userId, int $maxLevels = self::MAX_REFERRAL_LEVELS, int $currentLevel = 1): array
+    {
+        $maxLevels = $this->normalizeReferralLevel($maxLevels);
+        if ($currentLevel > $maxLevels) {
+            return [];
+        }
+
+        $children = ReferralUser::where('parent_id', $userId)->get();
+        $tree = [];
+
+        foreach ($children as $childLink) {
+            $childUser = User::find($childLink->user_id);
+            if (!$childUser) {
+                continue;
+            }
+
+            $tree[] = [
+                'level' => $currentLevel,
+                'user' => $childUser,
+                'children' => $this->getDownlineTree($childUser->id, $maxLevels, $currentLevel + 1),
+            ];
+        }
+
+        return $tree;
+    }
+
+    private function normalizeReferralLevel($maxReferralLevel): int
+    {
+        $level = (int) $maxReferralLevel;
+        if ($level < 1) {
+            $level = 1;
+        }
+
+        return min($level, self::MAX_REFERRAL_LEVELS);
+    }
+
+    private function payoutReferralOnChain(Wallet $wallet, string $amount, string $context): array
+    {
+        try {
+            if ((float) $amount <= 0) {
+                return ['success' => false, 'message' => 'Invalid reward amount'];
+            }
+
+            $toAddress = strtolower(trim((string) WalletAddressHistory::where('wallet_id', (int) $wallet->id)
+                ->where('coin_type', DEFAULT_COIN_TYPE)
+                ->orderBy('id', 'desc')
+                ->value('address')));
+
+            if (!preg_match('/^0x[a-f0-9]{40}$/', $toAddress)) {
+                return ['success' => false, 'message' => 'Recipient default wallet address is missing or invalid'];
+            }
+
+            $blockchain = app(BlockchainService::class);
+            $tx = $blockchain->transferObxOnChain($toAddress, $amount);
+
+            if (empty($tx) || empty($tx['txHash'])) {
+                return ['success' => false, 'message' => $blockchain->getLastSignerError() ?: 'On-chain referral payout failed'];
+            }
+
+            Log::info('Referral payout sent on-chain with gas sponsored by platform signer', [
+                'context' => $context,
+                'wallet_id' => $wallet->id,
+                'user_id' => $wallet->user_id,
+                'amount' => $amount,
+                'to' => $toAddress,
+                'tx_hash' => $tx['txHash'],
+            ]);
+
+            return ['success' => true, 'tx_hash' => $tx['txHash']];
+        } catch (\Throwable $e) {
+            return ['success' => false, 'message' => $e->getMessage()];
         }
     }
 

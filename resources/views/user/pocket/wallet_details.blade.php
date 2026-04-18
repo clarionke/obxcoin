@@ -161,39 +161,6 @@
             }
         });
 
-        function generateNewAddress() {
-            $.ajax({
-                type: "GET",
-                enctype: 'multipart/form-data',
-                url: "{{route('generateNewAddress')}}?wallet_id={{$wallet_id}}",
-                success: function (data) {
-                    if (data.success == true) {
-
-                        $('#address').val(data.address);
-                        var srcVal = "{{route('qrCodeGenerate')}}?address=" + data.address;
-                        document.getElementById('qrcode').src = srcVal;
-                        VanillaToasts.create({
-                            // title: 'Message Title',
-                            text: data.message,
-                            type: 'success',
-                            timeout: 3000
-
-                        });
-                        $('#qrcode').src(data.qrcode);
-                    } else {
-
-                        VanillaToasts.create({
-                            // title: 'Message Title',
-                            text: data.message,
-                            type: 'warning',
-                            timeout: 3000
-
-                        });
-
-                    }
-                }
-            });
-        }
     </script>
 
     {{--    <script>--}}

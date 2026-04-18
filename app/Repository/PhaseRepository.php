@@ -163,7 +163,7 @@ class PhaseRepository
                 'end_date'          => date("Y-m-d H:i:s", strtotime($request->end_date)),
                 'rate'              => $request->rate,
                 'amount'            => $request->amount,
-                'affiliation_level' => $request->affiliation_level,
+                'affiliation_level' => min((int) $request->affiliation_level, 5),
                 'phase_name'        => $request->phase_name,
                 'fees'              => 0,
                 'bonus'             => isset($request->bonus) ? $request->bonus : 0,

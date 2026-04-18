@@ -19,7 +19,6 @@
     #np-panel.show            { display: block; }
     .price-preview            { background: rgba(255,255,255,.04); border-radius: 8px; padding: 12px 16px; list-style:none; }
     .price-preview li         { padding: 4px 0; }
-    #wc-status                { font-size: 13px; margin-top: 8px; }
     /* CMC live price bar */
     #cmc-price-bar { background:rgba(0,0,0,.3); border-radius:10px; border-left:3px solid #4f8ef7; padding:12px 16px; margin-bottom:16px; }
     #cmc-price-bar .pstat .val { font-size:15px; font-weight:700; display:block; }
@@ -63,25 +62,26 @@
                         <input type="hidden" name="phase_id" value="{{$activePhase['pahse_info']->id}}">
                     @endif
                     <input type="hidden" name="payment_type" id="payment_type_input" value="">
-                    <input type="hidden" name="wc_buyer_address" id="wc_buyer_address" value="">
-                    <input type="hidden" name="tx_hash" id="wc_tx_hash" value="">
 
-                    {{-- Amount --}}
+                    {{-- USDT Amount --}}
                     <div class="form-group mt-3">
-                        <label>{{__('Amount of')}} {{ settings('coin_name') }} {{__('to buy')}}</label>
-                        <input type="number" step="any" min="1" name="coin" id="coin_amount"
-                               class="form-control" placeholder="e.g. 1000"
+                        <label>{{__('USDT amount to pay')}}</label>
+                        <input type="number" step="any" min="10" name="usdt_amount" id="usdt_amount"
+                               class="form-control" placeholder="e.g. 100"
                                oninput="updatePreview()" autocomplete="off"
-                               value="{{ old('coin') }}">
+                               value="{{ old('usdt_amount') }}">
+                        <input type="hidden" name="coin" id="coin_amount" value="{{ old('coin') }}">
                     </div>
 
                     {{-- Price preview --}}
                     <ul class="price-preview mb-3">
-                        <li>1 {{ settings('coin_name') }} = <strong id="pr_rate">{{ $coin_price }}</strong> USD</li>
-                        <li>{{__('Total')}} ≈ <strong id="pr_total">—</strong> USD</li>
+                        <li>{{__('You Pay')}} = <strong id="pr_usdt">—</strong> USDT</li>
+                        <li>1 {{ settings('coin_name') }} = <strong id="pr_rate">{{ $coin_price }}</strong> USDT</li>
+                        <li>{{__('Base Tokens')}} = <strong id="pr_base">—</strong> {{ settings('coin_name') }}</li>
                         @if(!$no_phase && !$activePhase['futurePhase'] && isset($activePhase['pahse_info']))
-                        <li>{{__('Bonus')}} = <span id="pr_bonus">0</span> {{ settings('coin_name') }}</li>
+                        <li>{{__('Discount/Bonus')}} (<span id="pr_bonus_pct">{{ number_format((float) $activePhase['pahse_info']->bonus, 2) }}</span>%) = <strong id="pr_bonus">0</strong> {{ settings('coin_name') }}</li>
                         @endif
+                        <li>{{__('You Receive')}} = <strong id="pr_total_tokens">—</strong> {{ settings('coin_name') }}</li>
                     </ul>
 
                     {{-- Payment method selection --}}
@@ -89,7 +89,7 @@
                         <h5 class="mb-2">{{__('Choose Payment Method')}}</h5>
 
                         @php
-                            $has_payment_methods = ($nowpayments_enabled || $walletconnect_enabled);
+                            $has_payment_methods = $nowpayments_enabled;
                         @endphp
 
                         @if($nowpayments_enabled)
@@ -97,14 +97,6 @@
                             <span class="pm-icon">💳</span>
                             <span class="pm-label">NOWPayments</span>
                             <span class="pm-desc d-block mt-1">{{__('Pay with BTC, ETH, USDT, or 300+ cryptocurrencies')}}</span>
-                        </div>
-                        @endif
-
-                        @if($walletconnect_enabled)
-                        <div class="payment-card dark-bg2" id="pm_walletconnect" onclick="selectPayment('walletconnect')">
-                            <span class="pm-icon">🔗</span>
-                            <span class="pm-label">WalletConnect</span>
-                            <span class="pm-desc d-block mt-1">{{__('Pay on-chain with USDT from your connected wallet')}}</span>
                         </div>
                         @endif
 
@@ -133,15 +125,6 @@
                         <button type="submit" class="btn theme-btn">
                             <i class="fa fa-credit-card mr-1"></i> {{__('Pay with NOWPayments')}}
                         </button>
-                    </div>
-
-                    {{-- WalletConnect panel --}}
-                    <div id="wc-panel" style="display:none; margin-top:16px;">
-                        <p class="mb-2 text-muted">{{__('You will approve USDT and then confirm the on-chain purchase transaction in your wallet.')}}</p>
-                        <button type="button" class="btn theme-btn" id="wc-buy-btn" onclick="startWalletConnectPurchase()">
-                            <i class="fa fa-link mr-1"></i> {{__('Pay with WalletConnect')}}
-                        </button>
-                        <div id="wc-status" class="mt-2"></div>
                     </div>
 
                 </form>
@@ -240,22 +223,7 @@
 
 @section('script')
 <script>
-const WC_ENABLED          = {{ $walletconnect_enabled ? 'true' : 'false' }};
-const WC_PROJECT_ID       = @json($wc_project_id ?? '');
-const WC_CHAIN_ID         = {{ (int)($wc_chain_id ?? 56) }};
-const PRESALE_CONTRACT    = @json($presale_contract ?? '');
-const USDT_ADDRESS        = @json($usdt_address ?? '');
-const CONTRACT_PHASE_IDX  = {{ (!$no_phase && !$activePhase['futurePhase'] && isset($activePhase['pahse_info']) && $activePhase['pahse_info']->contract_phase_index !== null) ? (int)$activePhase['pahse_info']->contract_phase_index : 'null' }};
-const PHASE_INFO_URL      = @json(url('/api/presale/phase-info/0'));
 const BUY_RATE_URL        = @json(route('buyCoinRate'));
-
-const ERC20_ABI = [
-    'function approve(address spender, uint256 amount) returns (bool)'
-];
-
-const PRESALE_ABI = [
-    'function buyTokens(uint256 contractPhaseIndex, uint256 usdtAmount)'
-];
 
 // ── Price preview ────────────────────────────────────────────────────────────
 let COIN_PRICE = {{ (float) $coin_price }};
@@ -266,20 +234,66 @@ const PHASE_BONUS_PCT = 0;
 @endif
 
 function updatePreview() {
-    const amt   = parseFloat(document.getElementById('coin_amount').value) || 0;
-    const bonus = amt * PHASE_BONUS_PCT / 100;
-    const net   = amt - bonus;
-    document.getElementById('pr_total').innerText = (net * COIN_PRICE).toFixed(4) + ' USD';
+    const usdtInput = document.getElementById('usdt_amount');
+    const usdt = parseFloat((usdtInput ? usdtInput.value : '0') || 0);
+
+    const usdtEl = document.getElementById('pr_usdt');
+    const rateEl = document.getElementById('pr_rate');
+    const baseEl = document.getElementById('pr_base');
     const bonusEl = document.getElementById('pr_bonus');
-    if (bonusEl) bonusEl.innerText = bonus.toFixed(4);
+    const totalTokensEl = document.getElementById('pr_total_tokens');
+    const hiddenCoinEl = document.getElementById('coin_amount');
+
+    if (usdtEl) usdtEl.innerText = usdt > 0 ? usdt.toFixed(6) : '—';
+
+    if (!usdt || usdt <= 0) {
+        if (baseEl) baseEl.innerText = '—';
+        if (bonusEl) bonusEl.innerText = '0';
+        if (totalTokensEl) totalTokensEl.innerText = '—';
+        if (hiddenCoinEl) hiddenCoinEl.value = '';
+        return;
+    }
+
+    fetch(BUY_RATE_URL, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: new URLSearchParams({
+            _token: '{{ csrf_token() }}',
+            usdt_amount: String(usdt)
+        }).toString()
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+        const rate = parseFloat(data.rate || 0);
+        const base = parseFloat(data.base_tokens || 0);
+        const bonus = parseFloat(data.bonus_tokens || 0);
+        const total = parseFloat(data.total_tokens || 0);
+        const bonusPct = parseFloat(data.bonus_percent || 0);
+
+        if (rateEl) rateEl.innerText = rate > 0 ? rate.toFixed(6) : '—';
+        if (baseEl) baseEl.innerText = base.toFixed(6);
+        if (bonusEl) bonusEl.innerText = bonus.toFixed(6);
+        if (totalTokensEl) totalTokensEl.innerText = total.toFixed(6);
+        if (hiddenCoinEl) hiddenCoinEl.value = total.toFixed(8);
+
+        const bonusPctEl = document.getElementById('pr_bonus_pct');
+        if (bonusPctEl) bonusPctEl.innerText = bonusPct.toFixed(2);
+    })
+    .catch(function() {
+        if (baseEl) baseEl.innerText = '—';
+        if (bonusEl) bonusEl.innerText = '0';
+        if (totalTokensEl) totalTokensEl.innerText = '—';
+        if (hiddenCoinEl) hiddenCoinEl.value = '';
+    });
 }
 
 // ── Payment method selection ─────────────────────────────────────────────────
 function selectPayment(method) {
     document.querySelectorAll('.payment-card').forEach(el => el.classList.remove('selected'));
     document.getElementById('np-panel').classList.remove('show');
-    const wcPanel = document.getElementById('wc-panel');
-    if (wcPanel) wcPanel.style.display = 'none';
     document.getElementById('payment_type_input').value = '';
 
     if (method === 'nowpayments') {
@@ -287,18 +301,7 @@ function selectPayment(method) {
         if (el) el.classList.add('selected');
         document.getElementById('np-panel').classList.add('show');
         document.getElementById('payment_type_input').value = '{{ NOWPAYMENTS }}';
-    } else if (method === 'walletconnect') {
-        const el = document.getElementById('pm_walletconnect');
-        if (el) el.classList.add('selected');
-        if (wcPanel) wcPanel.style.display = 'block';
-        document.getElementById('payment_type_input').value = '{{ WALLETCONNECT }}';
     }
-}
-
-function setWcStatus(message, isError = false) {
-    const el = document.getElementById('wc-status');
-    if (!el) return;
-    el.innerHTML = isError ? '<span class="text-danger">' + message + '</span>' : message;
 }
 
 function loadScript(src) {
@@ -315,115 +318,26 @@ function loadScript(src) {
 async function fetchQuoteFromServer(amount) {
     const formData = new URLSearchParams();
     formData.append('_token', '{{ csrf_token() }}');
-    formData.append('amount', String(amount));
+    formData.append('usdt_amount', String(amount));
 
     const r = await fetch(BUY_RATE_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
         body: formData.toString(),
     });
 
     if (!r.ok) throw new Error('{{ __('Unable to fetch price quote.') }}');
     const data = await r.json();
-    const totalUsd = parseFloat(data.coin_price || 0);
-    if (!totalUsd || totalUsd <= 0) {
+    const usdtAmount = parseFloat(data.usdt_amount || 0);
+    if (!usdtAmount || usdtAmount <= 0) {
         throw new Error('{{ __('Invalid quote amount returned by server.') }}');
     }
-    return totalUsd;
+    return usdtAmount;
 }
 
-async function resolveContractPhaseIndex() {
-    if (CONTRACT_PHASE_IDX !== null && Number(CONTRACT_PHASE_IDX) >= 0) {
-        return Number(CONTRACT_PHASE_IDX);
-    }
-
-    try {
-        const r = await fetch(PHASE_INFO_URL, {
-            method: 'GET',
-            headers: { 'X-Requested-With': 'XMLHttpRequest' }
-        });
-        if (!r.ok) return null;
-
-        const data = await r.json();
-        const idx = Number(data.active_phase);
-        if (Number.isFinite(idx) && idx >= 0) {
-            return idx;
-        }
-    } catch (e) {
-        // fall through to null return
-    }
-
-    return null;
-}
-
-async function startWalletConnectPurchase() {
-    const buyBtn = document.getElementById('wc-buy-btn');
-    const form = document.getElementById('buy_coin_form');
-    const amount = parseFloat(document.getElementById('coin_amount').value || 0);
-
-    try {
-        if (!WC_ENABLED) throw new Error('{{ __('WalletConnect is not enabled.') }}');
-        if (!amount || amount <= 0) throw new Error('{{ __('Enter a valid coin amount first.') }}');
-        if (!PRESALE_CONTRACT) throw new Error('{{ __('Presale contract is not configured.') }}');
-        if (!USDT_ADDRESS) throw new Error('{{ __('USDT address is not configured for this chain.') }}');
-        if (!WC_PROJECT_ID) throw new Error('{{ __('WalletConnect project ID is not configured.') }}');
-
-        if (buyBtn) buyBtn.disabled = true;
-        setWcStatus('⏳ {{ __('Preparing transaction...') }}');
-
-        const phaseIdx = await resolveContractPhaseIndex();
-        if (phaseIdx === null) {
-            throw new Error('{{ __('Unable to resolve active on-chain phase right now. Please retry shortly.') }}');
-        }
-
-        const totalUsd = await fetchQuoteFromServer(amount);
-
-        if (!window.ethers) {
-            await loadScript('{{ asset("js/vendor/ethers-5.7.2.umd.min.js") }}');
-        }
-        if (!window.WalletConnectProvider) {
-            await loadScript('{{ asset("js/vendor/walletconnect-web3-provider-1.8.0.min.js") }}');
-        }
-
-        const rpcMap = {};
-        rpcMap[56] = 'https://bsc-dataseed.binance.org/';
-        rpcMap[97] = 'https://bsc-testnet-rpc.publicnode.com';
-
-        const wcProvider = new WalletConnectProvider.default({ projectId: WC_PROJECT_ID, rpc: rpcMap });
-        await wcProvider.enable();
-
-        const web3Provider = new ethers.providers.Web3Provider(wcProvider);
-        const network = await web3Provider.getNetwork();
-        if (Number(network.chainId) !== Number(WC_CHAIN_ID)) {
-            throw new Error('{{ __('Wrong network. Please switch wallet network to chain ID') }} ' + WC_CHAIN_ID + '.');
-        }
-
-        const signer = web3Provider.getSigner();
-        const buyerAddress = await signer.getAddress();
-        const usdtAmount = ethers.utils.parseUnits(Number(totalUsd).toFixed(6), 6);
-
-        const usdt = new ethers.Contract(USDT_ADDRESS, ERC20_ABI, signer);
-        const presale = new ethers.Contract(PRESALE_CONTRACT, PRESALE_ABI, signer);
-
-        setWcStatus('⏳ {{ __('Step 1/2: Approve USDT in wallet...') }}');
-        const approveTx = await usdt.approve(PRESALE_CONTRACT, usdtAmount);
-        await approveTx.wait(1);
-
-        setWcStatus('⏳ {{ __('Step 2/2: Confirm purchase in wallet...') }}');
-        const buyTx = await presale.buyTokens(phaseIdx, usdtAmount);
-        await buyTx.wait(1);
-
-        document.getElementById('payment_type_input').value = '{{ WALLETCONNECT }}';
-        document.getElementById('wc_buyer_address').value = buyerAddress;
-        document.getElementById('wc_tx_hash').value = buyTx.hash;
-
-        setWcStatus('<span class="text-success">{{ __('On-chain purchase confirmed. Finalizing...') }}</span>');
-        form.submit();
-    } catch (e) {
-        setWcStatus((e && e.message) ? e.message : '{{ __('WalletConnect transaction failed.') }}', true);
-        if (buyBtn) buyBtn.disabled = false;
-    }
-}
 
 // ── CMC Live Price ──────────────────────────────────────────────────────────
 const OBX_PRICE_API = '{{ route("api.obx.price") }}';
@@ -468,6 +382,8 @@ setInterval(fetchLivePrice, 30000);
 
 // Guard: require payment method selection before form submit
 document.addEventListener('DOMContentLoaded', function() {
+    updatePreview();
+
     const form = document.getElementById('buy_coin_form');
     if (form) {
         form.addEventListener('submit', function(e) {
@@ -478,15 +394,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            if (paymentType === '{{ WALLETCONNECT }}') {
-                const buyer = document.getElementById('wc_buyer_address').value;
-                const tx = document.getElementById('wc_tx_hash').value;
-                if (!buyer || !tx) {
-                    e.preventDefault();
-                    alert('{{ __("Complete the WalletConnect transaction first.") }}');
-                    return;
-                }
-            }
         });
     }
 });

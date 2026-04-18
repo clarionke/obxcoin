@@ -57,7 +57,7 @@ class WalletRepository
             $data = [
                 'success' => false,
                 'wallet_list' => [],
-                'message' => __('No data found')
+                'message' => __('Data not found')
             ];
         }
 
@@ -67,44 +67,13 @@ class WalletRepository
     // wallet address list
     public function walletAddressList($wallet_id)
     {
-        $addressList = [];
-        $address = WalletAddressHistory::where(['wallet_id' => $wallet_id])->orderBy('id', 'desc')->get();
-        if (isset($address[0])) {
-            foreach ($address as $adrs) {
-                $addressList[] = $adrs->address;
-            }
-        }
-
-        return $addressList;
+        return (string) WalletAddressHistory::where('wallet_id', $wallet_id)
+            ->orderByDesc('id')
+            ->value('address');
     }
 
-    //create wallet
-    public function createNewWallet($request)
-    {
-        $response = ['success' => false, 'message' => __('Invalid request')];
-        try {
-            $data = [
-                'user_id' => Auth::id(),
-                'name' => $request->name,
-                'status' => STATUS_SUCCESS,
-                'balance' => 0
-            ];
-            $createWallet = Wallet::create($data);
-            if ($createWallet) {
-                $this->generateNewAddress($createWallet->id);
-
-                $response = ['success' => true, 'message' => __('New wallet created successfully')];
-            }
-
-        } catch(\Exception $e) {
-            $response = ['success' => false, 'message' => $e->getMessage()];
-        }
-
-        return $response;
-    }
-
-    // generate new wallet address
-    public function generateNewAddress($wallet_id)
+    // create new wallet address
+    public function createNewWallet($wallet_id)
     {
         $response = ['success' => false, 'address_list' =>[], 'message' => __('Invalid request')];
         try {
@@ -113,10 +82,8 @@ class WalletRepository
             $address = $api->getNewAddress();
             $generate = $wallet->AddWalletAddressHistory($wallet_id,$address);
             if ($generate) {
-
                 $response = ['success' => true, 'address_list' => $this->walletAddressList($wallet_id), 'message' => __('Address generated successfully')];
             }
-
         } catch (\Exception $e) {
             $response = ['success' => false, 'address_list' =>[], 'message' => $e->getMessage()];
         }
@@ -297,39 +264,90 @@ class WalletRepository
         ];
         try {
             $wallet = Wallet::find($walletId);
-            $walletAddress = WalletAddressHistory::where('wallet_id',$walletId)->orderBy('created_at','desc')->first();
-            if (isset($walletAddress) && (!empty($walletAddress->address))) {
-                $response = [
-                    'success' => true,
-                    'message' => __('Address generated successfully'),
-                ];
-            } else {
-                $tokenApi = new ERC20TokenApi();
-                $createWallet = $tokenApi->createNewWallet();
-                if ($createWallet['success'] == true) {
-                    WalletAddressHistory::create([
-                        'wallet_id' => $wallet->id,
-                        'address' => $createWallet['data']->address,
-                        'coin_type' => $wallet->coin_type,
-                        'pk' => $createWallet['data']->privateKey.$createWallet['data']->address,
-                        'public_key' => $createWallet['data']->publicKey ?? ''
+            if (empty($wallet)) {
+                return ['success' => false, 'message' => __('Wallet not found')];
+            }
+
+            $walletAddress = WalletAddressHistory::where('wallet_id', $walletId)
+                ->orderBy('created_at', 'desc')
+                ->first();
+
+            $needsNewAddress = empty($walletAddress) || empty($walletAddress->address);
+
+            if (!$needsNewAddress) {
+                $existingAddress = strtolower(trim((string) $walletAddress->address));
+                $sharedByAnotherWallet = WalletAddressHistory::whereRaw('LOWER(address) = ?', [$existingAddress])
+                    ->where('wallet_id', '!=', $wallet->id)
+                    ->exists();
+
+                if ($sharedByAnotherWallet) {
+                    Log::warning('generateTokenAddress detected shared address; regenerating unique address', [
+                        'wallet_id' => $walletId,
+                        'address' => $existingAddress,
                     ]);
+                    $needsNewAddress = true;
+                } else {
                     $response = [
                         'success' => true,
                         'message' => __('Address generated successfully'),
                     ];
-                } else {
-                    $response = [
-                        'success' => false,
-                        'message' => __('Address generate failed'),
-                    ];
                 }
+            }
+
+            if ($needsNewAddress) {
+                $response = $this->createUniqueTokenAddress($wallet);
             }
         } catch (\Exception $e) {
             storeException('generateTokenAddress ex', $e->getMessage());
             $response = ['success' => false, 'message' => 'failed'];
         }
         return $response;
+    }
+
+    private function createUniqueTokenAddress(Wallet $wallet): array
+    {
+        $tokenApi = new ERC20TokenApi();
+        $maxAttempts = 5;
+
+        for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+            $createWallet = $tokenApi->createNewWallet();
+            if (($createWallet['success'] ?? false) != true || empty($createWallet['data']->address)) {
+                continue;
+            }
+
+            $candidateAddress = strtolower(trim((string) $createWallet['data']->address));
+            if ($candidateAddress === '') {
+                continue;
+            }
+
+            $alreadyUsed = WalletAddressHistory::whereRaw('LOWER(address) = ?', [$candidateAddress])->exists();
+            if ($alreadyUsed) {
+                Log::warning('createUniqueTokenAddress duplicate address returned from node API; retrying', [
+                    'wallet_id' => $wallet->id,
+                    'address' => $candidateAddress,
+                    'attempt' => $attempt,
+                ]);
+                continue;
+            }
+
+            WalletAddressHistory::create([
+                'wallet_id' => $wallet->id,
+                'address' => $candidateAddress,
+                'coin_type' => $wallet->coin_type,
+                'pk' => ($createWallet['data']->privateKey ?? '') . $candidateAddress,
+                'public_key' => $createWallet['data']->publicKey ?? ''
+            ]);
+
+            return [
+                'success' => true,
+                'message' => __('Address generated successfully'),
+            ];
+        }
+
+        return [
+            'success' => false,
+            'message' => __('Address generate failed'),
+        ];
     }
 
 }

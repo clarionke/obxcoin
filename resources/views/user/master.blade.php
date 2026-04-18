@@ -5,7 +5,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
-    <meta name="description" content="The Highly Secured Bitcoin Wallet">
+    <meta name="description" content="The Highly Secured Bitcoin XPocket">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta property="og:type" content="article" />
     <meta property="og:title" content="{{allsetting('app_title')}}"/>
@@ -701,9 +701,9 @@
                     </div>
                     <button class="dropdown-item" type="button"><a href="{{route('userProfile')}}"><i class="fa fa-user-circle-o"></i> {{__('Profile')}}</a></button>
                     <button class="dropdown-item" type="button"><a href="{{route('userSetting')}}"><i class="fa fa-cog"></i> {{__('Settings')}}</a></button>
-                    <button class="dropdown-item" type="button"><a href="{{route('myPocket')}}"><i class="fa fa-money"></i> {{__('My Wallet')}}</a></button>
+                    <button class="dropdown-item" type="button"><a href="{{route('myPocket')}}"><i class="fa fa-money"></i> {{__('My XPocket')}}</a></button>
                     @if(co_wallet_feature_active())
-                        <button class="dropdown-item" type="button"><a href="{{route('myPocket', ['tab' => 'co-pocket'])}}"><i class="fa fa-shield"></i> {{__('Team Wallet')}}</a></button>
+                        <button class="dropdown-item" type="button"><a href="{{route('myPocket', ['tab' => 'co-pocket'])}}"><i class="fa fa-shield"></i> {{__('Team XPocket')}}</a></button>
                     @endif
                     <button class="dropdown-item" type="button"><a href="{{route('merchant.keys')}}"><i class="fa fa-key"></i> {{__('API Keys')}}</a></button>
                     <button class="dropdown-item" type="button"><a href="{{route('merchant.apiDocs')}}"><i class="fa fa-plug"></i> {{__('API Documentation')}}</a></button>
@@ -776,15 +776,15 @@
                 <li class="@if(isset($menu) && $menu == 'pocket') cp-user-active-page mm-active @endif">
                     <a class="arrow-icon" href="#" aria-expanded="true">
                         <span class="nav-icon"><i class="fa fa-credit-card"></i></span>
-                        <span class="cp-user-name">{{__('My Wallet')}}</span>
+                        <span class="cp-user-name">{{__('My XPocket')}}</span>
                     </a>
                     <ul class="@if(isset($menu) && $menu == 'pocket') mm-show @endif">
                         <li class="@if(isset($sub_menu) && $sub_menu == 'my_pocket') cp-user-submenu-active @endif">
-                            <a href="{{route('myPocket')}}">{{__('Wallet Overview')}}</a>
+                            <a href="{{route('myPocket')}}">{{__('My XPocket')}}</a>
                         </li>
                         @if(co_wallet_feature_active())
                             <li class="@if(request()->query('tab') == 'co-pocket') cp-user-submenu-active @endif">
-                                <a href="{{route('myPocket', ['tab' => 'co-pocket'])}}">{{__('Team Wallet')}}</a>
+                                <a href="{{route('myPocket', ['tab' => 'co-pocket'])}}">{{__('Team XPocket')}}</a>
                             </li>
                         @endif
                         @if(getSwapStatus())
@@ -853,6 +853,9 @@
                     <ul class="@if(isset($menu) && $menu == 'referral') mm-show @endif">
                         <li class="@if(isset($sub_menu) && $sub_menu == 'referral') cp-user-submenu-active @endif">
                             <a href="{{route('myReferral')}}">{{__('My Referrals')}}</a>
+                        </li>
+                        <li class="@if(isset($sub_menu) && $sub_menu == 'referral_tree') cp-user-submenu-active @endif">
+                            <a href="{{route('myReferralTree')}}">{{__('Referral Tree')}}</a>
                         </li>
                         <li class="@if(isset($sub_menu) && $sub_menu == 'referral_history') cp-user-submenu-active @endif">
                             <a href="{{route('myReferralEarning')}}">{{__('Earnings')}}</a>

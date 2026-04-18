@@ -23,17 +23,10 @@ class WalletCreateRequest extends FormRequest
      */
     public function rules()
     {
-        if($this->coin_type == 'LTCT') {
-            $rules = [
-                'wallet_name' => 'required|max:100',
-                'coin_type' => 'required'
-            ];
-        } else {
-            $rules = [
-                'wallet_name' => 'required|max:100',
-                'coin_type' => 'required|exists:coins,type'
-            ];
-        }
+        $rules = [
+            'wallet_name' => 'required|max:100',
+            'coin_type' => 'required|exists:coins,type'
+        ];
         if(co_wallet_feature_active())
         $rules['type'] = 'required|in:'.PERSONAL_WALLET.','.CO_WALLET;
 

@@ -85,6 +85,7 @@ const INITIAL_LP_OBX        = BigInt(process.env.INITIAL_LP_OBX         || '0');
 const INITIAL_LP_USDT       = BigInt(process.env.INITIAL_LP_USDT        || '0');
 const DECIMALS              = BigInt(10 ** 18);
 const USDT_DECIMALS         = BigInt(10 ** 6);
+const MIN_DEPLOY_BNB        = process.env.MIN_DEPLOY_BNB || '0.03';
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -94,6 +95,10 @@ function addr(a) {
 
 function normalizeAddress(a) {
     return addr(String(a).trim().toLowerCase());
+}
+
+function parseNativeToWei(amount) {
+    return ethers.parseEther(String(amount));
 }
 
 async function deployMockUsdt(deployer) {
@@ -125,6 +130,15 @@ async function main() {
     console.log(` Deployer:  ${deployer.address}`);
     const balance = await ethers.provider.getBalance(deployer.address);
     console.log(` Balance:   ${ethers.formatEther(balance)} native token`);
+
+    const minBalanceWei = parseNativeToWei(MIN_DEPLOY_BNB);
+    if (balance < minBalanceWei) {
+        throw new Error(
+            `insufficient deployer balance: have ${ethers.formatEther(balance)} BNB, ` +
+            `need at least ${MIN_DEPLOY_BNB} BNB for full deploy. ` +
+            `Top up ${deployer.address} and retry.`
+        );
+    }
 
     if (balance === 0n) {
         throw new Error('Deployer wallet has zero balance. Fund it before deploying.');

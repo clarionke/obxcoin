@@ -23,6 +23,8 @@
                                     </div>
                                 </div>
                                 <div class="cp-user-content-bottom">
+                                    <p class="mb-3 text-muted">{{__('Referral rewards are paid in real OBXCoin on-chain. Gas is sponsored by the platform signer, so your referrals do not need gas to receive their reward.') }}</p>
+                                    <a href="{{route('myReferralTree')}}" class="btn btn-primary mb-3">{{__('Open Referral Tree')}}</a>
                                     <span class="or">or</span>
                                     <h5 class="cp-user-share-title">{{__('Share Your Code On')}}</h5>
                                     <div class="cp-user-share-buttons">
@@ -49,7 +51,7 @@
                                     <table class="table dataTable cp-user-custom-table table-borderless text-center" width="100%">
                                         <thead>
                                         <tr>
-                                            @for($i = 1; $i <= 3; $i++)
+                                            @for($i = 1; $i <= $max_referral_level; $i++)
                                                 <th class="referral-level" rowspan="1" colspan="1" aria-label="{{__('Level'). ' '. $i }}">
                                                     {{__('Level'). ' '. $i }}
                                                 </th>
@@ -58,7 +60,7 @@
                                         </thead>
                                         <tbody>
                                         <tr id="" role="" class="odd">
-                                            @for($i = 1; $i <= 3; $i++)
+                                            @for($i = 1; $i <= $max_referral_level; $i++)
                                                 <td>{{$referralLevel[$i]}}</td>
                                             @endfor
                                         </tr>

@@ -78,7 +78,7 @@
                                 <div class="col-md-6 mt-20">
                                     <div class="form-group">
                                         <label for="">{{__('Affiliation Level')}}</label>
-                                        <input type="text" name="affiliation_level" class="form-control" id="" placeholder="{{__('Max 3 level')}}"
+                                        <input type="text" name="affiliation_level" class="form-control" id="" placeholder="{{__('Max 5 level')}}"
                                                @if(isset($item)) value="{{$item->affiliation_level}}" @else value="{{old('affiliation_level')}}" @endif>
                                         <span class="text-danger"><strong>{{ $errors->first('affiliation_level') }}</strong></span>
                                     </div>

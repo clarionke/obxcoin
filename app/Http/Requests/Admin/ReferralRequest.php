@@ -24,7 +24,7 @@ class ReferralRequest extends FormRequest
     public function rules()
     {
         $rules = [
-            'max_affiliation_level' => 'required|integer|min:1|max:10'
+            'max_affiliation_level' => 'required|integer|min:1|max:5'
         ];
         if($this->fees_level1) {
             $rules['fees_level1'] = 'numeric|min:0|max:100';

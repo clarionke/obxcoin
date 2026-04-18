@@ -285,7 +285,7 @@ if (!function_exists('fmtBigNum')) {
             <i class="fa fa-exchange"></i> {{__('Send OBXCoin')}}
         </a>
         <a href="{{route('myPocket')}}" class="wc-btn-outline">
-            <i class="fa fa-credit-card"></i> {{__('Wallet')}}
+            <i class="fa fa-credit-card"></i> {{__('XPocket')}}
         </a>
     </div>
 </div>
@@ -377,17 +377,17 @@ if (!function_exists('fmtBigNum')) {
 <div class="msig-card">
     <div class="msig-head">
         <div>
-            <h5 class="msig-title"><i class="fa fa-shield" style="margin-right:6px;color:#a5b4fc;"></i>{{__('Team Wallet Security')}}</h5>
-            <p class="msig-sub">{{__('Team Wallet requires multiple co-user approvals before a withdrawal is executed.')}}</p>
+            <h5 class="msig-title"><i class="fa fa-shield" style="margin-right:6px;color:#a5b4fc;"></i>{{__('Team XPocket Security')}}</h5>
+            <p class="msig-sub">{{__('Team XPocket requires multiple co-user approvals before a withdrawal is executed.')}}</p>
         </div>
         <a href="{{route('myPocket', ['tab' => 'co-pocket'])}}" class="msig-btn">
-            <i class="fa fa-wallet"></i> {{__('Open Team Wallet')}}
+            <i class="fa fa-wallet"></i> {{__('Open Team XPocket')}}
         </a>
     </div>
 
     <div class="msig-grid">
         <div class="msig-stat">
-            <div class="msig-stat-label">{{__('Wallets Joined')}}</div>
+            <div class="msig-stat-label">{{__('XPockets Joined')}}</div>
             <div class="msig-stat-val">{{$msig_wallet_count}}</div>
         </div>
         <div class="msig-stat">
@@ -405,14 +405,14 @@ if (!function_exists('fmtBigNum')) {
             <div class="msig-item">
                 <div class="msig-item-main">
                     <strong>{{__('Request')}} #{{$pending->id}} · {{$pending->amount}} {{$pending->wallet->coin_type ?? __('Coin')}}</strong>
-                    <p>{{__('Wallet')}}: {{$pending->wallet->name ?? __('N/A')}} · {{__('To')}}: {{$pending->address}}</p>
+                    <p>{{__('XPocket')}}: {{$pending->wallet->name ?? __('N/A')}} · {{__('To')}}: {{$pending->address}}</p>
                 </div>
                 <a href="{{route('coWalletApprovals', $pending->id)}}" class="msig-btn">
                     <i class="fa fa-check-circle"></i> {{__('Review & Approve')}}
                 </a>
             </div>
         @empty
-            <div style="font-size:12px;color:#8b93a0;">{{__('No pending Team Wallet approvals for you right now.')}}</div>
+            <div style="font-size:12px;color:#8b93a0;">{{__('No pending Team XPocket approvals for you right now.')}}</div>
         @endforelse
     </div>
 </div>

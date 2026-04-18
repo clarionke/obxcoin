@@ -27,14 +27,9 @@ use Illuminate\Support\Facades\Validator;
 
 class CoinController extends Controller
 {
-    private function resolvedPresaleContract(): string
-    {
-        return trim((string) (settings('presale_contract') ?: config('blockchain.presale_contract', '')));
-    }
-
     private function explorerBaseUrl(): string
     {
-        $chainId = (int)(settings('walletconnect_chain_id') ?: settings('presale_chain_id') ?: settings('chain_id') ?: config('blockchain.presale_chain_id', 56));
+        $chainId = (int)(settings('presale_chain_id') ?: settings('chain_id') ?: config('blockchain.presale_chain_id', 56));
 
         return match ($chainId) {
             1   => 'https://etherscan.io',
@@ -52,7 +47,8 @@ class CoinController extends Controller
             $data['title']    = __('Buy Coin');
             $data['settings'] = allsetting();
 
-            $data['coin_price'] = settings('coin_price');
+            // Always read price from admin settings
+            $data['coin_price'] = (float) settings('coin_price');
 
             $activePhases = checkAvailableBuyPhase();
 
@@ -63,7 +59,8 @@ class CoinController extends Controller
                 if ($activePhases['futurePhase'] == false) {
                     $phase_info = $activePhases['pahse_info'];
                     if (isset($phase_info)) {
-                        $data['coin_price'] = number_format($phase_info->rate, 4);
+                        // Store phase rate separately; don't override displayed price
+                        $activePhases['pahse_info']->display_rate = (float) $data['coin_price'];
                     }
                 }
             }
@@ -71,11 +68,6 @@ class CoinController extends Controller
 
             // Production buy flow: NOWPayments (processor) then backend credits OBX wallet.
             $data['nowpayments_enabled']  = (int) (settings('nowpayments_enabled') ?? 0) === 1;
-            $data['walletconnect_enabled']= $this->resolvedPresaleContract() !== '';
-            $data['wc_project_id']        = settings('walletconnect_project_id') ?? '';
-            $data['wc_chain_id']          = (int)(settings('walletconnect_chain_id') ?? 56);
-            $data['presale_contract']     = $this->resolvedPresaleContract();
-            $data['usdt_address']         = config('blockchain.usdt_addresses.' . $data['wc_chain_id'], '');
             // OBX token details for wallet_watchAsset — read from Admin > OBXCoin Send Settings
             // so the admin can update them without touching .env
             $data['obx_token_contract']   = settings('contract_address')  ?: config('blockchain.obx_token_contract', '');
@@ -97,31 +89,41 @@ class CoinController extends Controller
 
     public function buyCoinRate(Request $request)
     {
-        if ($request->ajax()) {
-            $data['amount']   = $request->amount ?? 0;
-            $data['no_phase'] = false;
-            $data['phase_fees'] = 0;
-            $data['bonus']    = 0;
+        $usdtAmount = (float) ($request->amount ?? $request->usdt_amount ?? 0);
+        // Always read base rate from admin settings
+        $adminRate = (float) settings('coin_price');
+        $rate = $adminRate;
+        $bonusPct = 0;
+        $phaseFees = 0;
+        $noPhase = false;
 
-            $coin_price   = settings('coin_price');
-            $activePhases = checkAvailableBuyPhase();
-
-            if ($activePhases['status'] == false) {
-                $data['no_phase'] = true;
-            } elseif ($activePhases['futurePhase'] == false) {
-                $phase_info = $activePhases['pahse_info'];
-                if (isset($phase_info)) {
-                    $coin_price           = customNumberFormat($phase_info->rate);
-                    $data['phase_fees']   = customNumberFormat(calculate_phase_percentage($data['amount'], $phase_info->fees));
-                    $data['bonus']        = calculate_phase_percentage($data['amount'], $phase_info->bonus);
-                    $data['amount']       = $data['amount'] - $data['bonus'];
-                }
+        $activePhases = checkAvailableBuyPhase();
+        if ($activePhases['status'] == false) {
+            $noPhase = true;
+        } elseif ($activePhases['futurePhase'] == false) {
+            $phaseInfo = $activePhases['pahse_info'] ?? null;
+            if ($phaseInfo) {
+                // Use phase bonus and fees, but keep admin rate for display/calculation
+                $bonusPct = (float) $phaseInfo->bonus;
+                $phaseFees = (float) calculate_phase_percentage($usdtAmount, $phaseInfo->fees);
             }
-
-            $data['coin_price'] = customNumberFormat(bcmul($coin_price, $data['amount'], 8));
-
-            return response()->json($data);
         }
+
+        $baseTokens = ($rate > 0) ? ((float) bcdiv((string) $usdtAmount, (string) $rate, 8)) : 0.0;
+        $bonusTokens = (float) calculate_phase_percentage($baseTokens, $bonusPct);
+        $totalTokens = $baseTokens + $bonusTokens;
+
+        return response()->json([
+            'success' => true,
+            'no_phase' => $noPhase,
+            'usdt_amount' => customNumberFormat($usdtAmount),
+            'rate' => customNumberFormat($rate),
+            'phase_fees' => customNumberFormat($phaseFees),
+            'bonus_percent' => customNumberFormat($bonusPct),
+            'base_tokens' => customNumberFormat($baseTokens),
+            'bonus_tokens' => customNumberFormat($bonusTokens),
+            'total_tokens' => customNumberFormat($totalTokens),
+        ]);
     }
 
 
@@ -134,27 +136,36 @@ class CoinController extends Controller
             $phase_fees             = 0;
             $affiliation_percentage = 0;
             $bonus                  = 0;
-            $coin_amount            = (float) $request->coin;
             $phase_id               = '';
             $referral_level         = '';
-            $coin_price_doller      = bcmul($coin_amount, settings('coin_price'), 8);
+            $usdt_amount            = (float) $request->usdt_amount;
+
+            $rate                   = (float) settings('coin_price');
+            $base_coin_amount       = ($rate > 0) ? ((float) bcdiv((string) $usdt_amount, (string) $rate, 8)) : 0.0;
+            $coin_amount            = $base_coin_amount;
+            $coin_price_doller      = $usdt_amount;
 
             if (isset($request->phase_id)) {
                 $phase = IcoPhase::where('id', $request->phase_id)->first();
                 if (isset($phase)) {
                     $total_sell = BuyCoinHistory::where('phase_id', $phase->id)->sum('coin');
+                    $phase_id           = $phase->id;
+                    $referral_level     = $phase->affiliation_level;
+                    // Use admin rate for token calculation, not phase rate
+                    $phase_fees         = calculate_phase_percentage($base_coin_amount, $phase->fees);
+                    $affiliation_percentage = 0;
+                    $bonus              = calculate_phase_percentage($base_coin_amount, $phase->bonus);
+                    $coin_amount        = $base_coin_amount + $bonus;
+                    $coin_price_doller  = $usdt_amount;
+
                     if (($total_sell + $coin_amount) > $phase->amount) {
                         return redirect()->back()->with('dismiss', __('Insufficient phase amount'));
                     }
-                    $phase_id           = $phase->id;
-                    $referral_level     = $phase->affiliation_level;
-                    $phase_fees         = calculate_phase_percentage($request->coin, $phase->fees);
-                    $affiliation_percentage = 0;
-                    $bonus              = calculate_phase_percentage($request->coin, $phase->bonus);
-                    $coin_amount        = $request->coin - $bonus;
-                    $coin_price_doller  = bcmul($coin_amount, $phase->rate, 8);
                 }
             }
+
+            // Keep backward-compatible request payload for downstream repository writes/history.
+            $request->merge(['coin' => $coin_amount]);
 
             if ((int) $request->payment_type === NOWPAYMENTS) {
                 if ((int) (settings('nowpayments_enabled') ?? 0) !== 1) {
@@ -173,10 +184,6 @@ class CoinController extends Controller
                 }
 
                 return redirect()->back()->with('dismiss', $result['message']);
-            }
-
-            if ((int) $request->payment_type === WALLETCONNECT) {
-                return redirect()->back()->with('dismiss', __('Please use NOWPayments for purchase.'));
             }
 
             return redirect()->back()->with('dismiss', __('Invalid payment method selected.'));

@@ -8,13 +8,14 @@
             <div class="card cp-user-custom-card">
                 <div class="card-body">
                     <div class="cp-user-card-header-area">
-                        <h4>{{__('Referral Earning History From Withdrawal')}}</h4>
+                        <h4>{{__('Referral Earning History')}}</h4>
                     </div>
                     <div class="cp-user-buy-coin-content-area">
                         <div class="cp-user-wallet-table table-responsive">
                             <table id="table" class="table">
                                 <thead>
                                 <tr>
+                                    <th>{{__('Source')}}</th>
                                     <th>{{__('From Child')}}</th>
                                     <th>{{__('Coin Amount')}}</th>
                                     <th>{{__('Coin Name')}}</th>
@@ -44,7 +45,7 @@
             bLengthChange: true,
             responsive: true,
             ajax: '{{route('myReferralEarning')}}',
-            order: [4, 'desc'],
+            order: [5, 'desc'],
             autoWidth: false,
             language: {
                 paginate: {
@@ -53,6 +54,7 @@
                 }
             },
             columns: [
+                {"data": "source","orderable": false},
                 {"data": "child_id","orderable": false},
                 {"data": "amount","orderable": false},
                 {"data": "coin_type","orderable": false},

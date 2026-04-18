@@ -93,7 +93,6 @@ function byCoinType($input = null)
         STRIPE       => __('Credit Card'),
         ONCHAIN_USDT => __('On-chain USDT'),
         NOWPAYMENTS  => __('NOWPayments'),
-        WALLETCONNECT=> __('WalletConnect'),
     ];
     if (is_null($input)) {
         return $output;
@@ -231,7 +230,6 @@ function paymentMethods($input = null)
 {
     $output = [
         NOWPAYMENTS   => __('NOWPayments'),
-        WALLETCONNECT => __('WalletConnect'),
     ];
     if (is_null($input)) {
         return $output;

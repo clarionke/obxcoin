@@ -67,11 +67,8 @@ class AuthController extends Controller
     public function signUpProcess(RegisterUser $request)
     {
         $geo = $this->resolveSignupGeo($request);
-        if (!empty($geo['is_vpn'])) {
-            return redirect()->back()->withInput()->with('dismiss', __('Please disable VPN/Proxy to create an account.'));
-        }
         if (empty($geo['country'])) {
-            return redirect()->back()->withInput()->with('dismiss', __('We could not detect your country automatically. Please disable VPN/Proxy and try again.'));
+            return redirect()->back()->withInput()->with('dismiss', __('We could not detect your country automatically. Please refresh and try again.'));
         }
 
         DB::beginTransaction();
@@ -108,13 +105,12 @@ class AuthController extends Controller
             $coin = Coin::where('type', DEFAULT_COIN_TYPE)->first();
             Wallet::updateOrCreate([
                 'user_id' => $user->id,
-                'coin_type' => $coin->type,
+                'coin_type' => DEFAULT_COIN_TYPE,
             ], [
-                'name' => 'OBX Wallet',
+                'name' => 'OBXCoin XPocket',
                 'is_primary' => STATUS_SUCCESS,
-                'coin_id' => $coin->id,
+                'coin_id' => $coin->id ?? null,
             ]);
-            app(CommonService::class)->generateNewCoinWallet($user->id);
             if ($parentUserId > 0) {
                 $referralRepository = app(AffiliateRepository::class);
                 $createdReferral = $referralRepository->createReferralUser($user->id, $parentUserId);
@@ -141,7 +137,6 @@ class AuthController extends Controller
             return [
                 'country' => (string) ($request->country ?? ''),
                 'country_code' => null,
-                'is_vpn' => false,
             ];
         }
 
@@ -156,7 +151,6 @@ class AuthController extends Controller
                     return [
                         'country' => $data['country'] ?? null,
                         'country_code' => $data['countryCode'] ?? null,
-                        'is_vpn' => (bool) (($data['proxy'] ?? false) || ($data['hosting'] ?? false)),
                     ];
                 }
             }
@@ -172,14 +166,13 @@ class AuthController extends Controller
                 return [
                     'country' => $data['country_name'] ?? null,
                     'country_code' => $data['country_code'] ?? null,
-                    'is_vpn' => false,
                 ];
             }
         } catch (\Exception $e) {
             // Ignore and return empty
         }
 
-        return ['country' => null, 'country_code' => null, 'is_vpn' => false];
+        return ['country' => null, 'country_code' => null];
     }
 
     private function generate_email_verification_key()

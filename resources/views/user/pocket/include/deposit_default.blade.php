@@ -32,11 +32,17 @@
                 </div>
             </form>
             <div class="aenerate-address">
-                @if(empty($wallet_address) || empty($wallet_address->address))
-                    <a class="btn cp-user-buy-btn"  href="{{route('generateNewAddress')}}?wallet_id={{$wallet->id}}">
-                        {{__('Generate address')}}
-                    </a>
-                @endif
+                <div class="card mt-3 mb-2">
+                    <h5 class="card-header">{{__('Coin Meta Info')}}</h5>
+                    <div class="card-body">
+                        <p><label>{{__('Token Symbol')}} :</label></p>
+                        <p><label>{{isset(allsetting()['coin_name']) ? allsetting()['coin_name'] : 'OBX'}}</label></p>
+                        <p><label>{{__('Network')}} :</label></p>
+                        <p><label>{{$obxNetworkName}}</label></p>
+                        <p><label>{{__('Contract')}} :</label></p>
+                        <p><label style="word-break:break-all;">{{allsetting('contract_address')}}</label></p>
+                    </div>
+                </div>
             </div>
         </div>
         <div class="card mt-4">

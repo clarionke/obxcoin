@@ -71,13 +71,12 @@ class AuthService
             $coin = Coin::where('type', DEFAULT_COIN_TYPE)->first();
             Wallet::updateOrCreate([
                 'user_id' => $user->id,
-                'coin_type' => $coin->type,
+                'coin_type' => DEFAULT_COIN_TYPE,
             ], [
-                'name' => 'OBX Wallet',
+                'name' => 'OBXCoin XPocket',
                 'is_primary' => STATUS_SUCCESS,
-                'coin_id' => $coin->id,
+                'coin_id' => $coin->id ?? null,
             ]);
-            app(CommonService::class)->generateNewCoinWallet($user->id);
 
             // Auto-create a primary OBX blockchain wallet for the new user.
             // Silently skip if the signer subprocess is unavailable (e.g. test env without node).

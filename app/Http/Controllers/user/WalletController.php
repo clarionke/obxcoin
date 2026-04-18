@@ -64,10 +64,56 @@ class WalletController extends Controller
             ->join('coins', 'coins.id', '=', 'wallets.coin_id')
             ->where(['wallets.type'=> CO_WALLET, 'wallet_co_users.user_id'=>Auth::id(), 'coins.status' => STATUS_ACTIVE])
             ->orderBy('id', 'ASC')->get();
-        $data['coins'] = Coin::where('status', STATUS_ACTIVE)->get();
+        $data['coins'] = $this->getCoinPaymentsWalletCoins();
         $data['title'] = __('My Wallet');
 
         return view('user.pocket.index', $data);
+    }
+
+    private function getCoinPaymentsWalletCoins()
+    {
+        $defaultCoin = Coin::where([
+            'status' => STATUS_ACTIVE,
+            'type' => DEFAULT_COIN_TYPE,
+        ])->first();
+
+        try {
+            $coinPayment = new CoinPaymentsAPI();
+            $balances = $coinPayment->GetBalances(true);
+
+            if (($balances['error'] ?? null) !== 'ok' || !is_array($balances['result'] ?? null)) {
+                return collect($defaultCoin ? [$defaultCoin] : []);
+            }
+
+            $supportedTypes = collect(array_keys($balances['result']))
+                ->map(function ($type) {
+                    return strtoupper((string) $type);
+                })
+                ->filter()
+                ->unique()
+                ->values()
+                ->all();
+
+            if (empty($supportedTypes)) {
+                return collect($defaultCoin ? [$defaultCoin] : []);
+            }
+
+            $coins = Coin::where('status', STATUS_ACTIVE)
+                ->whereIn(DB::raw('UPPER(type)'), $supportedTypes)
+                ->orderBy('type', 'ASC')
+                ->get();
+
+            if ($defaultCoin && !$coins->contains(function ($coin) use ($defaultCoin) {
+                return strtoupper((string) $coin->type) === strtoupper((string) $defaultCoin->type);
+            })) {
+                $coins->prepend($defaultCoin);
+            }
+
+            return $coins->unique('type')->values();
+        } catch (\Throwable $e) {
+            Log::warning('WalletController: failed to load CoinPayments wallet types: ' . $e->getMessage());
+            return collect($defaultCoin ? [$defaultCoin] : []);
+        }
     }
 
     public function getCoinSwapDetails(Request $request)
@@ -134,7 +180,22 @@ class WalletController extends Controller
     {
         if (!empty($request->wallet_name)) {
             $request->type = $request->type ?? PERSONAL_WALLET;
+            $availableCoinTypes = $this->getCoinPaymentsWalletCoins()->pluck('type')->map(function ($type) {
+                return strtoupper((string) $type);
+            })->all();
+
+            if (!in_array(strtoupper(DEFAULT_COIN_TYPE), $availableCoinTypes, true)) {
+                $availableCoinTypes[] = strtoupper(DEFAULT_COIN_TYPE);
+            }
+
+            if (!in_array(strtoupper((string) $request->coin_type), $availableCoinTypes, true)) {
+                return redirect()->back()->with('dismiss', __('Selected coin type is not available from CoinPayments wallets.'));
+            }
+
             $coin = Coin::where(['type' => strtoupper($request->coin_type)])->first();
+            if (empty($coin)) {
+                return redirect()->back()->with('dismiss', __('Invalid coin type'));
+            }
             $alreadyWallet = Wallet::where([
                 'coin_id' => $coin->id,
                 'user_id' => Auth::id(),
@@ -182,6 +243,13 @@ class WalletController extends Controller
                         'can_approve' => 1,
                     ]);
                 }
+                
+                // Auto-generate address for default coin type wallets
+                if (strtoupper($request->coin_type) === DEFAULT_COIN_TYPE) {
+                    $repo = new WalletRepository();
+                    $repo->generateTokenAddress($wallet->id);
+                }
+                
                 DB::commit();
                 if (co_wallet_feature_active() && $request->type == CO_WALLET) {
                     return redirect()->route('myPocket', ['tab'=>'co-pocket'])->with('success', __("Wallet created successfully"));
@@ -238,7 +306,8 @@ class WalletController extends Controller
             ->first();
         //checking if co-wallet
         if(co_wallet_feature_active() && empty($data['wallet'])) {
-            $data['wallet'] = Wallet::select('wallets.*')
+            $data['wallet'] = Wallet::select('wallets.*', 'coins.status as coin_status', 'coins.is_withdrawal', 'coins.minimum_withdrawal',
+                'coins.maximum_withdrawal', 'coins.withdrawal_fees')
                 ->join('wallet_co_users', 'wallet_co_users.wallet_id', '=', 'wallets.id')
                 ->join('coins', 'coins.id', '=', 'wallets.coin_id')
                 ->where(['wallets.id' => $id, 'wallets.type' => CO_WALLET, 'wallet_co_users.user_id' => Auth::id(), 'coins.status' => STATUS_ACTIVE])
@@ -273,8 +342,17 @@ class WalletController extends Controller
         $wallet = Wallet::find($id);
         if ($wallet->coin_type == DEFAULT_COIN_TYPE){
             $repo = new WalletRepository();
-            $repo->generateTokenAddress($data['wallet']->id);
+            $generateResult = $repo->generateTokenAddress($data['wallet']->id);
+            
             $data['wallet_address'] = WalletAddressHistory::where('wallet_id',$id)->orderBy('created_at','desc')->first();
+            
+            if (empty($data['wallet_address'])) {
+                $errorMsg = (!($generateResult['success'] ?? false)) 
+                    ? __('Address generation failed: ') . ($generateResult['message'] ?? 'Unknown error')
+                    : __('Unable to retrieve generated address. Please try again.');
+                return redirect()->back()->with('dismiss', $errorMsg);
+            }
+            
             $data['default_wallet_sender_address'] = strtolower((string) WalletAddressHistory::where('wallet_id', $primaryDefaultWalletId)
                 ->orderBy('id', 'desc')
                 ->value('address'));
@@ -301,36 +379,7 @@ class WalletController extends Controller
     // generate new wallet address
     public function generateNewAddress(Request $request)
     {
-        try {
-            $wallet = new \App\Services\wallet();
-            $myWallet = Wallet::where(['id' => $request->wallet_id, 'user_id' => Auth::id()])->first();
-
-            if ($myWallet) {
-                if ($myWallet->coin_type == DEFAULT_COIN_TYPE) {
-                    $repo = new WalletRepository();
-                    $response = $repo->generateTokenAddress($myWallet->id);
-                    if ($response['success'] == true) {
-                        return redirect()->back()->with('success', $response['message']);
-                    } else {
-                        return redirect()->back()->with('dismiss', $response['message']);
-                    }
-                } else {
-                    $address = get_coin_payment_address($myWallet->coin_type);
-                    if (!empty($address)) {
-                        $wallet->AddWalletAddressHistory($request->wallet_id, $address, $myWallet->coin_type);
-                        return redirect()->back()->with(['success' => __('Address generated successfully')]);
-                    } else {
-                        return redirect()->back()->with(['dismiss' => __('Address not generated ')]);
-                    }
-                }
-            } else {
-                return redirect()->back()->with(['dismiss'=>__('Wallet not found')]);
-            }
-
-        } catch (\Exception $e) {
-            Log::error('generateNewAddress: ' . $e->getMessage());
-            return redirect()->back()->with('dismiss', __('Address generation failed.'));
-        }
+        return redirect()->back()->with('dismiss', __('Manual address generation is disabled. Use your current deposit address.'));
     }
 
     // generate qr code

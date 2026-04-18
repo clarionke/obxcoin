@@ -38,15 +38,20 @@ class AdjustWalletJob implements ShouldQueue
             storeDetailsException('adjust wallet coin job -> ',' Start');
             Coin::firstOrCreate(['type' => DEFAULT_COIN_TYPE], ['type' => DEFAULT_COIN_TYPE, 'name' => settings('coin_name')]);
             Coin::firstOrCreate(['type' => "LTCT"], ['type' => 'LTCT', 'name' => 'Ltct coin']);
+            $defaultCoin = Coin::where('type', DEFAULT_COIN_TYPE)->first();
             $users = User::select('*')->get();
-            if (isset($users[0])) {
+            if (isset($users[0]) && !empty($defaultCoin)) {
                 foreach ($users as $user) {
-                    $coins = Coin::select('*')->get();
-                    $count = $coins->count();
-                    for($i=0; $count > $i; $i++) {
-                        Wallet::updateOrCreate(['user_id' => $user->id, 'coin_type' => $coins[$i]->type],
-                            ['name' =>  $coins[$i]->type.' Wallet','user_id' => $user->id, 'coin_type' => $coins[$i]->type, 'coin_id' => $coins[$i]->id]);
-                    }
+                    Wallet::updateOrCreate(
+                        ['user_id' => $user->id, 'coin_type' => DEFAULT_COIN_TYPE],
+                        [
+                            'name' => 'OBXCoin XPocket',
+                            'user_id' => $user->id,
+                            'coin_type' => DEFAULT_COIN_TYPE,
+                            'coin_id' => $defaultCoin->id,
+                            'is_primary' => STATUS_SUCCESS,
+                        ]
+                    );
                 }
             }
             $wallets = Wallet::where('coin_id', null)->get();

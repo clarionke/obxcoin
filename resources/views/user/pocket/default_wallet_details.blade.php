@@ -83,7 +83,7 @@
                                <div class="mt-3 alert alert-warning" style="font-size:13px;">
                                    <i class="fa fa-fire mr-1" style="color:#e35d5b;"></i>
                                    <strong>{{__('On-Chain Transaction:')}}</strong>
-                                   {{__('All Team Wallet OBXCoin withdrawals are processed on-chain. The OBXToken contract automatically burns 0.05% of every transfer. The transaction hash will be visible on')}}
+                                   {{__('All Team XPocket OBXCoin withdrawals are processed on-chain. The OBXToken contract automatically burns 0.05% of every transfer. The transaction hash will be visible on')}}
                                    <a href="https://bscscan.com" target="_blank" rel="noopener noreferrer">BSCScan</a>.
                                </div>
                                @endif

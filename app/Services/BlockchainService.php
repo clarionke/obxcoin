@@ -388,6 +388,16 @@ class BlockchainService
         return $this->callSignerScript($payload);
     }
 
+    /**
+     * Transfer OBX from a specific wallet address using ERC20 transferFrom.
+     * This is used by withdrawal flow when backend signs and sponsors gas
+     * after the source wallet has granted allowance to the signer.
+     *
+     * @param string $fromAddress Source 0x... address
+     * @param string $toAddress   Recipient 0x... address
+     * @param string $amountHuman Human-readable amount (e.g. "100.5")
+     * @return array|null ['txHash' => '0x...', 'blockNumber' => N] or null
+     */
     public function transferObxFromOnChain(string $fromAddress, string $toAddress, string $amountHuman): ?array
     {
         $settings = [];
@@ -404,9 +414,11 @@ class BlockchainService
         if ($runtimeRpcUrl === '') {
             $runtimeRpcUrl = $this->rpcUrl;
         }
+
         if ($runtimeChainId <= 0) {
             $runtimeChainId = $this->chainId;
         }
+
         if ($runtimeTokenAddress === '') {
             Log::error('BlockchainService::transferObxFromOnChain: contract_address not configured in settings');
             return null;

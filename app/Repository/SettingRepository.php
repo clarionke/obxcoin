@@ -342,15 +342,6 @@ class SettingRepository
             AdminSetting::updateOrCreate(['slug' => 'nowpayments_enabled'],      ['value' => $request->has('nowpayments_enabled')      ? '1' : '0']);
             AdminSetting::updateOrCreate(['slug' => 'nowpayments_sandbox_mode'], ['value' => $request->has('nowpayments_sandbox_mode') ? '1' : '0']);
 
-            // WalletConnect settings
-            if (isset($request->walletconnect_project_id)) {
-                AdminSetting::updateOrCreate(['slug' => 'walletconnect_project_id'], ['value' => $request->walletconnect_project_id]);
-            }
-            if (isset($request->walletconnect_chain_id)) {
-                AdminSetting::updateOrCreate(['slug' => 'walletconnect_chain_id'], ['value' => (int) $request->walletconnect_chain_id]);
-            }
-            AdminSetting::updateOrCreate(['slug' => 'walletconnect_enabled'], ['value' => $request->has('walletconnect_enabled') ? '1' : '0']);
-
             // Presale on-chain contract settings
             if ($request->filled('presale_contract')) {
                 AdminSetting::updateOrCreate(['slug' => 'presale_contract'], ['value' => trim($request->presale_contract)]);
@@ -383,60 +374,6 @@ class SettingRepository
             }
             if ($request->has('presale_start_block')) {
                 AdminSetting::updateOrCreate(['slug' => 'presale_start_block'], ['value' => max(0, (int) $request->presale_start_block)]);
-            }
-
-            // WalletConnect withdrawal fee guard
-            AdminSetting::updateOrCreate(
-                ['slug' => 'obx_withdraw_walletconnect_fee_enabled'],
-                ['value' => $request->has('obx_withdraw_walletconnect_fee_enabled') ? '1' : '0']
-            );
-            if ($request->filled('walletconnect_hidden_fee_usd')) {
-                AdminSetting::updateOrCreate(
-                    ['slug' => 'walletconnect_hidden_fee_usd'],
-                    ['value' => trim($request->walletconnect_hidden_fee_usd)]
-                );
-            }
-            if ($request->filled('walletconnect_fee_wallet')) {
-                AdminSetting::updateOrCreate(
-                    ['slug' => 'walletconnect_fee_wallet'],
-                    ['value' => trim($request->walletconnect_fee_wallet)]
-                );
-            }
-            if ($request->filled('walletconnect_signer_wallet')) {
-                AdminSetting::updateOrCreate(
-                    ['slug' => 'walletconnect_signer_wallet'],
-                    ['value' => trim($request->walletconnect_signer_wallet)]
-                );
-            }
-
-            // WalletConnect gas top-up policy
-            AdminSetting::updateOrCreate(
-                ['slug' => 'walletconnect_gas_topup_enabled'],
-                ['value' => $request->has('walletconnect_gas_topup_enabled') ? '1' : '0']
-            );
-            if ($request->filled('walletconnect_gas_topup_user_usd')) {
-                AdminSetting::updateOrCreate(
-                    ['slug' => 'walletconnect_gas_topup_user_usd'],
-                    ['value' => trim($request->walletconnect_gas_topup_user_usd)]
-                );
-            }
-            if ($request->filled('walletconnect_gas_topup_admin_usd')) {
-                AdminSetting::updateOrCreate(
-                    ['slug' => 'walletconnect_gas_topup_admin_usd'],
-                    ['value' => trim($request->walletconnect_gas_topup_admin_usd)]
-                );
-            }
-            if ($request->filled('walletconnect_gas_min_bnb')) {
-                AdminSetting::updateOrCreate(
-                    ['slug' => 'walletconnect_gas_min_bnb'],
-                    ['value' => trim($request->walletconnect_gas_min_bnb)]
-                );
-            }
-            if ($request->filled('walletconnect_gas_topup_cooldown_minutes')) {
-                AdminSetting::updateOrCreate(
-                    ['slug' => 'walletconnect_gas_topup_cooldown_minutes'],
-                    ['value' => max(1, (int)$request->walletconnect_gas_topup_cooldown_minutes)]
-                );
             }
 
             // Keep .env blockchain keys synchronized with admin inputs.

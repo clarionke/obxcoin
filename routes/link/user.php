@@ -21,6 +21,7 @@ Route::group(['prefix'=>'user','namespace'=>'user','middleware'=> ['auth','user'
     Route::post('pass-upload', 'ProfileController@passUpload')->name('passUpload');
     Route::post('driving-licence-upload', 'ProfileController@driveUpload')->name('driveUpload');
     Route::get('referral', 'ReferralController@myReferral')->name('myReferral');
+    Route::get('referral-tree', 'ReferralController@myReferralTree')->name('myReferralTree');
     Route::get('referral-earning-history', 'ReferralController@myReferralEarning')->name('myReferralEarning');
     Route::get('setting', 'SettingController@userSetting')->name('userSetting');
     Route::get('my-pocket', 'WalletController@myPocket')->name('myPocket');
@@ -40,7 +41,6 @@ Route::group(['prefix'=>'user','namespace'=>'user','middleware'=> ['auth','user'
     Route::any('/Wallet-create', 'WalletController@createWallet')->name('createWallet');
     Route::get('/wallet-details-{id}', 'WalletController@walletDetails')->name('walletDetails');
     Route::post('/Withdraw/balance', 'WalletController@WithdrawBalance')->name('WithdrawBalance');
-    Route::post('/walletconnect/gas-topup', 'WalletController@walletConnectGasTopup')->name('walletConnectGasTopup');
     Route::get('transaction-histories', 'WalletController@transactionHistories')->name('transactionHistories');
     Route::post('withdraw-coin-rate', 'WalletController@withdrawCoinRate')->name('withdrawCoinRate');
 

@@ -41,7 +41,7 @@ class User extends Authenticatable
 
                 Wallet::create([
                     'user_id'    => $user->id,
-                    'name'       => 'OBX Wallet',
+                    'name'       => 'OBXCoin XPocket',
                     'status'     => STATUS_SUCCESS,
                     'is_primary' => STATUS_SUCCESS,
                     'balance'    => 0,

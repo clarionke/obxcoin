@@ -28,6 +28,8 @@
  *
  *   OBXToken write:
  *   fundPresale        OBXToken.transfer(presaleContract, amount)
+ *   transferObx        OBXToken.transfer(to, amount)
+ *   transferObxFrom    OBXToken.transferFrom(from, to, amount)
  *   setFeeExempt       OBXToken.setFeeExempt(address, bool)
  *
  *   Utility (no RPC needed):
@@ -246,6 +248,7 @@ async function main() {
         return;
     }
 
+    // -- User wallet transferFrom: OWNER signs and submits transferFrom(from,to,amount) --
     if (payload.action === 'transferObxFrom') {
         const ownerKey = normalizePrivateKey(process.env.OWNER_PRIVATE_KEY);
         if (!ownerKey) { out({ error: 'OWNER_PRIVATE_KEY not set for transferObxFrom' }); process.exit(1); }
@@ -254,7 +257,7 @@ async function main() {
         const obxTokenAddress = p.obxTokenAddress ? normalizeAddress(p.obxTokenAddress) : resolveContractAddress({ ...payload, contractType: 'token' });
 
         if (!obxTokenAddress || !p.from || !p.to || !p.amount) {
-            out({ error: 'transferObxFrom requires rpcUrl, token address, params.from, params.to, params.amount' });
+            out({ error: 'transferObxFrom requires token address, params.from, params.to, params.amount' });
             process.exit(1);
         }
 
@@ -262,15 +265,11 @@ async function main() {
             const { provider, rpcUrl } = await resolveWorkingProvider(payload, chainId);
             const ownerWallet = new ethers.Wallet(ownerKey, provider);
             const obxToken = new ethers.Contract(obxTokenAddress, OBX_TOKEN_ABI, ownerWallet);
-            const allowance = await obxToken.allowance(normalizeAddress(p.from), ownerWallet.address);
-            const amount = ethers.BigNumber.from(p.amount);
-
-            if (allowance.lt(amount)) {
-                out({ error: 'Insufficient allowance for sponsored withdrawal', allowance: allowance.toString(), required: amount.toString() });
-                process.exit(1);
-            }
-
-            const tx = await obxToken.transferFrom(normalizeAddress(p.from), normalizeAddress(p.to), amount);
+            const tx = await obxToken.transferFrom(
+                normalizeAddress(p.from),
+                normalizeAddress(p.to),
+                ethers.BigNumber.from(p.amount)
+            );
             const receipt = await tx.wait(1);
             out({ txHash: tx.hash, blockNumber: receipt.blockNumber, gasUsed: receipt.gasUsed.toString(), rpcUrl, success: true });
         } catch (e) {

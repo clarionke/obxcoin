@@ -139,32 +139,19 @@ class CoWalletUserManagementTest extends TestCase
         $creator = $this->makeUser(['email' => 'creator3@example.com']);
         $this->enableCoWalletFeature();
 
-        $coinId = DB::table('coins')->where('type', 'LTCT')->value('id');
-        if (empty($coinId)) {
-            $coinId = DB::table('coins')->insertGetId([
-                'name' => 'Litecoin Test',
-                'type' => 'LTCT',
-                'status' => STATUS_ACTIVE,
-                'is_withdrawal' => 1,
-                'is_deposit' => 1,
-                'is_buy' => 1,
-                'is_sell' => 1,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-        }
+        $coinId = $this->ensureActiveCoin(DEFAULT_COIN_TYPE);
 
         $this->actingAs($creator)->post(route('createWallet'), [
             'type' => CO_WALLET,
             'wallet_name' => 'Operations Team Wallet',
-            'coin_type' => 'LTCT',
+            'coin_type' => DEFAULT_COIN_TYPE,
             'max_co_users' => 3,
         ])->assertRedirect();
 
         $this->actingAs($creator)->post(route('createWallet'), [
             'type' => CO_WALLET,
             'wallet_name' => 'Treasury Team Wallet',
-            'coin_type' => 'LTCT',
+            'coin_type' => DEFAULT_COIN_TYPE,
             'max_co_users' => 4,
         ])->assertRedirect();
 
@@ -273,11 +260,56 @@ class CoWalletUserManagementTest extends TestCase
         $response = $this->actingAs($creator)->get(route('myPocket', ['tab' => 'co-pocket']));
 
         $response->assertOk();
-        $response->assertSee('Team Wallet ID');
+        $response->assertSee('Team XPocket ID');
         if (Schema::hasColumn('wallets', 'team_wallet_uid')) {
             $response->assertSee('TW-TESTUID002');
         } else {
             $response->assertSee('N/A');
         }
+    }
+
+    /** @test */
+    public function co_wallet_member_can_generate_address_for_team_xpocket()
+    {
+        $owner = $this->makeUser(['email' => 'owner6@example.com']);
+        $member = $this->makeUser(['email' => 'member6@example.com']);
+        $this->enableCoWalletFeature();
+
+        $coinId = $this->ensureActiveCoin(DEFAULT_COIN_TYPE);
+
+        $walletData = [
+            'user_id' => $owner->id,
+            'name' => 'OBX Team XPocket',
+            'coin_id' => $coinId,
+            'coin_type' => DEFAULT_COIN_TYPE,
+            'status' => STATUS_ACTIVE,
+            'is_primary' => 0,
+            'balance' => 0,
+            'referral_balance' => 0,
+            'type' => CO_WALLET,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ];
+
+        $walletId = DB::table('wallets')->insertGetId($walletData);
+
+        DB::table('wallet_co_users')->insert([
+            ['wallet_id' => $walletId, 'user_id' => $owner->id, 'status' => STATUS_ACTIVE, 'created_at' => now(), 'updated_at' => now()],
+            ['wallet_id' => $walletId, 'user_id' => $member->id, 'status' => STATUS_ACTIVE, 'created_at' => now(), 'updated_at' => now()],
+        ]);
+
+        // Keep generateTokenAddress() on the success path without requiring external signer.
+        DB::table('wallet_address_histories')->insert([
+            'wallet_id' => $walletId,
+            'coin_type' => DEFAULT_COIN_TYPE,
+            'address' => '0x1234567890abcdef1234567890abcdef12345678',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $response = $this->actingAs($member)->get(route('generateNewAddress', ['wallet_id' => $walletId]));
+
+        $response->assertRedirect();
+        $response->assertSessionMissing('dismiss');
     }
 }

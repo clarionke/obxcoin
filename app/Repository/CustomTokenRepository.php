@@ -82,16 +82,20 @@ class CustomTokenRepository
     public function checkAddressAndDeposit($address,$hash,$amount,$fromAddress)
     {
         try {
-            $checkAddress = WalletAddressHistory::where(['address' => $address, 'coin_type' => DEFAULT_COIN_TYPE])->first();
+            $normalizedAddress = strtolower(trim((string) $address));
+            $checkAddress = WalletAddressHistory::whereRaw('LOWER(address) = ?', [$normalizedAddress])
+                ->where('coin_type', DEFAULT_COIN_TYPE)
+                ->orderByDesc('id')
+                ->first();
             if(!empty($checkAddress)) {
-                $checkDeposit = DepositeTransaction::where(['address' => $address, 'transaction_id' => $hash])->first();
+                $checkDeposit = DepositeTransaction::where(['address' => $normalizedAddress, 'transaction_id' => $hash])->first();
                 if ($checkDeposit) {
                     storeDetailsException('checkAddressAndDeposit', 'deposit already in db '.$hash);
                     $response = ['success' => false, 'message' => __('This hash already in db'), 'data' => []];
                 } else {
                     $amount = floatval($amount);
                     $createDeposit = DepositeTransaction::create([
-                        'address' => $address,
+                        'address' => $normalizedAddress,
                         'from_address' => $fromAddress,
                         'receiver_wallet_id' => $checkAddress->wallet_id,
                         'address_type' => ADDRESS_TYPE_EXTERNAL,

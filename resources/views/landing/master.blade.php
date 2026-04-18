@@ -63,6 +63,11 @@
                             <li><a href="#faq">{{__('FAQ')}}</a></li>
                             <li><a href="#contact">{{__('Contact')}}</a></li>
                             @if(Auth::check())
+                                <li>
+                                    <a href="{{ (Auth::user()->role == USER_ROLE_ADMIN) ? route('adminDashboard') : route('userDashboard') }}">
+                                        {{__('Dashboard')}}
+                                    </a>
+                                </li>
                                 <li><a href="{{route('logOut')}}">{{__('Logout')}}</a></li>
                             @else
                                 <li><a href="{{route('login')}}">{{__('Login')}}</a></li>

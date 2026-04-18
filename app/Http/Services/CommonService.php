@@ -567,12 +567,18 @@ class CommonService
     public function generateNewCoinWallet($user_id)
     {
         try {
-            $coins = Coin::select('*')->get();
-            if (isset($coins[0])) {
-                foreach ($coins as $coin) {
-                    Wallet::updateOrCreate(['user_id' => $user_id, 'coin_type' => $coin->type, 'coin_id' => $coin->id],
-                        ['name' =>  $coin->type.' Wallet','user_id' => $user_id, 'coin_type' => $coin->type, 'coin_id' => $coin->id]);
-                }
+            $coin = Coin::where('type', DEFAULT_COIN_TYPE)->first();
+            if (!empty($coin)) {
+                Wallet::updateOrCreate(
+                    ['user_id' => $user_id, 'coin_type' => DEFAULT_COIN_TYPE],
+                    [
+                        'name' => 'OBXCoin XPocket',
+                        'user_id' => $user_id,
+                        'coin_type' => DEFAULT_COIN_TYPE,
+                        'coin_id' => $coin->id,
+                        'is_primary' => STATUS_SUCCESS,
+                    ]
+                );
             }
         } catch (\Exception $e) {
             Log::info('wallet creation exception '.$e->getMessage());

@@ -4,7 +4,10 @@ namespace App\Http\Controllers\user;
 
 use App\Model\AffiliationCode;
 use App\Model\AffiliationHistory;
+use App\Model\ReferralSignBonusHistory;
+use App\Model\BuyCoinReferralHistory;
 use App\Repository\AffiliateRepository;
+use App\User;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
@@ -30,61 +33,17 @@ class ReferralController extends Controller
     {
         $data['title'] = __('My Referral');
         $data['user'] = Auth::user();
-        $data['referrals_3'] = DB::table('referral_users as ru1')->where('ru1.parent_id', Auth::user()->id)
-            ->Join('referral_users as ru2', 'ru2.parent_id', '=', 'ru1.user_id')
-            ->Join('referral_users as ru3', 'ru3.parent_id', '=', 'ru2.user_id')
-            ->join('users', 'users.id', '=', 'ru3.user_id')
-            ->select('ru3.user_id as level_3', 'users.email','users.first_name as full_name','users.created_at as joining_date')
-            ->get();
-        $data['referrals_2'] = DB::table('referral_users as ru1')->where('ru1.parent_id', Auth::user()->id)
-            ->Join('referral_users as ru2', 'ru2.parent_id', '=', 'ru1.user_id')
-            ->join('users', 'users.id', '=', 'ru2.user_id')
-            ->select('ru2.user_id as level_2','users.email','users.first_name as full_name','users.created_at as joining_date')
-            ->get();
-        $data['referrals_1'] = DB::table('referral_users as ru1')->where('ru1.parent_id', Auth::user()->id)
-            ->join('users', 'users.id', '=', 'ru1.user_id')
-            ->select('ru1.user_id as level_1','users.email','users.first_name as full_name','users.created_at as joining_date')
-            ->get();
-        $referralUsers = [];
-
-        foreach ($data['referrals_1'] as $level1) {
-            $referralUser['id'] = $level1->level_1;
-            $referralUser['full_name'] = $level1->full_name;
-            $referralUser['email'] = $level1->email;
-            $referralUser['joining_date'] = $level1->joining_date;
-            $referralUser['level'] = __("Level 1");
-            $referralUsers [] = $referralUser;
-        }
-
-        foreach ($data['referrals_2'] as $level2) {
-            $referralUser['id'] = $level2->level_2;
-            $referralUser['full_name'] = $level2->full_name;
-            $referralUser['email'] = $level2->email;
-            $referralUser['joining_date'] = $level2->joining_date;
-            $referralUser['level'] = __("Level 2");
-            $referralUsers [] = $referralUser;
-        }
-
-        foreach ($data['referrals_3'] as $level3) {
-            $referralUser['id'] = $level3->level_3;
-            $referralUser['full_name'] = $level3->full_name;
-            $referralUser['email'] = $level3->email;
-            $referralUser['joining_date'] = $level3->joining_date;
-            $referralUser['level'] = __("Level 3");
-            $referralUsers [] = $referralUser;
-        }
-        $data['referrals'] = $referralUsers;
-
-        if (!$data['user']->Affiliate) {
+        if (!$data['user']->affiliate) {
             $created = $this->affiliateRepository->create($data['user']->id);
             if ($created < 1) {
                 return redirect()->back()->with(['dismiss' => __('Failed to generate new referral code.')]);
             }
+            $data['user'] = $data['user']->fresh();
         }
 
         $data['url'] = url('') . '/referral-reg?ref_code=' . $data['user']->affiliate->code;
 
-        $maxReferralLevel = max_level();
+        $maxReferralLevel = min(max_level(), AffiliateRepository::MAX_REFERRAL_LEVELS);
         $referralQuery = $this->affiliateRepository->childrenReferralQuery($maxReferralLevel);
 
         $referralAll = $referralQuery['referral_all']->where('ru1.parent_id', $data['user']->id)
@@ -93,8 +52,11 @@ class ReferralController extends Controller
 
         for ($i = 0; $i < $maxReferralLevel; $i++) {
             $level = 'level' . ($i + 1);
-            $data['referralLevel'] [($i + 1)] = $referralAll->{$level};
+            $data['referralLevel'][($i + 1)] = $referralAll->{$level} ?? 0;
         }
+
+        $downlineTree = $this->affiliateRepository->getDownlineTree($data['user']->id, $maxReferralLevel);
+        $data['referrals'] = $this->flattenDownlineTree($downlineTree);
 
         $data['select'] = 'affiliate';
         $data['max_referral_level'] = $maxReferralLevel;
@@ -122,6 +84,30 @@ class ReferralController extends Controller
         $data['monthlyEarningHistories'] = $monthlyEarningData;
 
         return view('user.referral.index', $data);
+    }
+
+    public function myReferralTree()
+    {
+        $user = Auth::user();
+        if (!$user->affiliate) {
+            $created = $this->affiliateRepository->create($user->id);
+            if ($created < 1) {
+                return redirect()->back()->with(['dismiss' => __('Failed to generate new referral code.')]);
+            }
+            $user = Auth::user()->fresh();
+        }
+
+        $maxReferralLevel = min(max_level(), AffiliateRepository::MAX_REFERRAL_LEVELS);
+        $data['title'] = __('Referral Tree');
+        $data['user'] = $user;
+        $data['menu'] = 'referral';
+        $data['sub_menu'] = 'referral_tree';
+        $data['max_referral_level'] = $maxReferralLevel;
+        $data['url'] = url('') . '/referral-reg?ref_code=' . $user->affiliate->code;
+        $data['upline'] = $this->affiliateRepository->getUpline($user->id, $maxReferralLevel);
+        $data['downline_tree'] = $this->affiliateRepository->getDownlineTree($user->id, $maxReferralLevel);
+
+        return view('user.referral.tree', $data);
     }
 
     public function __destruct()
@@ -161,21 +147,57 @@ class ReferralController extends Controller
     {
         $data['title'] = __('My referral Earning History');
         if ($request->ajax()) {
-            $items = AffiliationHistory::where(['user_id' => Auth::id(), 'status' => STATUS_ACTIVE])->select('*');
+            $signupItems = ReferralSignBonusHistory::where('parent_id', Auth::id())->get()->map(function ($item) {
+                $child = User::find($item->user_id);
+
+                return (object) [
+                    'source' => __('Signup'),
+                    'created_at' => $item->created_at,
+                    'child_id' => $child ? trim($child->first_name . ' ' . $child->last_name) : (string) $item->user_id,
+                    'amount' => $item->amount,
+                    'coin_type' => find_coin_type(DEFAULT_COIN_TYPE),
+                    'status' => deposit_status($item->status ?? STATUS_ACTIVE),
+                ];
+            });
+
+            $buyItems = BuyCoinReferralHistory::where(['user_id' => Auth::id(), 'status' => STATUS_ACTIVE])->get()->map(function ($item) {
+                $child = User::find($item->child_id);
+
+                return (object) [
+                    'source' => __('Presale'),
+                    'created_at' => $item->created_at,
+                    'child_id' => $child ? trim($child->first_name . ' ' . $child->last_name) : (string) $item->child_id,
+                    'amount' => $item->amount,
+                    'coin_type' => find_coin_type(DEFAULT_COIN_TYPE),
+                    'status' => deposit_status($item->status),
+                ];
+            });
+
+            $items = $signupItems->concat($buyItems)->sortByDesc('created_at')->values();
 
             return datatables()->of($items)
-                ->addColumn('created_at', function ($item) {
-                    return $item->created_at;
-                })->addColumn('child_id', function ($item) {
-                    return $item->child->first_name.' '.$item->child->last_name;
-                })->addColumn('coin_type', function ($item) {
-                    return find_coin_type($item->coin_type);
-                })->addColumn('status', function ($item) {
-                    return deposit_status($item->status);
-                })
                 ->make(true);
         }
 
         return view('user.referral.earning_history', $data);
+    }
+
+    private function flattenDownlineTree(array $tree): array
+    {
+        $rows = [];
+
+        foreach ($tree as $node) {
+            $rows[] = [
+                'id' => $node['user']->id,
+                'full_name' => trim($node['user']->first_name . ' ' . $node['user']->last_name),
+                'email' => $node['user']->email,
+                'joining_date' => $node['user']->created_at,
+                'level' => __('Level') . ' ' . $node['level'],
+            ];
+
+            $rows = array_merge($rows, $this->flattenDownlineTree($node['children']));
+        }
+
+        return $rows;
     }
 }

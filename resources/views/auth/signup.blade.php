@@ -251,7 +251,7 @@
             if (!countryHidden.value) {
                 e.preventDefault();
                 if (countryError) {
-                    countryError.textContent = '{{ __('Country detection failed. Please disable VPN/Proxy and refresh to continue.') }}';
+                    countryError.textContent = '{{ __('Country detection failed. Please refresh to continue.') }}';
                     countryError.style.display = 'block';
                 }
             }

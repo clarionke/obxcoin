@@ -50,15 +50,6 @@
                                                 </label>
                                             </div>
                                         @endif
-                                        @if($key == WALLETCONNECT)
-                                            <div>
-                                                <label class="switch">
-                                                    <input type="checkbox" onclick="return processForm('walletconnect_enabled')"
-                                                           id="pm_walletconnect" name="security" @if(isset($settings['walletconnect_enabled']) && ($settings['walletconnect_enabled'] == 1)) checked @endif>
-                                                    <span class="slider" for="status"></span>
-                                                </label>
-                                            </div>
-                                        @endif
                                     </td>
                                 </tr>
                             @endforeach

@@ -3,6 +3,9 @@
 namespace App\Exceptions;
 
 use Throwable;
+use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Log;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
 
 class Handler extends ExceptionHandler
@@ -52,9 +55,44 @@ class Handler extends ExceptionHandler
                 'message' => $exception->getMessage(),
             ];
 
-            $status = $exception->getCode();
+            $status = (int) $exception->getCode();
+            if ($status < 400 || $status > 599) {
+                $status = 400;
+            }
             return response()->json($data, $status);
         }
-        return parent::render($request, $exception);
+
+        $response = parent::render($request, $exception);
+
+        if (app()->environment('production')) {
+            $errorId = (string) Str::uuid();
+            $status = $exception instanceof HttpExceptionInterface
+                ? $exception->getStatusCode()
+                : (int) $response->getStatusCode();
+
+            if ($status >= 500) {
+                Log::error('Unhandled exception', [
+                    'error_id' => $errorId,
+                    'url' => $request->fullUrl(),
+                    'method' => $request->method(),
+                    'ip' => $request->ip(),
+                    'user_id' => optional($request->user())->id,
+                    'exception' => get_class($exception),
+                    'message' => $exception->getMessage(),
+                    'trace' => $exception->getTraceAsString(),
+                ]);
+
+                if ($request->expectsJson() || $request->is('api/*') || $request->ajax()) {
+                    return response()->json([
+                        'message' => __('Something went wrong. Please try again later!'),
+                        'error_id' => $errorId,
+                    ], 500);
+                }
+
+                return response()->view('errors.500', ['errorId' => $errorId], 500);
+            }
+        }
+
+        return $response;
     }
 }

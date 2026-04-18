@@ -77,14 +77,14 @@
                 <div class="card-body">
                     <div class="cp-user-card-header-area">
                         <div class="cp-user-title">
-                            <h4>{{__('My Wallet')}}</h4>
+                            <h4>{{__('My XPocket')}}</h4>
                         </div>
                         <div class="buttons">
                             <button class="btn cp-user-add-pocket" data-toggle="modal"
-                                    data-target="#add-pocket">{{__('Add Wallet')}}</button>
+                                    data-target="#add-pocket">{{__('Add XPocket')}}</button>
                             @if(co_wallet_feature_active())
                                 <button class="btn cp-user-add-pocket" data-toggle="modal"
-                                        data-target="#import-pocket">{{__('Import Team Wallet')}}</button>
+                                        data-target="#import-pocket">{{__('Import Team XPocket')}}</button>
                             @endif
                         </div>
                     </div>
@@ -96,13 +96,13 @@
                                 <a class="nav-link @if(!isset($tab) || $tab=='personal-pocket') active @endif" id="personal-pocket-tab"
                                    data-toggle="pill"
                                    href="#personal-pocket" role="tab" aria-controls="personal-pocket"
-                                   aria-selected="true">{{__('Personal Wallets')}}</a>
+                                aria-selected="true">{{__('Personal XPockets')}}</a>
                             </li>
                             <li class="nav-item" role="presentation">
                                 <a class="nav-link @if(isset($tab) && $tab=='co-pocket') active @endif" id="co-pocket-tab"
                                    data-toggle="pill"
                                    href="#co-pocket" role="tab" aria-controls="co-pocket"
-                                   aria-selected="false">{{__('Team Wallet')}}</a>
+                                aria-selected="false">{{__('Team XPocket')}}</a>
                             </li>
                         </ul>
                         <div class="tab-content" id="pills-tabContent">
@@ -189,7 +189,7 @@
                                         <thead>
                                         <tr>
                                             <th class="all">{{__('Name')}}</th>
-                                            <th class="all">{{__('Team Wallet ID')}}</th>
+                                            <th class="all">{{__('Team XPocket ID')}}</th>
                                             <th class="all">{{__('Key')}}</th>
                                             <th class="all">{{__('Coin Type')}}</th>
                                             <th class="desktop">{{__('Balance')}}</th>
@@ -300,22 +300,22 @@
                 <div class="text-center">
                     <img src="{{asset('assets/user/images/add-pockaet-vector.svg')}}" class="img-fluid img-vector"
                          alt="">
-                    <h3>{{__('Want To Add New Wallet?')}}</h3>
+                    <h3>{{__('Want To Add New XPocket?')}}</h3>
                 </div>
                 <div class="modal-body">
                     <form method="post" action="{{route('createWallet')}}" id="walletCreateForm">
                         @csrf
                         @if(co_wallet_feature_active())
                             <div class="form-group">
-                                <label>{{__('Wallet Type')}}</label>
+                                <label>{{__('XPocket Type')}}</label>
                                 <select name="type" required class="form-control" id="wallet-type-select">
-                                    <option value="">{{__('Select wallet type')}}</option>
-                                    <option value="{{PERSONAL_WALLET}}">{{__('Personal Wallet')}}</option>
-                                    <option value="{{CO_WALLET}}">{{__('Team Wallet')}}</option>
+                                    <option value="">{{__('Select XPocket type')}}</option>
+                                    <option value="{{PERSONAL_WALLET}}">{{__('Personal XPocket')}}</option>
+                                    <option value="{{CO_WALLET}}">{{__('Team XPocket')}}</option>
                                 </select>
                             </div>
                             <div class="form-group d-none" id="max-co-users-group">
-                                <label>{{__('Maximum Members For This Team Wallet')}}</label>
+                                <label>{{__('Maximum Members For This Team XPocket')}}</label>
                                 <input type="number" name="max_co_users" min="2" max="100" class="form-control"
                                        placeholder="{{__('e.g. 5')}}">
                                 <small style="color:#9aa4b2;">{{__('Creator sets this limit. Minimum 2 members are required.')}}</small>
@@ -328,15 +328,14 @@
                             </div>
                         @endif
                         <div class="form-group">
-                            <label>{{__('Wallet Name')}}</label>
+                            <label>{{__('XPocket Name')}}</label>
                             <input type="text" name="wallet_name" required class="form-control"
-                                   placeholder="{{__('Write Your Wallet Name')}}">
+                                placeholder="{{__('Write Your XPocket Name')}}">
                         </div>
                         <div class="form-group">
                             <label>{{__('Coin Type')}}</label>
                             <select name="coin_type" required class="form-control">
                                 <option value="">{{__('Select coin type')}}</option>
-                                <option value="LTCT"> {{'LTCT'}}</option>
                                 @if(isset($coins[0]))
                                     @foreach($coins as $coin)
                                         <option value="{{$coin->type}}"> {{$coin->type}}</option>
@@ -344,7 +343,7 @@
                                 @endif
                             </select>
                         </div>
-                        <button type="submit" class="btn btn-block cp-user-move-btn">{{__('Add Wallet')}}</button>
+                        <button type="submit" class="btn btn-block cp-user-move-btn">{{__('Add XPocket')}}</button>
                     </form>
                 </div>
             </div>
@@ -363,7 +362,7 @@
                     <div class="text-center">
                         <img src="{{asset('assets/user/images/add-pockaet-vector.svg')}}" class="img-fluid img-vector"
                              alt="">
-                        <h3>{{__('Want To Import Team Wallet?')}}</h3>
+                        <h3>{{__('Want To Import Team XPocket?')}}</h3>
                     </div>
                     <div class="modal-body">
                         <form method="post" action="{{route('importWallet')}}" id="walletImportForm">

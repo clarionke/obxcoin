@@ -405,7 +405,7 @@ class TransactionService
                     // Force known internal addresses through on-chain transfer.
                     $address_type = ADDRESS_TYPE_EXTERNAL;
 
-                    if ( $user->id == $receiverUser->id ) {
+                    if ($this->isOwnInternalWalletTransfer((int) $user->id, $receiverWallet)) {
                         Log::info('You can\'t send to your own wallet!');
                         return ['success' => false, 'message' => __('You can\'t send to your own wallet!')];
                     }
@@ -1169,7 +1169,7 @@ class TransactionService
             $walletAddress = $this->isInternalAddress($address);
             if ($walletAddress) {
                 $receiverUser = $walletAddress->wallet->user;
-                if ($user->id == $receiverUser->id) {
+                if ($this->isOwnInternalWalletTransfer((int) $user->id, $walletAddress->wallet)) {
                     $data = [
                         'data' => [],
                         'success' => false,
@@ -1238,6 +1238,21 @@ class TransactionService
         }
 
         return '';
+    }
+
+    private function isOwnInternalWalletTransfer(int $userId, $receiverWallet): bool
+    {
+        if (empty($receiverWallet) || $userId <= 0) {
+            return false;
+        }
+
+        if ((int) ($receiverWallet->type ?? 0) === CO_WALLET) {
+            // Allow sending from a personal wallet to a team wallet, including
+            // team wallets where the sender is a member/owner.
+            return false;
+        }
+
+        return (int) ($receiverWallet->user_id ?? 0) === $userId;
     }
 
     // ether chain transaction
