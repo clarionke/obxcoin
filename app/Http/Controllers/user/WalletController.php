@@ -562,14 +562,14 @@ class WalletController extends Controller
                 'message' => __('Gas top-up sent successfully.'),
             ]);
         } catch (\Throwable $e) {
-            Log::error('walletConnectGasTopup failed: ' . $e->getMessage());
+            Log::error('walletGasTopup failed: ' . $e->getMessage());
             return response()->json(['success' => false, 'message' => __('Unable to process gas top-up right now.')], 500);
         }
     }
 
     private function validateWalletConnectFeePayment(Request $request, $wallet): array
     {
-        // Gas sponsorship is now handled entirely by backend. No WalletConnect validation needed.
+        // Gas sponsorship is now handled entirely by backend.
         return ['success' => true, 'required' => false, 'message' => ''];
     }
 

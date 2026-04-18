@@ -94,7 +94,7 @@ function explorer_tx_url(string $hash, ?int $chainId = null): ?string
     if (empty($hash) || !str_starts_with($hash, '0x')) {
         return null;
     }
-    $chain = $chainId ?? (int)(settings('walletconnect_chain_id') ?? 56);
+    $chain = $chainId ?? (int)(settings('chain_id') ?: settings('presale_chain_id') ?: 56);
     return match ($chain) {
         56      => 'https://bscscan.com/tx/' . $hash,
         97      => 'https://testnet.bscscan.com/tx/' . $hash,
@@ -109,7 +109,7 @@ function explorer_tx_url(string $hash, ?int $chainId = null): ?string
  */
 function explorer_tx_base(?int $chainId = null): string
 {
-    $chain = $chainId ?? (int)(settings('walletconnect_chain_id') ?? 56);
+    $chain = $chainId ?? (int)(settings('chain_id') ?: settings('presale_chain_id') ?: 56);
     return match ($chain) {
         56      => 'https://bscscan.com/tx/',
         97      => 'https://testnet.bscscan.com/tx/',

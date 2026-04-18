@@ -142,40 +142,6 @@
                         </div>
                     </div>
 
-                    @elseif($coinAddress->type == WALLETCONNECT)
-                    {{-- WalletConnect / on-chain payment --}}
-                    <div class="cp-user-card-header-area">
-                        <h4 class="text-success"><i class="fa fa-check-circle mr-2"></i>{{__('Transaction submitted successfully!')}}</h4>
-                    </div>
-                    <div class="cp-user-buy-coin-content-area mt-4">
-                        <div class="row no-gutters mb-3">
-                            <div class="col-4 cp-user-card-header-area"><h4 class="font-weight-normal font-16">{{__('Transaction Hash')}}</h4></div>
-                            <div class="col-1 cp-user-card-header-area"><h4>:</h4></div>
-                            <div class="col-7 px-1 cp-user-card-header-area">
-                                <h4 class="font-weight-normal font-14" style="word-break:break-all;">
-                                    @if($coinAddress->tx_hash)
-                                        <a href="https://bscscan.com/tx/{{$coinAddress->tx_hash}}" target="_blank" rel="noopener noreferrer">
-                                            {{$coinAddress->tx_hash}}
-                                        </a>
-                                    @else
-                                        —
-                                    @endif
-                                </h4>
-                            </div>
-                        </div>
-                        <div class="row no-gutters mb-3">
-                            <div class="col-4 cp-user-card-header-area"><h4 class="font-weight-normal font-16">{{__('OBX Amount')}}</h4></div>
-                            <div class="col-1 cp-user-card-header-area"><h4>:</h4></div>
-                            <div class="col-7 px-1 cp-user-card-header-area">
-                                <h4 class="font-weight-bold font-16">{{number_format($coinAddress->requested_amount, 2)}} OBX</h4>
-                            </div>
-                        </div>
-                        <div class="alert alert-info mt-3">
-                            <i class="fa fa-info-circle mr-1"></i>
-                            {{__('Your OBX tokens will be credited once the on-chain transaction is confirmed.')}}
-                        </div>
-                    </div>
-
                     @else
                     {{-- Fallback for legacy records --}}
                     <div class="cp-user-card-header-area">

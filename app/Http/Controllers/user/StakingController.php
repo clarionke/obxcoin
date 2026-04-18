@@ -35,8 +35,8 @@ class StakingController extends Controller
             ->get();
 
         // Pass on-chain config to view
-        $data['wc_project_id']        = settings('walletconnect_project_id') ?? '';
-        $data['wc_chain_id']          = (int) (settings('walletconnect_chain_id') ?? 56);
+        $data['wc_project_id']        = '';
+        $data['wc_chain_id']          = (int) (settings('chain_id') ?: settings('presale_chain_id') ?: 56);
         $data['obx_token_contract']   = settings('obx_token_contract') ?? '';
         $data['staking_contract']     = settings('staking_contract') ?? '';
         $data['obx_token_symbol']     = settings('coin_symbol') ?? 'OBX';

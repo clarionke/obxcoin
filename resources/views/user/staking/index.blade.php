@@ -401,21 +401,18 @@ function loadScript(src) {
 }
 
 async function wcConnect() {
-    if (!WC_PROJECT_ID) { setStatus('<span class="text-danger">WalletConnect Project ID not configured.</span>'); return; }
     try {
-        setStatus('⏳ Loading libraries…');
+        setStatus('⏳ Connecting wallet…');
         if (!window.ethers)
             await loadScript('{{ asset("js/vendor/ethers-5.7.2.umd.min.js") }}');
-        if (!window.WalletConnectProvider)
-            await loadScript('{{ asset("js/vendor/walletconnect-web3-provider-1.8.0.min.js") }}');
 
-        const rpcMap = {};
-        rpcMap[WC_CHAIN_ID] = WC_CHAIN_ID === 56
-            ? 'https://bsc-dataseed.binance.org/'
-            : 'https://data-seed-prebsc-1-s1.binance.org:8545/';
+        if (!window.ethereum) {
+            setStatus('<span class="text-danger">No EVM wallet provider found. Please install or open your browser wallet.</span>');
+            return;
+        }
 
-        wcProvider = new WalletConnectProvider.default({ projectId: WC_PROJECT_ID, rpc: rpcMap });
-        await wcProvider.enable();
+        wcProvider = window.ethereum;
+        await wcProvider.request({ method: 'eth_requestAccounts' });
 
         const web3Provider = new ethers.providers.Web3Provider(wcProvider);
         const network      = await web3Provider.getNetwork();

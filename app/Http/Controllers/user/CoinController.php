@@ -14,6 +14,7 @@ use App\Model\WalletAddressHistory;
 use App\Model\WithdrawHistory;
 use App\Repository\AffiliateRepository;
 use App\Repository\CoinRepository;
+use App\Repository\WalletRepository;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
@@ -440,11 +441,26 @@ class CoinController extends Controller
             $historyAddress = (string) WalletAddressHistory::where('wallet_id', (int) $primaryWallet->id)
                 ->orderByDesc('id')
                 ->value('address');
+
+            // Ensure default OBX wallet has an address before declaring delivery failure.
+            if (!preg_match('/^0x[a-f0-9]{40}$/', strtolower(trim($historyAddress)))) {
+                try {
+                    app(WalletRepository::class)->generateTokenAddress((int) $primaryWallet->id);
+                    $historyAddress = (string) WalletAddressHistory::where('wallet_id', (int) $primaryWallet->id)
+                        ->orderByDesc('id')
+                        ->value('address');
+                } catch (\Throwable $e) {
+                    Log::warning('CoinController: failed to auto-generate delivery wallet', [
+                        'user_id' => (int) $purchase->user_id,
+                        'wallet_id' => (int) $primaryWallet->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
         }
 
         $candidates = [
             strtolower(trim((string) ($purchase->buyer_wallet ?? ''))),
-            strtolower(trim((string) ($purchase->wc_buyer_address ?? ''))),
             strtolower(trim((string) ($purchase->user->bsc_wallet ?? ''))),
             strtolower(trim($historyAddress)),
         ];

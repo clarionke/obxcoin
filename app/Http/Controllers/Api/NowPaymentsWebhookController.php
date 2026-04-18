@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Model\BuyCoinHistory;
 use App\Model\Wallet;
 use App\Model\WalletAddressHistory;
+use App\Repository\WalletRepository;
 use App\Services\BlockchainService;
 use App\Services\NowPaymentsService;
 use Illuminate\Http\Request;
@@ -186,17 +187,34 @@ class NowPaymentsWebhookController extends Controller
 
     private function resolveTargetWallet(BuyCoinHistory $purchase): ?string
     {
+        $purchase->loadMissing('user');
+
         $historyAddress = '';
         $primaryWallet = get_primary_wallet((int) $purchase->user_id, DEFAULT_COIN_TYPE);
         if ($primaryWallet) {
             $historyAddress = (string) WalletAddressHistory::where('wallet_id', (int) $primaryWallet->id)
                 ->orderByDesc('id')
                 ->value('address');
+
+            // Ensure default OBX wallet has an address before failing delivery.
+            if (!preg_match('/^0x[a-f0-9]{40}$/', strtolower(trim($historyAddress)))) {
+                try {
+                    app(WalletRepository::class)->generateTokenAddress((int) $primaryWallet->id);
+                    $historyAddress = (string) WalletAddressHistory::where('wallet_id', (int) $primaryWallet->id)
+                        ->orderByDesc('id')
+                        ->value('address');
+                } catch (\Throwable $e) {
+                    Log::warning('NowPaymentsIPN: failed to auto-generate delivery wallet', [
+                        'user_id' => (int) $purchase->user_id,
+                        'wallet_id' => (int) $primaryWallet->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
         }
 
         $candidates = [
             strtolower(trim((string)($purchase->buyer_wallet ?? ''))),
-            strtolower(trim((string)($purchase->wc_buyer_address ?? ''))),
             strtolower(trim((string)($purchase->user->bsc_wallet ?? ''))),
             strtolower(trim($historyAddress)),
         ];

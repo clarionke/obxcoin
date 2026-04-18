@@ -270,7 +270,7 @@ class GaslessSponsorshipService
             $rpcUrl = 'https://bsc-dataseed.binance.org/';
         }
 
-        $minNative = trim((string) (settings('walletconnect_gas_min_bnb') ?: settings('gasless_min_native_balance') ?: '0.00035'));
+        $minNative = trim((string) (settings('gasless_min_native_balance') ?: '0.00035'));
         if (!preg_match('/^\d+(\.\d+)?$/', $minNative)) {
             $minNative = '0.00035';
         }

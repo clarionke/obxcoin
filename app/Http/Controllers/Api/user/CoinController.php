@@ -234,8 +234,6 @@ class CoinController extends Controller
                         $response = ['success' => false, 'message' => __($result['message'])];
                     }
                 }
-            } elseif ((int) $request->payment_type === WALLETCONNECT) {
-                $response = ['success' => false, 'message' => __('Please use NOWPayments for purchase.')];
             } else {
                 $response = ['success' => false, 'message' => __('Invalid payment method selected.')];
             }

@@ -1,5 +1,5 @@
 @php
-    $obxChainId = (int) (settings('chain_id') ?: settings('walletconnect_chain_id') ?: settings('presale_chain_id') ?: 0);
+    $obxChainId = (int) (settings('chain_id') ?: settings('presale_chain_id') ?: 0);
     $obxChainLink = strtolower(trim((string) (settings('chain_link') ?: settings('bsc_rpc_url') ?: config('blockchain.bsc_rpc_url', ''))));
     if ($obxChainId <= 0) {
         if (str_contains($obxChainLink, 'prebsc') || str_contains($obxChainLink, 'testnet') || str_contains($obxChainLink, '97')) {

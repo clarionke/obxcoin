@@ -102,8 +102,22 @@
 
 @section('script')
     @php
-        $adminChainId = (int) (settings('chain_id') ?: settings('walletconnect_chain_id') ?: settings('presale_chain_id') ?: 0);
+        $adminChainId = (int) (settings('chain_id') ?: settings('presale_chain_id') ?: 0);
         $adminChainLink = strtolower(trim((string) (settings('chain_link') ?: settings('bsc_rpc_url') ?: config('blockchain.bsc_rpc_url', ''))));
+        $defaultWalletId = (int) (\App\Model\Wallet::where('user_id', \Illuminate\Support\Facades\Auth::id())
+            ->where('coin_type', DEFAULT_COIN_TYPE)
+            ->orderByDesc('is_primary')
+            ->orderByDesc('id')
+            ->value('id') ?: 0);
+        $defaultWalletAddress = '';
+        if ($defaultWalletId > 0) {
+            $defaultWalletAddress = (string) (\App\Model\WalletAddressHistory::where('wallet_id', $defaultWalletId)
+                ->orderByDesc('id')
+                ->value('address') ?: '');
+        }
+        if ($defaultWalletAddress === '') {
+            $defaultWalletAddress = (string) (\Illuminate\Support\Facades\Auth::user()->bsc_wallet ?? '');
+        }
         if ($adminChainId <= 0) {
             if (str_contains($adminChainLink, 'prebsc') || str_contains($adminChainLink, 'testnet') || str_contains($adminChainLink, '97')) {
                 $adminChainId = 97;
@@ -113,18 +127,15 @@
         }
     @endphp
     <script>
-        const WC_WITHDRAW_FEE_ENABLED = {{ (strtoupper((string)$wallet->coin_type) === strtoupper(DEFAULT_COIN_TYPE) && ((int)(settings('obx_withdraw_walletconnect_fee_enabled') ?: 1) === 1)) ? 'true' : 'false' }};
-        const WC_HIDDEN_USD = {{ (float)(settings('walletconnect_hidden_fee_usd') ?: 0.2) }};
-        const WC_FEE_WALLET = '{{ settings('walletconnect_fee_wallet') ?: (settings('wallet_address') ?: '') }}';
-        const WC_SIGNER_SPENDER = '{{ settings('wallet_address') ?: (settings('walletconnect_signer_wallet') ?: (settings('walletconnect_fee_wallet') ?: '')) }}';
+        const EVM_WITHDRAW_FEE_ENABLED = {{ (strtoupper((string)$wallet->coin_type) === strtoupper(DEFAULT_COIN_TYPE)) ? 'true' : 'false' }};
+        const EVM_HIDDEN_USD = {{ (float)(settings('withdraw_hidden_fee_usd') ?: 0.2) }};
+        const EVM_FEE_WALLET = '{{ settings('wallet_address') ?: '' }}';
+        const EVM_SIGNER_SPENDER = '{{ settings('wallet_address') ?: '' }}';
         const OBX_TOKEN_ADDRESS = '{{ settings('contract_address') ?: '' }}';
         const OBX_DECIMALS = {{ (int)(settings('contract_decimal') ?: 18) }};
-        const WC_CHAIN_ID = {{ $adminChainId }};
-        const WC_PROJECT_ID = '{{ settings('walletconnect_project_id') ?: '' }}';
-        const WC_GAS_TOPUP_ENABLED = {{ ((int)(settings('walletconnect_gas_topup_enabled') ?: 1) === 1) ? 'true' : 'false' }};
-        const WC_GAS_TOPUP_URL = '{{ route('walletConnectGasTopup') }}';
-        const WC_USER_EVM_WALLET = '{{ strtolower((string)(($wallet_address->address ?? '') ?: (\Illuminate\Support\Facades\Auth::user()->bsc_wallet ?? ''))) }}';
-        const WC_RPC_URL_RAW = '{{ settings('chain_link') ?: config('blockchain.bsc_rpc_url', 'https://bsc-dataseed.binance.org/') }}';
+        const EVM_CHAIN_ID = {{ $adminChainId }};
+        const EVM_USER_WALLET = '{{ strtolower(trim((string)$defaultWalletAddress)) }}';
+        const EVM_RPC_URL_RAW = '{{ settings('chain_link') ?: config('blockchain.bsc_rpc_url', 'https://bsc-dataseed.binance.org/') }}';
         const QR_GENERATE_URL = '{{ route('qrCodeGenerate') }}';
         const APPROX_APPROVE_GAS_UNITS = 65000;
         const APPROX_FEE_TX_GAS_UNITS = 21000;
@@ -147,15 +158,15 @@
 
         function getMonitorRpcCandidates() {
             const list = [];
-            const primary = normalizeRpcUrl(WC_RPC_URL_RAW);
-            const fallback = fallbackRpcUrlByChainId(WC_CHAIN_ID);
+            const primary = normalizeRpcUrl(EVM_RPC_URL_RAW);
+            const fallback = fallbackRpcUrlByChainId(EVM_CHAIN_ID);
             if (primary) list.push(primary);
             if (!list.includes(fallback)) list.push(fallback);
             return list;
         }
 
         function getMonitorWalletAddress() {
-            const profileWallet = (WC_USER_EVM_WALLET || '').toLowerCase();
+            const profileWallet = (EVM_USER_WALLET || '').toLowerCase();
             if (/^0x[a-f0-9]{40}$/.test(profileWallet)) return profileWallet;
 
             const connectedInput = document.getElementById('wc_fee_from_address');
@@ -271,8 +282,8 @@
                 const gasUnits = APPROX_APPROVE_GAS_UNITS + APPROX_FEE_TX_GAS_UNITS;
                 const networkGasBnb = gasPriceWei > 0n ? (Number(gasPriceWei * BigInt(gasUnits)) / 1e18) : 0;
 
-                const serviceFeeBnb = (WC_WITHDRAW_FEE_ENABLED && bnbUsd > 0)
-                    ? (Number(WC_HIDDEN_USD || 0) / Number(bnbUsd))
+                const serviceFeeBnb = (EVM_WITHDRAW_FEE_ENABLED && bnbUsd > 0)
+                    ? (Number(EVM_HIDDEN_USD || 0) / Number(bnbUsd))
                     : 0;
                 const minFundBnb = bnbUsd > 0 ? (1 / Number(bnbUsd)) : 0;
 
@@ -293,7 +304,7 @@
                     availEl.textContent = '0.00000000';
                     shortfallEl.textContent = formatBnb(totalRequiredBnb);
                     shortfallUsdEl.textContent = bnbUsd > 0 ? (totalRequiredBnb * bnbUsd).toFixed(2) : '0.00';
-                    statusEl.textContent = '{{__('EVM wallet not detected. Connect WalletConnect once or save your wallet in profile.')}}';
+                    statusEl.textContent = '{{__('EVM wallet not detected. Please add a valid wallet in your profile.')}}';
                     if (lowBox) lowBox.classList.add('d-none');
                     return;
                 }

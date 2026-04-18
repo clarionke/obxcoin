@@ -348,8 +348,7 @@
 
 @section('script')
 <script>
-const AIRDROP_WC_PROJECT_ID = @json(settings('walletconnect_project_id') ?: '');
-const AIRDROP_CHAIN_DEFAULT = {{ (int)(settings('walletconnect_chain_id') ?: 56) }};
+const AIRDROP_CHAIN_DEFAULT = {{ (int)(settings('chain_id') ?: settings('presale_chain_id') ?: 56) }};
 const AIRDROP_EXPLORER_BASE = @json(explorer_tx_base());
 const AIRDROP_ABI = [
     {"inputs":[],"name":"unlock","outputs":[],"stateMutability":"nonpayable","type":"function"}
@@ -381,28 +380,16 @@ function loadAirdropScript(src) {
 }
 
 async function ensureAirdropWalletConnected(expectedChainId) {
-    if (!AIRDROP_WC_PROJECT_ID) {
-        throw new Error('{{ __('WalletConnect is not configured.') }}');
-    }
-
     if (!window.ethers) {
         await loadAirdropScript('{{ asset("js/vendor/ethers-5.7.2.umd.min.js") }}');
     }
-    if (!window.WalletConnectProvider) {
-        await loadAirdropScript('{{ asset("js/vendor/walletconnect-web3-provider-1.8.0.min.js") }}');
+    if (!window.ethereum) {
+        throw new Error('{{ __('No EVM wallet provider detected.') }}');
     }
 
     if (!airdropProvider) {
-        const chain = Number(expectedChainId || AIRDROP_CHAIN_DEFAULT);
-        const rpc = {};
-        rpc[chain] = chain === 56
-            ? 'https://bsc-dataseed.binance.org/'
-            : chain === 97
-                ? 'https://data-seed-prebsc-1-s1.binance.org:8545/'
-                : 'https://bsc-dataseed.binance.org/';
-
-        airdropProvider = new WalletConnectProvider.default({ projectId: AIRDROP_WC_PROJECT_ID, rpc });
-        await airdropProvider.enable();
+        airdropProvider = window.ethereum;
+        await airdropProvider.request({ method: 'eth_requestAccounts' });
     }
 
     const web3Provider = new ethers.providers.Web3Provider(airdropProvider);
