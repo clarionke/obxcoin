@@ -311,6 +311,7 @@ class AffiliateRepository
                                 ]);
                                 continue;
                             }
+                            $affiliationHistoryData['tx_hash'] = $payout['tx_hash'] ?? null;
                             $affiliationHistoryData['wallet_id'] = $userWallet->id;
                             $userWallet->increment('balance', $affiliationHistoryData['amount']);
                             Log::info('Buy referral reward paid on-chain', [

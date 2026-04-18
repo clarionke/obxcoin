@@ -17,7 +17,9 @@ class SettingController extends Controller
         $data['title'] = __('Settings');
         $default = $data['adm_setting'] = allsetting();
         $google2fa = new Google2FA();
-        $google2fa->setAllowInsecureCallToGoogleApis(true);
+        if (method_exists($google2fa, 'setAllowInsecureCallToGoogleApis')) {
+            $google2fa->setAllowInsecureCallToGoogleApis(true);
+        }
         $data['google2fa_secret'] = $google2fa->generateSecretKey();
 
         $google2fa_url = $google2fa->getQRCodeGoogleUrl(

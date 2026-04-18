@@ -632,6 +632,20 @@
     $tibChainLink = $content['chain_link'] ?? '';
     $tibCoinName  = settings('coin_name') ?: 'OBXCoin';
     $tibSupported = $content['supported_payment_coins'] ?? 'USDT (BEP-20), USDT (ERC-20)';
+    $tibChainId   = (int) (settings('chain_id') ?: settings('presale_chain_id') ?: 56);
+    $tibExplorerBase = match ($tibChainId) {
+        56 => 'https://bscscan.com/token/',
+        97 => 'https://testnet.bscscan.com/token/',
+        1 => 'https://etherscan.io/token/',
+        137 => 'https://polygonscan.com/token/',
+        default => 'https://bscscan.com/token/',
+    };
+    $tibContractUrl = '';
+    if (preg_match('/^0x[a-fA-F0-9]{40}$/', (string) $tibContract)) {
+        $tibContractUrl = $tibExplorerBase . $tibContract;
+    } elseif (preg_match('/^https?:\/\//i', (string) $tibChainLink)) {
+        $tibContractUrl = $tibChainLink;
+    }
 @endphp
 <div id="token-info">
     <div class="container">
@@ -680,8 +694,8 @@
             <div class="tib-item">
                 <span class="tib-label">{{ __('Contract') }}</span>
                 <span class="tib-value" title="{{ $tibContract }}">
-                    @if($tibChainLink)
-                    <a href="{{ $tibChainLink }}" target="_blank" rel="noopener">{{ substr($tibContract,0,8).'...' }}</a>
+                    @if($tibContractUrl)
+                    <a href="{{ $tibContractUrl }}" target="_blank" rel="noopener noreferrer">{{ substr($tibContract,0,8).'...' }}</a>
                     @else
                     {{ substr($tibContract,0,8).'...' }}
                     @endif

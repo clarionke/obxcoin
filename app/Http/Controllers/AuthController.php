@@ -399,7 +399,9 @@ class AuthController extends Controller
     public function g2fVerify(g2fverifyRequest $request){
 
         $google2fa = new Google2FA();
-        $google2fa->setAllowInsecureCallToGoogleApis(true);
+        if (method_exists($google2fa, 'setAllowInsecureCallToGoogleApis')) {
+            $google2fa->setAllowInsecureCallToGoogleApis(true);
+        }
         $valid = $google2fa->verifyKey(Auth::user()->google2fa_secret, $request->code, 8);
 
         if ($valid){

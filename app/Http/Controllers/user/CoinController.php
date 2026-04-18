@@ -584,6 +584,12 @@ class CoinController extends Controller
                 ->addColumn('wallet_id', function ($item) {
                     return check_default_coin_type($item->wallet->coin_type);
                 })
+                ->addColumn('tx_hash', function ($item) {
+                    return $item->tx_hash ?? '';
+                })
+                ->addColumn('tx_url', function ($item) {
+                    return !empty($item->tx_hash) ? explorer_tx_url((string) $item->tx_hash) : null;
+                })
                 ->make(true);
         }
 

@@ -282,6 +282,7 @@ class CoinController extends Controller
             foreach($histories as $index=>&$history){
                 $history->status = deposit_status($history->status);
                 $history->wallet_id = check_default_coin_type($history->wallet->coin_type);
+                $history->tx_url = !empty($history->tx_hash) ? explorer_tx_url((string) $history->tx_hash) : null;
             }
             $response = ['success' => true, 'data'=>$histories, 'message' => __('Buy Coin Referral History Here')];
         } catch (\Exception $e) {

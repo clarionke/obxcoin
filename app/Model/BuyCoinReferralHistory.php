@@ -15,6 +15,7 @@ class BuyCoinReferralHistory extends Model
         'level',
         'system_fees',
         'amount',
+        'tx_hash',
         'status'
     ];
 

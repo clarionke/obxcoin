@@ -17,6 +17,7 @@
                                 <tr>
                                     <th>{{__('Coin Amount')}}</th>
                                     <th>{{__('Coin Name')}}</th>
+                                    <th>{{__('Bonus Tx Hash')}}</th>
                                     <th>{{__('Status')}}</th>
                                     <th>{{__('Created At')}}</th>
                                 </tr>
@@ -43,7 +44,7 @@
             bLengthChange: true,
             responsive: true,
             ajax: '{{route('buyCoinReferralHistory')}}',
-            order: [3, 'desc'],
+            order: [4, 'desc'],
             autoWidth: false,
             language: {
                 paginate: {
@@ -54,9 +55,44 @@
             columns: [
                 {"data": "amount","orderable": false},
                 {"data": "wallet_id","orderable": false},
+                {"data": "tx_hash","orderable": false, "render": function(data, type, row) {
+                    if (!data) return '&mdash;';
+                    var txUrl = row && row.tx_url ? row.tx_url : '';
+                    if (typeof data === 'string' && /^0x/i.test(data) && txUrl) {
+                        return '<a href="'+txUrl+'" target="_blank" rel="noopener noreferrer" title="'+data+'">'+data.substring(0,16)+'&#8230;</a>';
+                    }
+                    return data;
+                }},
                 {"data": "status","orderable": false},
                 {"data": "created_at","orderable": false},
             ],
         });
     </script>
 @endsection
+*** Add File: c:\xampp\htdocs\obxcoin\database\migrations\2026_04_18_180000_add_tx_hash_to_buy_coin_referral_histories.php
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('buy_coin_referral_histories', function (Blueprint $table) {
+            if (!Schema::hasColumn('buy_coin_referral_histories', 'tx_hash')) {
+                $table->string('tx_hash', 66)->nullable()->after('amount');
+            }
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('buy_coin_referral_histories', function (Blueprint $table) {
+            if (Schema::hasColumn('buy_coin_referral_histories', 'tx_hash')) {
+                $table->dropColumn('tx_hash');
+            }
+        });
+    }
+};

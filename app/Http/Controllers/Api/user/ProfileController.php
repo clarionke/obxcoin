@@ -378,7 +378,9 @@ class ProfileController extends Controller
             $user = Auth::user();
             if(empty($user->google2fa_secret)){
                 $google2fa = new Google2FA();
-                $google2fa->setAllowInsecureCallToGoogleApis(true);
+                if (method_exists($google2fa, 'setAllowInsecureCallToGoogleApis')) {
+                    $google2fa->setAllowInsecureCallToGoogleApis(true);
+                }
                 $data['google2fa_secret'] = $google2fa->generateSecretKey();
                 $google2fa_url = $google2fa->getQRCodeGoogleUrl(
                     isset($default['app_title']) && !empty($default['app_title']) ? $default['app_title'] : 'cpocket',
