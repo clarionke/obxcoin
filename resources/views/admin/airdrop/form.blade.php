@@ -145,21 +145,60 @@
                                 </div>
                             </div>
 
-                            {{-- Row 3: Withdrawal fee setup --}}
+                            {{-- Row 3: Withdrawal fee tiers --}}
                             <div class="row">
-                                <div class="col-md-4 mt-20">
+                                <div class="col-md-3 mt-20">
                                     <div class="form-group">
-                                        <label>{{ __('Campaign Withdrawal Fee (USDT)') }} <span class="text-danger">*</span></label>
-                                        <input type="number" name="unlock_fee_usdt" class="form-control"
+                                        <label>{{ __('Fee for Total Buy < $100 (USDT)') }} <span class="text-danger">*</span></label>
+                                        <input type="number" name="unlock_fee_lt_100_usdt" class="form-control"
                                                min="0.01" step="0.01"
-                                               value="{{ old('unlock_fee_usdt', $campaign ? number_format((float)$campaign->unlock_fee_usdt, 2, '.', '') : '5.00') }}"
+                                               value="{{ old('unlock_fee_lt_100_usdt', $campaign ? number_format((float)($campaign->unlock_fee_lt_100_usdt ?? $campaign->unlock_fee_usdt), 2, '.', '') : '8.00') }}"
                                                required>
-                                        <small class="text-muted">{{ __('Users pay this fee before OBX is sent to their OBX Wallet.') }}</small>
-                                        <span class="text-danger"><strong>{{ $errors->first('unlock_fee_usdt') }}</strong></span>
+                                        <small class="text-muted">{{ __('Applied when user total purchases are below $100.') }}</small>
+                                        <span class="text-danger"><strong>{{ $errors->first('unlock_fee_lt_100_usdt') }}</strong></span>
                                     </div>
                                 </div>
 
-                                <div class="col-md-4 mt-20">
+                                <div class="col-md-3 mt-20">
+                                    <div class="form-group">
+                                        <label>{{ __('Fee for $100 - $499.99 (USDT)') }} <span class="text-danger">*</span></label>
+                                        <input type="number" name="unlock_fee_lt_500_usdt" class="form-control"
+                                               min="0.01" step="0.01"
+                                               value="{{ old('unlock_fee_lt_500_usdt', $campaign ? number_format((float)($campaign->unlock_fee_lt_500_usdt ?? $campaign->unlock_fee_usdt), 2, '.', '') : '6.00') }}"
+                                               required>
+                                        <small class="text-muted">{{ __('Applied when user total purchases are from $100 to $499.99.') }}</small>
+                                        <span class="text-danger"><strong>{{ $errors->first('unlock_fee_lt_500_usdt') }}</strong></span>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-3 mt-20">
+                                    <div class="form-group">
+                                        <label>{{ __('Fee for $500 - $999.99 (USDT)') }} <span class="text-danger">*</span></label>
+                                        <input type="number" name="unlock_fee_lt_1000_usdt" class="form-control"
+                                               min="0.01" step="0.01"
+                                               value="{{ old('unlock_fee_lt_1000_usdt', $campaign ? number_format((float)($campaign->unlock_fee_lt_1000_usdt ?? $campaign->unlock_fee_usdt), 2, '.', '') : '4.00') }}"
+                                               required>
+                                        <small class="text-muted">{{ __('Applied when user total purchases are from $500 to $999.99.') }}</small>
+                                        <span class="text-danger"><strong>{{ $errors->first('unlock_fee_lt_1000_usdt') }}</strong></span>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-3 mt-20">
+                                    <div class="form-group">
+                                        <label>{{ __('Fee for $1000+ (USDT)') }} <span class="text-danger">*</span></label>
+                                        <input type="number" name="unlock_fee_gte_1000_usdt" class="form-control"
+                                               min="0.01" step="0.01"
+                                               value="{{ old('unlock_fee_gte_1000_usdt', $campaign ? number_format((float)($campaign->unlock_fee_gte_1000_usdt ?? $campaign->unlock_fee_usdt), 2, '.', '') : '2.00') }}"
+                                               required>
+                                        <small class="text-muted">{{ __('Applied when user total purchases are $1000 and above.') }}</small>
+                                        <span class="text-danger"><strong>{{ $errors->first('unlock_fee_gte_1000_usdt') }}</strong></span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {{-- Row 4: Fee visibility controls --}}
+                            <div class="row">
+                                <div class="col-md-6 mt-20">
                                     <div class="form-group">
                                         <label>{{ __('Fee Visibility') }}</label>
                                         <div class="custom-control custom-switch mt-2">
@@ -171,7 +210,7 @@
                                     </div>
                                 </div>
 
-                                <div class="col-md-4 mt-20">
+                                <div class="col-md-6 mt-20">
                                     <div class="form-group">
                                         <label class="d-block">{{ __('Quick Action') }}</label>
                                         @php $feeIsVisible = old('fee_revealed', $campaign->fee_revealed ?? false); @endphp
@@ -188,7 +227,7 @@
                                 </div>
                             </div>
 
-                            {{-- Row 4: Contract + Chain + Active --}}
+                            {{-- Row 5: Contract + Chain + Active --}}
                             <div class="row">
                                 <div class="col-md-5 mt-20">
                                     <div class="form-group">
@@ -223,7 +262,7 @@
 
                             <div class="alert alert-info mt-3">
                                 <i class="fa fa-info-circle mr-1"></i>
-                                {{ __('Users only see the withdraw button when global withdraw is enabled and this campaign fee is revealed.') }}
+                                {{ __('Users see the withdraw button only when global withdraw is enabled and this campaign fee is revealed. The displayed fee is selected from these tiers by the user total buy amount.') }}
                             </div>
 
                             <div class="mt-3">

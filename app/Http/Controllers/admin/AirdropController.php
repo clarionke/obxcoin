@@ -69,10 +69,21 @@ class AirdropController extends Controller
             'daily_claim_amount'  => 'required|numeric|min:0.000000000000000001',
             'streak_days'         => 'required|integer|min:1|max:365',
             'streak_bonus_amount' => 'required|numeric|min:0',
-            'unlock_fee_usdt'     => 'required|numeric|min:0.01|max:99999',
+            'unlock_fee_usdt'     => 'nullable|numeric|min:0.01|max:99999',
+            'unlock_fee_lt_100_usdt' => 'nullable|numeric|min:0.01|max:99999',
+            'unlock_fee_lt_500_usdt' => 'nullable|numeric|min:0.01|max:99999',
+            'unlock_fee_lt_1000_usdt' => 'nullable|numeric|min:0.01|max:99999',
+            'unlock_fee_gte_1000_usdt' => 'nullable|numeric|min:0.01|max:99999',
             'contract_address'    => 'nullable|regex:/^0x[0-9a-fA-F]{40}$/',
             'chain_id'            => 'nullable|integer|min:1',
         ]);
+
+        $tierFees = $this->resolveTieredFees($request);
+        if ($this->hasInvalidTierFee($tierFees)) {
+            return redirect()->back()
+                ->withInput()
+                ->withErrors(['unlock_fee_lt_100_usdt' => __('All withdrawal fee tiers are required and must be greater than zero.')]);
+        }
 
         AirdropCampaign::create([
             'name'                => $request->name,
@@ -81,7 +92,11 @@ class AirdropController extends Controller
             'daily_claim_amount'  => bcmul($request->daily_claim_amount, '1', 18),
             'streak_days'         => $request->streak_days,
             'streak_bonus_amount' => bcmul($request->streak_bonus_amount, '1', 18),
-            'unlock_fee_usdt'     => number_format((float) $request->unlock_fee_usdt, 2, '.', ''),
+            'unlock_fee_usdt'     => $tierFees['unlock_fee_lt_100_usdt'],
+            'unlock_fee_lt_100_usdt' => $tierFees['unlock_fee_lt_100_usdt'],
+            'unlock_fee_lt_500_usdt' => $tierFees['unlock_fee_lt_500_usdt'],
+            'unlock_fee_lt_1000_usdt' => $tierFees['unlock_fee_lt_1000_usdt'],
+            'unlock_fee_gte_1000_usdt' => $tierFees['unlock_fee_gte_1000_usdt'],
             'fee_revealed'        => $request->boolean('fee_revealed', false),
             'contract_address'    => $request->contract_address,
             'chain_id'            => $request->chain_id,
@@ -130,10 +145,21 @@ class AirdropController extends Controller
             'daily_claim_amount'  => 'required|numeric|min:0.000000000000000001',
             'streak_days'         => 'required|integer|min:1|max:365',
             'streak_bonus_amount' => 'required|numeric|min:0',
-            'unlock_fee_usdt'     => 'required|numeric|min:0.01|max:99999',
+            'unlock_fee_usdt'     => 'nullable|numeric|min:0.01|max:99999',
+            'unlock_fee_lt_100_usdt' => 'nullable|numeric|min:0.01|max:99999',
+            'unlock_fee_lt_500_usdt' => 'nullable|numeric|min:0.01|max:99999',
+            'unlock_fee_lt_1000_usdt' => 'nullable|numeric|min:0.01|max:99999',
+            'unlock_fee_gte_1000_usdt' => 'nullable|numeric|min:0.01|max:99999',
             'contract_address'    => 'nullable|regex:/^0x[0-9a-fA-F]{40}$/',
             'chain_id'            => 'nullable|integer|min:1',
         ]);
+
+        $tierFees = $this->resolveTieredFees($request);
+        if ($this->hasInvalidTierFee($tierFees)) {
+            return redirect()->back()
+                ->withInput()
+                ->withErrors(['unlock_fee_lt_100_usdt' => __('All withdrawal fee tiers are required and must be greater than zero.')]);
+        }
 
         $campaign->update([
             'name'                => $request->name,
@@ -142,7 +168,11 @@ class AirdropController extends Controller
             'daily_claim_amount'  => bcmul($request->daily_claim_amount, '1', 18),
             'streak_days'         => $request->streak_days,
             'streak_bonus_amount' => bcmul($request->streak_bonus_amount, '1', 18),
-            'unlock_fee_usdt'     => number_format((float) $request->unlock_fee_usdt, 2, '.', ''),
+            'unlock_fee_usdt'     => $tierFees['unlock_fee_lt_100_usdt'],
+            'unlock_fee_lt_100_usdt' => $tierFees['unlock_fee_lt_100_usdt'],
+            'unlock_fee_lt_500_usdt' => $tierFees['unlock_fee_lt_500_usdt'],
+            'unlock_fee_lt_1000_usdt' => $tierFees['unlock_fee_lt_1000_usdt'],
+            'unlock_fee_gte_1000_usdt' => $tierFees['unlock_fee_gte_1000_usdt'],
             'fee_revealed'        => $request->boolean('fee_revealed', false),
             'contract_address'    => $request->contract_address,
             'chain_id'            => $request->chain_id,
@@ -177,8 +207,14 @@ class AirdropController extends Controller
             'unlock_fee_usdt' => 'required|numeric|min:0.01|max:99999',
         ]);
 
+        $fee = number_format((float) $request->unlock_fee_usdt, 2, '.', '');
+
         $campaign->update([
-            'unlock_fee_usdt' => $request->unlock_fee_usdt,
+            'unlock_fee_usdt' => $fee,
+            'unlock_fee_lt_100_usdt' => $fee,
+            'unlock_fee_lt_500_usdt' => $fee,
+            'unlock_fee_lt_1000_usdt' => $fee,
+            'unlock_fee_gte_1000_usdt' => $fee,
             'fee_revealed'    => true,
         ]);
 
@@ -237,6 +273,44 @@ class AirdropController extends Controller
             ->paginate(50);
 
         return view('admin.airdrop.unlocks', $data);
+    }
+
+    private function resolveTieredFees(Request $request): array
+    {
+        $legacyFee = is_numeric($request->input('unlock_fee_usdt'))
+            ? (float) $request->input('unlock_fee_usdt')
+            : null;
+
+        return [
+            'unlock_fee_lt_100_usdt' => $this->formatTierFee($request->input('unlock_fee_lt_100_usdt'), $legacyFee),
+            'unlock_fee_lt_500_usdt' => $this->formatTierFee($request->input('unlock_fee_lt_500_usdt'), $legacyFee),
+            'unlock_fee_lt_1000_usdt' => $this->formatTierFee($request->input('unlock_fee_lt_1000_usdt'), $legacyFee),
+            'unlock_fee_gte_1000_usdt' => $this->formatTierFee($request->input('unlock_fee_gte_1000_usdt'), $legacyFee),
+        ];
+    }
+
+    private function formatTierFee($rawValue, ?float $fallback): string
+    {
+        if (is_numeric($rawValue) && (float) $rawValue > 0) {
+            return number_format((float) $rawValue, 2, '.', '');
+        }
+
+        if ($fallback !== null && $fallback > 0) {
+            return number_format($fallback, 2, '.', '');
+        }
+
+        return '0.00';
+    }
+
+    private function hasInvalidTierFee(array $tierFees): bool
+    {
+        foreach ($tierFees as $fee) {
+            if (!is_numeric($fee) || (float) $fee <= 0) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function appendGlobalSetupSettings(array &$data): void

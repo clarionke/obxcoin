@@ -78,6 +78,9 @@
         $adCongratsToneRaw = (string) ($adProgress['congratsTone'] ?? 'info');
         $adCongratsTone = in_array($adCongratsToneRaw, ['success', 'warning', 'info', 'neutral'], true) ? $adCongratsToneRaw : 'info';
         $adBonusAmount = (string) ($adProgress['streakBonusAmount'] ?? '0');
+        $userPurchaseUsd = (float) ($userTotalPurchasedUsd ?? 0);
+        $userTierFee = (float) ($userWithdrawFeeUsdt ?? 0);
+        $userTierLabel = (string) ($userWithdrawFeeTierLabel ?? '--');
     @endphp
 
     <div class="airdrop-quick-panel">
@@ -115,6 +118,7 @@
             @if($adCampaign)
                 <p>{{ __('Bonus on milestone') }}: +{{ number_format((float) $adBonusAmount, 2) }} OBX</p>
                 <p>{{ __('Campaign window') }}: {{ $adCampaign->start_date->format('M d, Y H:i') }} → {{ $adCampaign->end_date->format('M d, Y H:i') }}</p>
+                <p>{{ __('Your fee tier') }}: {{ $userTierLabel }} {{ __('| Total buy') }}: ${{ number_format($userPurchaseUsd, 2) }} {{ __('| Fee') }}: {{ number_format($userTierFee, 2) }} USDT</p>
             @else
                 <p>{{ __('Airdrop status updates will appear here when a campaign is active.') }}</p>
             @endif
@@ -195,13 +199,14 @@
                 <div class="sc-value" style="font-size:16px;margin-top:4px;color:var(--success);">
                     ● {{ __('Enabled') }}
                 </div>
-                @if($campaign->fee_revealed && (float)$campaign->unlock_fee_usdt > 0)
+                @if($campaign->fee_revealed && $userTierFee > 0)
                     <div class="sc-sub">
                         {{ __('Fee: :fee USDT via :currency', [
-                            'fee' => number_format((float)$campaign->unlock_fee_usdt, 2),
+                            'fee' => number_format($userTierFee, 2),
                             'currency' => strtoupper($airdropWithdrawPayCurrency)
                         ]) }}
                     </div>
+                    <div class="sc-sub">{{ __('Tier :tier based on total buy $:amount', ['tier' => $userTierLabel, 'amount' => number_format($userPurchaseUsd, 2)]) }}</div>
                 @elseif($campaign->fee_revealed)
                     <div class="sc-sub">{{ __('Campaign withdrawal fee is not configured yet') }}</div>
                 @endif
@@ -336,11 +341,11 @@
                     <div><b>{{ __('Gateway Status') }}:</b> {{ strtoupper($unlockRecord->nowpayments_payment_status ?: 'waiting') }}</div>
                 </div>
             </div>
-        @elseif((float)$campaign->unlock_fee_usdt <= 0)
+        @elseif($userTierFee <= 0)
             <div class="unlock-panel">
                 <h6><i class="fa fa-exclamation-triangle"></i> {{ __('Withdrawal Fee Not Configured') }}</h6>
                 <p style="color:var(--muted);font-size:13px;margin-bottom:0;">
-                    {{ __('Withdrawal is enabled, but the fee is not configured by admin yet.') }}
+                    {{ __('Withdrawal is enabled, but your fee tier is not configured by admin yet.') }}
                 </p>
             </div>
         @else
@@ -348,16 +353,17 @@
                 <h6><i class="fa fa-unlock-alt"></i> {{ __('Campaign Ended — Withdraw Your OBX') }}</h6>
                 <p style="color:var(--muted);font-size:13px;margin-bottom:4px;">
                     {{ __('You have') }} <b style="color:var(--text);">{{ number_format((float)$totalLockedObx, 4) }} OBX</b>
-                    {{ __('locked. Pay') }} <b style="color:#fbbf24;">{{ number_format((float)$campaign->unlock_fee_usdt, 2) }} USDT</b>
+                    {{ __('locked. Pay') }} <b style="color:#fbbf24;">{{ number_format($userTierFee, 2) }} USDT</b>
                     {{ __('to send OBX to your OBX Wallet.') }}
                 </p>
+                <p style="color:var(--muted);font-size:12px;margin-bottom:0;">{{ __('Tier :tier based on total buy $:amount', ['tier' => $userTierLabel, 'amount' => number_format($userPurchaseUsd, 2)]) }}</p>
                 <form action="{{ route('user.airdrop.unlock') }}" method="POST">
                     @csrf
                     <input type="hidden" name="campaign_id" value="{{ $campaign->id }}">
                     <button type="submit" class="unlock-btn">
                         <i class="fa fa-credit-card"></i>
                         {{ __('Pay :fee USDT and Withdraw :obx OBX', [
-                            'fee' => number_format((float)$campaign->unlock_fee_usdt, 2),
+                            'fee' => number_format($userTierFee, 2),
                             'obx' => number_format((float)$totalLockedObx, 4)
                         ]) }}
                     </button>
@@ -387,6 +393,7 @@
                     ->where('campaign_id', $pc->id)->sum('amount_obx') ?: '0';
                 $pcUnlock  = \App\Model\AirdropUnlock::where('user_id', auth()->id())
                     ->where('campaign_id', $pc->id)->first();
+                $pcUserFee = (float) ($pc->resolveUnlockFeeByPurchaseUsd($userPurchaseUsd) ?? 0);
             @endphp
             <div class="stat-card mb-3">
                 <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
@@ -406,13 +413,13 @@
                             <span class="flag-hidden"><i class="fa fa-eye-slash"></i> {{ __('Fee hidden') }}</span>
                         @elseif($pcUnlock && $pcUnlock->status === 'pending')
                             <span style="color:#fbbf24;font-size:12.5px;"><i class="fa fa-clock-o"></i> {{ __('Payment Pending') }}</span>
-                        @elseif((float)$pc->unlock_fee_usdt > 0)
+                        @elseif($pcUserFee > 0)
                             <form action="{{ route('user.airdrop.unlock') }}" method="POST" style="display:inline;">
                                 @csrf
                                 <input type="hidden" name="campaign_id" value="{{ $pc->id }}">
                                 <button class="unlock-btn" style="padding:8px 18px;font-size:12.5px;width:auto;margin:0;">
                                     <i class="fa fa-credit-card"></i>
-                                    {{ __('Pay :fee USDT & Withdraw', ['fee' => number_format((float)$pc->unlock_fee_usdt, 2)]) }}
+                                    {{ __('Pay :fee USDT & Withdraw', ['fee' => number_format($pcUserFee, 2)]) }}
                                 </button>
                             </form>
                         @else

@@ -134,7 +134,7 @@
                                         <strong>{{__('Quick Instructions')}}</strong><br>
                                         1. {{__('Send the exact amount shown above to the payment address.')}}<br>
                                         2. {{__('Keep this page open. Status updates automatically every few seconds.')}}<br>
-                                        3. {{__('After confirmation, OBX is auto-delivered on-chain and sent to your default OBX Wallet.')}}
+                                        3. {{__('After confirmation, OBX Coin(s) is auto-delivered on-chain and credited to your OBX Wallet.')}}
                                     </div>
 
                                     <div id="npStatusNote" class="np-note">{{__('Checking payment status...')}}</div>

@@ -12,6 +12,7 @@ use App\Services\BlockchainService;
 use App\Services\NowPaymentsService;
 use App\User;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 use Mockery;
 
 /**
@@ -38,6 +39,14 @@ use Mockery;
 class AirdropTest extends TestCase
 {
     use DatabaseTransactions;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // Keep campaign selection deterministic even if local DB has historical active rows.
+        AirdropCampaign::query()->update(['is_active' => false]);
+    }
 
     // ── Factory helpers ───────────────────────────────────────────────────────
 
@@ -68,9 +77,9 @@ class AirdropTest extends TestCase
         ], $overrides));
     }
 
-    private function endedCampaign(bool $feeRevealed = false, float $fee = 5.0): AirdropCampaign
+    private function endedCampaign(bool $feeRevealed = false, float $fee = 5.0, array $overrides = []): AirdropCampaign
     {
-        return AirdropCampaign::create([
+        return AirdropCampaign::create(array_merge([
             'name'                => 'Ended Campaign',
             'start_date'          => now()->subDays(31),
             'end_date'            => now()->subDay(),
@@ -82,7 +91,11 @@ class AirdropTest extends TestCase
             'is_active'           => true,
             'fee_revealed'        => $feeRevealed,
             'unlock_fee_usdt'     => $feeRevealed ? $fee : null,
-        ]);
+            'unlock_fee_lt_100_usdt' => $feeRevealed ? $fee : null,
+            'unlock_fee_lt_500_usdt' => $feeRevealed ? $fee : null,
+            'unlock_fee_lt_1000_usdt' => $feeRevealed ? $fee : null,
+            'unlock_fee_gte_1000_usdt' => $feeRevealed ? $fee : null,
+        ], $overrides));
     }
 
     private function enableAirdropWithdraw(float $fee = 5.0, string $payCurrency = 'usdtbsc'): void
@@ -110,6 +123,44 @@ class AirdropTest extends TestCase
             ], $overrides));
 
         $this->app->instance(NowPaymentsService::class, $mock);
+    }
+
+    private function seedSuccessfulPurchaseUsd(int $userId, float $usdAmount): void
+    {
+        DB::table('buy_coin_histories')->insert([
+            'address' => 'seed_np_' . $userId . '_' . substr((string) microtime(true), -6),
+            'type' => NOWPAYMENTS,
+            'user_id' => $userId,
+            'coin' => 0,
+            'btc' => 0,
+            'doller' => number_format($usdAmount, 2, '.', ''),
+            'transaction_id' => null,
+            'status' => STATUS_SUCCESS,
+            'admin_confirmation' => STATUS_SUCCESS,
+            'confirmations' => 1,
+            'bank_sleep' => null,
+            'bank_id' => null,
+            'coin_type' => 'USDT',
+            'phase_id' => null,
+            'referral_level' => null,
+            'fees' => 0,
+            'bonus' => 0,
+            'referral_bonus' => 0,
+            'requested_amount' => 0,
+            'stripe_token' => null,
+            'tx_hash' => null,
+            'buyer_wallet' => null,
+            'nowpayments_payment_id' => null,
+            'nowpayments_pay_address' => null,
+            'nowpayments_pay_amount' => null,
+            'nowpayments_pay_currency' => null,
+            'wc_buyer_address' => null,
+            'obx_delivery_status' => 'success',
+            'obx_delivery_tx_hash' => null,
+            'obx_delivery_error' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
     }
 
     private function nowPaymentsSignature(array $payload, string $secret): string
@@ -175,12 +226,22 @@ class AirdropTest extends TestCase
             'daily_claim_amount'  => '100',
             'streak_days'         => '5',
             'streak_bonus_amount' => '500',
-            'unlock_fee_usdt'     => '5.00',
+            'unlock_fee_lt_100_usdt' => '8.00',
+            'unlock_fee_lt_500_usdt' => '6.00',
+            'unlock_fee_lt_1000_usdt' => '4.00',
+            'unlock_fee_gte_1000_usdt' => '2.00',
             'is_active'           => '1',
         ]);
 
         $response->assertRedirect(route('admin.airdrop.index'));
-        $this->assertDatabaseHas('airdrop_campaigns', ['name' => 'Wave 1', 'streak_days' => 5]);
+        $this->assertDatabaseHas('airdrop_campaigns', [
+            'name' => 'Wave 1',
+            'streak_days' => 5,
+            'unlock_fee_lt_100_usdt' => 8.0,
+            'unlock_fee_lt_500_usdt' => 6.0,
+            'unlock_fee_lt_1000_usdt' => 4.0,
+            'unlock_fee_gte_1000_usdt' => 2.0,
+        ]);
     }
 
     /** @test */
@@ -235,6 +296,10 @@ class AirdropTest extends TestCase
         $this->assertDatabaseHas('airdrop_campaigns', [
             'id'           => $campaign->id,
             'fee_revealed' => 1,
+            'unlock_fee_lt_100_usdt' => 5.0,
+            'unlock_fee_lt_500_usdt' => 5.0,
+            'unlock_fee_lt_1000_usdt' => 5.0,
+            'unlock_fee_gte_1000_usdt' => 5.0,
         ]);
     }
 
@@ -458,6 +523,57 @@ class AirdropTest extends TestCase
             'campaign_id' => $campaign->id,
             'status'      => 'pending',
             'nowpayments_payment_id' => 'np_airdrop_1001',
+        ]);
+    }
+
+    /** @test */
+    public function unlock_fee_uses_purchase_tier_for_the_user()
+    {
+        $user = $this->makeUser();
+
+        $campaign = $this->endedCampaign(true, 9.0, [
+            'unlock_fee_lt_100_usdt' => 9.0,
+            'unlock_fee_lt_500_usdt' => 7.0,
+            'unlock_fee_lt_1000_usdt' => 5.0,
+            'unlock_fee_gte_1000_usdt' => 3.0,
+        ]);
+
+        $this->enableAirdropWithdraw(9.0);
+        $this->seedSuccessfulPurchaseUsd((int) $user->id, 650.00);
+
+        $mock = Mockery::mock(NowPaymentsService::class);
+        $mock->shouldReceive('createPayment')
+            ->once()
+            ->withArgs(function ($priceAmount) {
+                return abs((float) $priceAmount - 5.0) < 0.0001;
+            })
+            ->andReturn([
+                'payment_id' => 'np_airdrop_tier_500',
+                'pay_address' => '0xpayaddress1234567890',
+                'pay_amount' => '5.0000',
+                'pay_currency' => 'usdtbsc',
+                'payment_status' => 'waiting',
+            ]);
+        $this->app->instance(NowPaymentsService::class, $mock);
+
+        AirdropClaim::create([
+            'user_id'     => $user->id,
+            'campaign_id' => $campaign->id,
+            'claim_date'  => Carbon::yesterday(),
+            'amount_obx'  => '100000000000000000000',
+        ]);
+
+        $response = $this->actingAs($user)->post(route('user.airdrop.unlock'), [
+            'campaign_id' => $campaign->id,
+        ]);
+
+        $response->assertRedirect(route('user.airdrop'));
+        $response->assertSessionHas('success');
+
+        $this->assertDatabaseHas('airdrop_unlocks', [
+            'user_id' => $user->id,
+            'campaign_id' => $campaign->id,
+            'usdt_paid' => 5.0,
         ]);
     }
 

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Model\AirdropCampaign;
 use App\Model\AirdropClaim;
 use App\Model\AirdropUnlock;
+use App\Model\BuyCoinHistory;
 use App\Services\AirdropProgressService;
 use App\Services\NowPaymentsService;
 use Carbon\Carbon;
@@ -31,6 +32,13 @@ class AirdropController extends Controller
         $airdropProgress = app(AirdropProgressService::class)->buildForUser((int) $userId);
         $campaign = $airdropProgress['campaign'];
         $claimedToday = (bool) $airdropProgress['claimedToday'];
+        $userTotalPurchasedUsd = $this->getUserTotalPurchasedUsd((int) $userId);
+        $userWithdrawFeeUsdt = $campaign
+            ? $this->resolveUserWithdrawFee($campaign, $userTotalPurchasedUsd)
+            : 0.0;
+        $userWithdrawFeeTierLabel = $campaign
+            ? $campaign->resolveUnlockFeeTierLabel($userTotalPurchasedUsd)
+            : null;
         $totalLockedObx  = '0';
         $unlockRecord    = null;
         $pastCampaigns   = [];
@@ -66,6 +74,9 @@ class AirdropController extends Controller
         $data['pastCampaigns']  = $pastCampaigns;
         $data['airdropWithdrawEnabled'] = (int) (settings(AIRDROP_WITHDRAW_ENABLED_SLUG) ?: 0) === 1;
         $data['airdropWithdrawPayCurrency'] = strtolower((string) (settings(AIRDROP_WITHDRAW_PAY_CURRENCY_SLUG) ?: 'usdtbsc'));
+        $data['userTotalPurchasedUsd'] = $userTotalPurchasedUsd;
+        $data['userWithdrawFeeUsdt'] = $userWithdrawFeeUsdt;
+        $data['userWithdrawFeeTierLabel'] = $userWithdrawFeeTierLabel;
         $data['airdropProgress'] = $airdropProgress;
 
         $currentStreak = (int) ($airdropProgress['todayStreak'] ?? 0);
@@ -193,7 +204,8 @@ class AirdropController extends Controller
         }
 
         [$withdrawEnabled, $payCurrency] = $this->getAirdropWithdrawConfig();
-        $withdrawFeeUsdt = is_numeric($campaign->unlock_fee_usdt) ? (float) $campaign->unlock_fee_usdt : 0.0;
+        $userTotalPurchasedUsd = $this->getUserTotalPurchasedUsd((int) $userId);
+        $withdrawFeeUsdt = $this->resolveUserWithdrawFee($campaign, $userTotalPurchasedUsd);
 
         if (!$withdrawEnabled) {
             return redirect()->route('user.airdrop')
@@ -335,6 +347,20 @@ class AirdropController extends Controller
         }
 
         return [$enabled, $payCurrency];
+    }
+
+    private function getUserTotalPurchasedUsd(int $userId): float
+    {
+        return (float) BuyCoinHistory::where('user_id', $userId)
+            ->where('status', STATUS_SUCCESS)
+            ->sum('doller');
+    }
+
+    private function resolveUserWithdrawFee(AirdropCampaign $campaign, float $userTotalPurchasedUsd): float
+    {
+        $resolved = $campaign->resolveUnlockFeeByPurchaseUsd($userTotalPurchasedUsd);
+
+        return is_numeric($resolved) ? (float) $resolved : 0.0;
     }
 
     // ─── Streak helper ────────────────────────────────────────────────────────
