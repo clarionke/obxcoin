@@ -524,6 +524,231 @@ class BlockchainService
     }
 
     /**
+     * Return the signer/spender wallet address that must be approved by user wallets
+     * for transferFrom withdrawals.
+     */
+    public function getWithdrawalSignerWalletAddress(): string
+    {
+        $settings = [];
+        try {
+            $settings = allsetting();
+        } catch (\Throwable $e) {
+            // Use empty settings fallback.
+        }
+
+        $wallet = strtolower(trim((string) (
+            $settings['walletconnect_signer_wallet']
+            ?? $settings['wallet_address']
+            ?? ''
+        )));
+
+        if (!preg_match('/^0x[a-f0-9]{40}$/', $wallet)) {
+            return '';
+        }
+
+        return $wallet;
+    }
+
+    /**
+     * Validate transferFrom preconditions for withdrawals:
+     * 1) signer/spender wallet configured
+     * 2) owner has enough OBX balance
+     * 3) owner has enough allowance for signer
+     */
+    public function validateObxTransferFromPreconditions(string $ownerAddress, string $amountHuman): array
+    {
+        $ownerAddress = strtolower(trim($ownerAddress));
+        if (!preg_match('/^0x[a-f0-9]{40}$/', $ownerAddress)) {
+            return [
+                'success' => false,
+                'message' => 'Invalid sender wallet address for withdrawal.',
+            ];
+        }
+
+        $spenderAddress = $this->getWithdrawalSignerWalletAddress();
+        if (!preg_match('/^0x[a-f0-9]{40}$/', $spenderAddress)) {
+            return [
+                'success' => false,
+                'message' => 'Withdrawal signer wallet is not configured. Set walletconnect_signer_wallet in admin settings.',
+            ];
+        }
+
+        $decimals = $this->resolveObxDecimals();
+        $requiredRaw = $this->humanAmountToRaw($amountHuman, $decimals);
+
+        $balanceRaw = $this->getObxBalanceRaw($ownerAddress);
+        if ($balanceRaw === null) {
+            return [
+                'success' => false,
+                'message' => 'Unable to read on-chain OBX balance right now. Please try again.',
+            ];
+        }
+
+        $allowanceRaw = $this->getObxAllowanceRaw($ownerAddress, $spenderAddress);
+        if ($allowanceRaw === null) {
+            return [
+                'success' => false,
+                'message' => 'Unable to read OBX allowance right now. Please try again.',
+            ];
+        }
+
+        if (bccomp($balanceRaw, $requiredRaw, 0) < 0) {
+            return [
+                'success' => false,
+                'message' => 'Insufficient on-chain OBX balance in sender wallet for this withdrawal amount.',
+                'required' => $this->rawAmountToHuman($requiredRaw, $decimals),
+                'balance' => $this->rawAmountToHuman($balanceRaw, $decimals),
+                'allowance' => $this->rawAmountToHuman($allowanceRaw, $decimals),
+                'spender' => $spenderAddress,
+            ];
+        }
+
+        if (bccomp($allowanceRaw, $requiredRaw, 0) < 0) {
+            return [
+                'success' => false,
+                'message' => 'Insufficient allowance. Please approve OBX spending for the signer wallet before withdrawing.',
+                'required' => $this->rawAmountToHuman($requiredRaw, $decimals),
+                'balance' => $this->rawAmountToHuman($balanceRaw, $decimals),
+                'allowance' => $this->rawAmountToHuman($allowanceRaw, $decimals),
+                'spender' => $spenderAddress,
+            ];
+        }
+
+        return [
+            'success' => true,
+            'required' => $this->rawAmountToHuman($requiredRaw, $decimals),
+            'balance' => $this->rawAmountToHuman($balanceRaw, $decimals),
+            'allowance' => $this->rawAmountToHuman($allowanceRaw, $decimals),
+            'spender' => $spenderAddress,
+        ];
+    }
+
+    private function resolveObxDecimals(): int
+    {
+        $settings = [];
+        try {
+            $settings = allsetting();
+        } catch (\Throwable $e) {
+            // Use fallback.
+        }
+
+        $decimals = (int) ($settings['contract_decimal'] ?? 18);
+        if ($decimals <= 0 || $decimals > 30) {
+            $decimals = 18;
+        }
+
+        return $decimals;
+    }
+
+    private function humanAmountToRaw(string $amountHuman, int $decimals): string
+    {
+        if (!is_numeric($amountHuman) || (float) $amountHuman <= 0) {
+            return '0';
+        }
+
+        $factor = bcpow('10', (string) $decimals, 0);
+        return bcmul((string) $amountHuman, $factor, 0);
+    }
+
+    private function rawAmountToHuman(string $amountRaw, int $decimals): string
+    {
+        $factor = bcpow('10', (string) $decimals, 0);
+        return bcdiv($amountRaw, $factor, min($decimals, 18));
+    }
+
+    private function encodeAddressWord(string $address): string
+    {
+        return str_pad(substr(strtolower($address), 2), 64, '0', STR_PAD_LEFT);
+    }
+
+    private function rpcEthCall(string $toAddress, string $data): ?string
+    {
+        if (!preg_match('/^0x[a-f0-9]{40}$/', strtolower($toAddress))) {
+            return null;
+        }
+
+        try {
+            $response = Http::timeout(10)->post($this->rpcUrl, [
+                'jsonrpc' => '2.0',
+                'method'  => 'eth_call',
+                'params'  => [
+                    ['to' => $toAddress, 'data' => $data],
+                    'latest',
+                ],
+                'id' => 1,
+            ])->json();
+
+            $result = $response['result'] ?? null;
+            if (!$result || $result === '0x') {
+                return null;
+            }
+
+            return strtolower((string) $result);
+        } catch (\Throwable $e) {
+            Log::warning('BlockchainService::rpcEthCall failed: ' . $e->getMessage(), [
+                'to' => $toAddress,
+            ]);
+            return null;
+        }
+    }
+
+    private function getObxBalanceRaw(string $ownerAddress): ?string
+    {
+        $settings = [];
+        try {
+            $settings = allsetting();
+        } catch (\Throwable $e) {
+            // fallback
+        }
+
+        $token = strtolower(trim((string) ($settings['contract_address'] ?? $this->obxTokenAddress)));
+        if (!preg_match('/^0x[a-f0-9]{40}$/', $token)) {
+            return null;
+        }
+
+        $data = '0x70a08231' . $this->encodeAddressWord($ownerAddress);
+        $result = $this->rpcEthCall($token, $data);
+        if ($result === null) {
+            return null;
+        }
+
+        $hex = str_starts_with($result, '0x') ? substr($result, 2) : $result;
+        if ($hex === '' || !preg_match('/^[a-f0-9]+$/', $hex)) {
+            return null;
+        }
+
+        return $this->hexToDecimal($hex);
+    }
+
+    private function getObxAllowanceRaw(string $ownerAddress, string $spenderAddress): ?string
+    {
+        $settings = [];
+        try {
+            $settings = allsetting();
+        } catch (\Throwable $e) {
+            // fallback
+        }
+
+        $token = strtolower(trim((string) ($settings['contract_address'] ?? $this->obxTokenAddress)));
+        if (!preg_match('/^0x[a-f0-9]{40}$/', $token)) {
+            return null;
+        }
+
+        $data = '0xdd62ed3e' . $this->encodeAddressWord($ownerAddress) . $this->encodeAddressWord($spenderAddress);
+        $result = $this->rpcEthCall($token, $data);
+        if ($result === null) {
+            return null;
+        }
+
+        $hex = str_starts_with($result, '0x') ? substr($result, 2) : $result;
+        if ($hex === '' || !preg_match('/^[a-f0-9]+$/', $hex)) {
+            return null;
+        }
+
+        return $this->hexToDecimal($hex);
+    }
+
+    /**
      * Send native gas coin (BNB/ETH/MATIC) from signer wallet.
      * Used for emergency gas top-ups before user WalletConnect operations.
      */

@@ -132,13 +132,13 @@ class ReferralTest extends TestCase
         app(AffiliateRepository::class)->createReferralUser($child->id, $parent->id);
 
         $parentWallet->refresh();
-        $this->assertEquals(10, (float)$parentWallet->balance);
+        $this->assertEquals(9.995, (float)$parentWallet->balance);
 
         $this->assertDatabaseHas('referral_sign_bonus_histories', [
             'user_id'   => $child->id,
             'parent_id' => $parent->id,
             'wallet_id' => $parentWallet->id,
-            'amount'    => 10,
+            'amount'    => 9.995,
         ]);
     }
 
@@ -159,7 +159,7 @@ class ReferralTest extends TestCase
 
         $this->assertEquals(0, (float) $this->primaryWallet($upline[0]->id)->balance);
         foreach (range(1, 5) as $offset) {
-            $this->assertEquals(10, (float) $this->primaryWallet($upline[6 - $offset - 0]->id)->balance);
+            $this->assertEquals(9.995, (float) $this->primaryWallet($upline[6 - $offset - 0]->id)->balance);
         }
     }
 
@@ -234,13 +234,14 @@ class ReferralTest extends TestCase
 
         app(AffiliateRepository::class)->storeAffiliationHistoryForBuyCoin($transaction);
 
-        $this->assertEquals(20, (float) $parentWallet->fresh()->balance);
+        $this->assertEquals(19.99, (float) $parentWallet->fresh()->balance);
         $this->assertDatabaseHas('buy_coin_referral_histories', [
             'user_id' => $parent->id,
             'child_id' => $child->id,
             'wallet_id' => $parentWallet->id,
             'buy_id' => 999,
             'level' => 1,
+            'amount' => 19.99,
         ]);
     }
 
@@ -268,7 +269,7 @@ class ReferralTest extends TestCase
 
         $this->assertEquals(0, (float) $this->primaryWallet($upline[0]->id)->balance);
         foreach (range(1, 5) as $offset) {
-            $this->assertEquals(10, (float) $this->primaryWallet($upline[6 - $offset - 0]->id)->balance);
+            $this->assertEquals(9.995, (float) $this->primaryWallet($upline[6 - $offset - 0]->id)->balance);
         }
     }
 

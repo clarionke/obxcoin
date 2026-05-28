@@ -1153,7 +1153,6 @@ class WalletController extends Controller
     {
         if ($wallet && strcasecmp((string) $wallet->coin_type, DEFAULT_COIN_TYPE) === 0) {
             dispatch(new CoWalletObxWithdrawal($tempWithdrawData))->onQueue('withdrawal');
-            TempWithdraw::where('id', $tempWithdrawData['id'] ?? 0)->update(['status' => STATUS_SUCCESS]);
         } else {
             dispatch(new Withdrawal($tempWithdrawData))->onQueue('withdrawal');
         }

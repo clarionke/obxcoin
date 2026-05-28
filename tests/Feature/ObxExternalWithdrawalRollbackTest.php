@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Http\Services\TransactionService;
+use App\Model\AdminSetting;
 use App\Model\Wallet;
 use App\Services\BlockchainService;
 use App\User;
@@ -87,6 +88,16 @@ class ObxExternalWithdrawalRollbackTest extends TestCase
         $this->addWalletAddress($walletId, $senderAddress);
 
         $blockchain = \Mockery::mock(BlockchainService::class);
+        $blockchain->shouldReceive('validateObxTransferFromPreconditions')
+            ->once()
+            ->with(strtolower($senderAddress), '10')
+            ->andReturn([
+                'success' => true,
+                'allowance' => '999999.000000000000000000',
+                'balance' => '999999.000000000000000000',
+                'required' => '10.000000000000000000',
+                'spender' => '0x9999999999999999999999999999999999999999',
+            ]);
         $blockchain->shouldReceive('transferObxFromOnChain')
             ->once()
             ->with(strtolower($senderAddress), $recipientAddress, '10')
@@ -110,6 +121,55 @@ class ObxExternalWithdrawalRollbackTest extends TestCase
     }
 
     /** @test */
+    public function obx_external_withdrawal_uses_admin_fee_percent_and_debits_amount_plus_fee()
+    {
+        AdminSetting::updateOrCreate(
+            ['slug' => OBX_WITHDRAWAL_FEE_PERCENT_SLUG],
+            ['value' => '2.5']
+        );
+
+        $user = $this->makeUser(['email' => 'withdraw-fee@example.com']);
+        $coinId = $this->ensureObxCoin();
+        $walletId = $this->makeWallet($user->id, $coinId, 100.0);
+
+        $senderAddress = '0x1212121212121212121212121212121212121212';
+        $recipientAddress = '0x3434343434343434343434343434343434343434';
+        $this->addWalletAddress($walletId, $senderAddress);
+
+        $blockchain = \Mockery::mock(BlockchainService::class);
+        $blockchain->shouldReceive('validateObxTransferFromPreconditions')
+            ->once()
+            ->with(strtolower($senderAddress), '10')
+            ->andReturn([
+                'success' => true,
+                'allowance' => '999999.000000000000000000',
+                'balance' => '999999.000000000000000000',
+                'required' => '10.000000000000000000',
+                'spender' => '0x9999999999999999999999999999999999999999',
+            ]);
+        $blockchain->shouldReceive('transferObxFromOnChain')
+            ->once()
+            ->with(strtolower($senderAddress), $recipientAddress, '10')
+            ->andReturn(['txHash' => '0xfee123']);
+        $this->app->instance(BlockchainService::class, $blockchain);
+
+        $service = new TransactionService();
+        $result = $service->send($walletId, $recipientAddress, '10', false, null, $user->id, 'withdraw fee test');
+
+        $this->assertTrue($result['success']);
+        $this->assertEqualsWithDelta(89.75, (float) Wallet::where('id', $walletId)->value('balance'), 0.00000001);
+
+        $withdraw = DB::table('withdraw_histories')
+            ->where('wallet_id', $walletId)
+            ->where('transaction_hash', '0xfee123')
+            ->first();
+
+        $this->assertNotNull($withdraw);
+        $this->assertSame('0.25000000', number_format((float) $withdraw->fees, 8, '.', ''));
+        $this->assertSame('10.00000000', number_format((float) $withdraw->amount, 8, '.', ''));
+    }
+
+    /** @test */
     public function obx_external_withdrawal_rolls_back_wallet_and_history_when_chain_send_fails()
     {
         $user = $this->makeUser(['email' => 'withdraw-fail@example.com']);
@@ -121,6 +181,16 @@ class ObxExternalWithdrawalRollbackTest extends TestCase
         $this->addWalletAddress($walletId, $senderAddress);
 
         $blockchain = \Mockery::mock(BlockchainService::class);
+        $blockchain->shouldReceive('validateObxTransferFromPreconditions')
+            ->once()
+            ->with(strtolower($senderAddress), '10')
+            ->andReturn([
+                'success' => true,
+                'allowance' => '999999.000000000000000000',
+                'balance' => '999999.000000000000000000',
+                'required' => '10.000000000000000000',
+                'spender' => '0x9999999999999999999999999999999999999999',
+            ]);
         $blockchain->shouldReceive('transferObxFromOnChain')
             ->once()
             ->with(strtolower($senderAddress), $recipientAddress, '10')
@@ -132,6 +202,46 @@ class ObxExternalWithdrawalRollbackTest extends TestCase
 
         $this->assertFalse($result['success']);
         $this->assertSame('On-chain OBX send failed', $result['message']);
+        $this->assertEqualsWithDelta(100.0, (float) Wallet::where('id', $walletId)->value('balance'), 0.00000001);
+
+        $this->assertDatabaseMissing('withdraw_histories', [
+            'wallet_id' => $walletId,
+            'address' => $recipientAddress,
+            'amount' => 10.00000000,
+            'user_id' => $user->id,
+        ]);
+    }
+
+    /** @test */
+    public function obx_external_withdrawal_fails_when_allowance_is_insufficient()
+    {
+        $user = $this->makeUser(['email' => 'withdraw-allowance@example.com']);
+        $coinId = $this->ensureObxCoin();
+        $walletId = $this->makeWallet($user->id, $coinId, 100.0);
+
+        $senderAddress = '0x5656565656565656565656565656565656565656';
+        $recipientAddress = '0x7878787878787878787878787878787878787878';
+        $this->addWalletAddress($walletId, $senderAddress);
+
+        $blockchain = \Mockery::mock(BlockchainService::class);
+        $blockchain->shouldReceive('validateObxTransferFromPreconditions')
+            ->once()
+            ->with(strtolower($senderAddress), '10')
+            ->andReturn([
+                'success' => false,
+                'message' => 'Insufficient allowance',
+                'allowance' => '0.000000000000000000',
+                'required' => '10.000000000000000000',
+                'spender' => '0x9999999999999999999999999999999999999999',
+            ]);
+        $blockchain->shouldNotReceive('transferObxFromOnChain');
+        $this->app->instance(BlockchainService::class, $blockchain);
+
+        $service = new TransactionService();
+        $result = $service->send($walletId, $recipientAddress, '10', false, null, $user->id, 'allowance test');
+
+        $this->assertFalse($result['success']);
+        $this->assertStringContainsString('Insufficient allowance', $result['message']);
         $this->assertEqualsWithDelta(100.0, (float) Wallet::where('id', $walletId)->value('balance'), 0.00000001);
 
         $this->assertDatabaseMissing('withdraw_histories', [

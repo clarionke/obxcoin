@@ -97,12 +97,17 @@ class AffiliateRepository
                     continue;
                 }
 
-                $wallet->increment('balance', $amount);
+                $creditedAmount = (float) ($payout['received_amount'] ?? 0);
+                if ($creditedAmount <= 0) {
+                    continue;
+                }
+
+                $wallet->increment('balance', $creditedAmount);
                 ReferralSignBonusHistory::create([
                     'parent_id' => $userAffiliation->{$parentLevel},
                     'user_id' => $userId,
                     'wallet_id' => $wallet->id,
-                    'amount' => $amount,
+                    'amount' => $creditedAmount,
                 ]);
             }
         } catch (\Exception $e) {
@@ -311,15 +316,21 @@ class AffiliateRepository
                                 ]);
                                 continue;
                             }
+                            $creditedAmount = (float) ($payout['received_amount'] ?? 0);
+                            if ($creditedAmount <= 0) {
+                                continue;
+                            }
+
+                            $affiliationHistoryData['amount'] = $creditedAmount;
                             $affiliationHistoryData['tx_hash'] = $payout['tx_hash'] ?? null;
                             $affiliationHistoryData['wallet_id'] = $userWallet->id;
-                            $userWallet->increment('balance', $affiliationHistoryData['amount']);
+                            $userWallet->increment('balance', $creditedAmount);
                             Log::info('Buy referral reward paid on-chain', [
                                 'user_id' => $affiliationHistoryData['user_id'],
                                 'child_id' => $affiliateUsers->user_id,
                                 'buy_id' => $transaction->id,
                                 'level' => $i,
-                                'amount' => $affiliationHistoryData['amount'],
+                                'amount' => $creditedAmount,
                                 'tx_hash' => $payout['tx_hash'] ?? null,
                             ]);
                         }
@@ -417,10 +428,23 @@ class AffiliateRepository
             }
 
             $blockchain = app(BlockchainService::class);
+            $beforeBalance = $this->safeGetObxBalance($blockchain, $toAddress);
             $tx = $blockchain->transferObxOnChain($toAddress, $amount);
 
             if (empty($tx) || empty($tx['txHash'])) {
                 return ['success' => false, 'message' => $blockchain->getLastSignerError() ?: 'On-chain referral payout failed'];
+            }
+
+            $afterBalance = $this->safeGetObxBalance($blockchain, $toAddress);
+            $receivedAmount = '0';
+            if (is_string($beforeBalance) && is_string($afterBalance) && bccomp($afterBalance, $beforeBalance, 18) >= 0) {
+                $receivedAmount = bcsub($afterBalance, $beforeBalance, 18);
+            }
+            if (bccomp($receivedAmount, '0', 18) <= 0) {
+                $receivedAmount = $this->safeGetReceivedAmountFromTx($blockchain, $tx['txHash'], $toAddress);
+            }
+            if (!preg_match('/^\d+(\.\d+)?$/', (string) $receivedAmount) || bccomp((string) $receivedAmount, '0', 18) <= 0) {
+                $receivedAmount = bcmul($amount, '0.9995', 8);
             }
 
             Log::info('Referral payout sent on-chain with gas sponsored by platform signer', [
@@ -428,13 +452,34 @@ class AffiliateRepository
                 'wallet_id' => $wallet->id,
                 'user_id' => $wallet->user_id,
                 'amount' => $amount,
+                'received_amount' => $receivedAmount,
                 'to' => $toAddress,
                 'tx_hash' => $tx['txHash'],
             ]);
 
-            return ['success' => true, 'tx_hash' => $tx['txHash']];
+            return ['success' => true, 'tx_hash' => $tx['txHash'], 'received_amount' => $receivedAmount];
         } catch (\Throwable $e) {
             return ['success' => false, 'message' => $e->getMessage()];
+        }
+    }
+
+    private function safeGetObxBalance(BlockchainService $blockchain, string $address): ?string
+    {
+        try {
+            $balance = $blockchain->getObxBalance($address);
+            return is_string($balance) ? $balance : null;
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    private function safeGetReceivedAmountFromTx(BlockchainService $blockchain, string $txHash, string $address): string
+    {
+        try {
+            $amount = $blockchain->getObxReceivedAmountFromTx($txHash, $address);
+            return is_string($amount) ? $amount : '0';
+        } catch (\Throwable $e) {
+            return '0';
         }
     }
 

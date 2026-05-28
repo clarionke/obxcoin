@@ -44,6 +44,45 @@ class TransactionService
         return (int) $setting === STATUS_ACTIVE;
     }
 
+    private function resolveWithdrawalFeePercent($wallet): string
+    {
+        $feePercent = (string) ($wallet->withdrawal_fees ?? '0');
+
+        if (strcasecmp((string) ($wallet->coin_type ?? ''), DEFAULT_COIN_TYPE) === 0) {
+            $adminFeePercent = settings(OBX_WITHDRAWAL_FEE_PERCENT_SLUG);
+            if ($adminFeePercent !== false && $adminFeePercent !== null && $adminFeePercent !== '') {
+                $feePercent = (string) $adminFeePercent;
+            }
+        }
+
+        if (!is_numeric($feePercent)) {
+            return '0.00000000';
+        }
+
+        $feePercentFloat = (float) $feePercent;
+        if ($feePercentFloat < 0) {
+            $feePercentFloat = 0;
+        }
+
+        return number_format($feePercentFloat, 8, '.', '');
+    }
+
+    private function calculateWithdrawalFeeAmount($wallet, $amount): string
+    {
+        $amount = is_numeric($amount) ? (string) $amount : '0';
+        $feePercent = $this->resolveWithdrawalFeePercent($wallet);
+
+        if ((float) $amount <= 0 || (float) $feePercent <= 0) {
+            return '0.00000000';
+        }
+
+        if (function_exists('bcmul') && function_exists('bcdiv')) {
+            return bcdiv(bcmul($amount, $feePercent, 16), '100', 8);
+        }
+
+        return number_format((((float) $amount) * ((float) $feePercent)) / 100, 8, '.', '');
+    }
+
     private function generate_email_verification_key()
     {
         do {
@@ -373,7 +412,15 @@ class TransactionService
             ->select('wallets.*', 'coins.status as coin_status', 'coins.is_withdrawal', 'coins.minimum_withdrawal',
                 'coins.maximum_withdrawal', 'coins.withdrawal_fees')
             ->first();
+
+        if (empty($wallet)) {
+            return ['success' => false, 'message' => __('Wallet not found!')];
+        }
+
         $user = $wallet->user;
+        $amount = is_numeric($amount) ? (string) $amount : '0';
+        $address = trim((string) $address);
+
         try {
             $doller = $amount * settings('coin_price');
             if ($wallet->coin_type == DEFAULT_COIN_TYPE) {
@@ -390,16 +437,16 @@ class TransactionService
                 Log::info('Email-based withdrawal routing is disabled; on-chain address is required.');
                 return ['success' => false, 'message' => __('Withdrawals require a blockchain address (0x...)')];
             } else {
-                $walletAddress = $this->isInternalAddress($address);
+                $normalizedAddress = strtolower($address);
+                $walletAddress = $this->isInternalAddress($normalizedAddress);
+                $fees = $this->calculateWithdrawalFeeAmount($wallet, $amount);
 
                 if ( empty($walletAddress) ) {
                     $receiverWallet = null;
                     $receiverUser = null;
                     $address_type = ADDRESS_TYPE_EXTERNAL;
-                    $fees = check_withdrawal_fees($amount, $wallet->withdrawal_fees);
 
                 } else {
-                    $fees = check_withdrawal_fees($amount, $wallet->withdrawal_fees);
                     $receiverWallet = $walletAddress->wallet;
                     $receiverUser = $walletAddress->wallet->user;
                     // Force known internal addresses through on-chain transfer.
@@ -416,12 +463,16 @@ class TransactionService
                 }
             }
 
-            if ( ($amount + $fees) > $wallet->balance) {
+            if ( (((float) $amount) + ((float) $fees)) > ((float) $wallet->balance)) {
                 Log::info('Insufficient Balance!');
                 return ['success' => false, 'message' => 'Insufficient Balance!'];
             }
 
-            $sendAmount = $amount + $fees;
+            if (function_exists('bcadd')) {
+                $sendAmount = bcadd((string) $amount, (string) $fees, 8);
+            } else {
+                $sendAmount = (string) (((float) $amount) + ((float) $fees));
+            }
             $trans_id = Str::random(32);// we make this same for deposit and withdrawl
 
             DB::beginTransaction();
@@ -515,6 +566,8 @@ class TransactionService
             if (strcasecmp((string) $wallet->coin_type, DEFAULT_COIN_TYPE) === 0) {
                 // Resolve the sender address (user's default OBX wallet)
                 $senderAddress = $this->resolveWithdrawalSenderAddress($wallet, $user);
+                $toAddress = strtolower($address);
+
                 if (empty($senderAddress) || !preg_match('/^0x[a-f0-9]{40}$/', $senderAddress)) {
                     DB::rollBack();
                     $this->_cancelTransaction($user, $wallet, $address, $amount, $pendingTransaction);
@@ -524,9 +577,38 @@ class TransactionService
                     ];
                 }
 
+                if (!preg_match('/^0x[a-f0-9]{40}$/', $toAddress)) {
+                    DB::rollBack();
+                    $this->_cancelTransaction($user, $wallet, $address, $amount, $pendingTransaction);
+                    return [
+                        'success' => false,
+                        'message' => __('Withdrawals require a valid blockchain address (0x...)')
+                    ];
+                }
+
                 $blockchain = app(\App\Services\BlockchainService::class);
+                $preflight = $blockchain->validateObxTransferFromPreconditions($senderAddress, (string) $amount);
+                if (empty($preflight['success'])) {
+                    DB::rollBack();
+                    $this->_cancelTransaction($user, $wallet, $address, $amount, $pendingTransaction);
+
+                    $msg = (string) ($preflight['message'] ?? __('On-chain allowance check failed'));
+                    if (!empty($preflight['spender'])) {
+                        $msg .= ' ' . __('Spender wallet:') . ' ' . $preflight['spender'] . '.';
+                    }
+                    if (isset($preflight['allowance'], $preflight['required'])) {
+                        $msg .= ' ' . __('Allowance:') . ' ' . $preflight['allowance'] . ' ' . DEFAULT_COIN_TYPE
+                            . ', ' . __('required:') . ' ' . $preflight['required'] . ' ' . DEFAULT_COIN_TYPE . '.';
+                    }
+
+                    return [
+                        'success' => false,
+                        'message' => $msg,
+                    ];
+                }
+
                 // Use transferFrom so the on-chain sender is the user's wallet (gas sponsored by backend)
-                $chainTx = $blockchain->transferObxFromOnChain($senderAddress, $address, (string) $amount);
+                $chainTx = $blockchain->transferObxFromOnChain($senderAddress, $toAddress, (string) $amount);
 
                 if (empty($chainTx) || empty($chainTx['txHash'])) {
                     DB::rollBack();
@@ -579,7 +661,12 @@ class TransactionService
     // check internal address
     private function isInternalAddress($address)
     {
-        return WalletAddressHistory::where('address', $address)->with('wallet')->first();
+        $normalizedAddress = strtolower(trim((string) $address));
+        if ($normalizedAddress === '') {
+            return null;
+        }
+
+        return WalletAddressHistory::whereRaw('LOWER(address) = ?', [$normalizedAddress])->with('wallet')->first();
     }
 
     // cancel transaction
@@ -1157,6 +1244,17 @@ class TransactionService
 
         } else {
             $normalizedAddress = strtolower(trim((string) $address));
+
+            if (strcasecmp((string) ($wallet->coin_type ?? ''), DEFAULT_COIN_TYPE) === 0
+                && !preg_match('/^0x[a-f0-9]{40}$/', $normalizedAddress)) {
+                $data = [
+                    'data' => [],
+                    'success' => false,
+                    'message' => __('Withdrawals require a valid blockchain address (0x...)')
+                ];
+                return $data;
+            }
+
             if ($senderAddress !== '' && $normalizedAddress === $senderAddress) {
                 $data = [
                     'data' => [],
@@ -1185,9 +1283,9 @@ class TransactionService
                     ];
                     return $data;
                 }
-                $fees = 0;
+                $fees = $this->calculateWithdrawalFeeAmount($wallet, $request->amount);
             } else {
-                $fees = check_withdrawal_fees($request->amount, $wallet->withdrawal_fees);
+                $fees = $this->calculateWithdrawalFeeAmount($wallet, $request->amount);
             }
         }
 
@@ -1225,9 +1323,19 @@ class TransactionService
 
     private function resolveWithdrawalSenderAddress($wallet, $user): string
     {
+        $candidateWalletIds = [];
+        $requestedWalletId = (int) ($wallet->id ?? 0);
+        if ($requestedWalletId > 0) {
+            $candidateWalletIds[] = $requestedWalletId;
+        }
+
         $primaryWallet = get_primary_wallet((int) ($user->id ?? 0), DEFAULT_COIN_TYPE);
-        $walletId = (int) ($primaryWallet->id ?? ($wallet->id ?? 0));
-        if ($walletId > 0) {
+        $primaryWalletId = (int) ($primaryWallet->id ?? 0);
+        if ($primaryWalletId > 0 && $primaryWalletId !== $requestedWalletId) {
+            $candidateWalletIds[] = $primaryWalletId;
+        }
+
+        foreach ($candidateWalletIds as $walletId) {
             $historyAddress = strtolower(trim((string) WalletAddressHistory::where('wallet_id', $walletId)
                 ->orderBy('id', 'desc')
                 ->value('address')));
@@ -1272,10 +1380,10 @@ class TransactionService
                 $receiverWallet = null;
                 $receiverUser = null;
                 $address_type = ADDRESS_TYPE_EXTERNAL;
-                $fees = check_withdrawal_fees($amount, $wallet->withdrawal_fees);
+                $fees = $this->calculateWithdrawalFeeAmount($wallet, $amount);
 
             } else {
-                $fees = check_withdrawal_fees($amount, $wallet->withdrawal_fees);
+                $fees = $this->calculateWithdrawalFeeAmount($wallet, $amount);
                 $receiverWallet = $walletAddress->wallet;
                 $receiverUser = $walletAddress->wallet->user;
                 $address_type = ADDRESS_TYPE_INTERNAL;
