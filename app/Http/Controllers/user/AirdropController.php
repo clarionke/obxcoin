@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Model\AirdropCampaign;
 use App\Model\AirdropClaim;
 use App\Model\AirdropUnlock;
+use App\Services\AirdropProgressService;
 use App\Services\NowPaymentsService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -26,25 +27,15 @@ class AirdropController extends Controller
      */
     public function index()
     {
-        $userId   = Auth::id();
-        $today    = Carbon::today();
-        $campaign = AirdropCampaign::where('is_active', true)
-            ->where('end_date', '>', now())
-            ->orderByRaw('CASE WHEN start_date <= ? THEN 0 ELSE 1 END', [now()])
-            ->orderBy('start_date', 'asc')
-            ->first();
-        $claimedToday    = false;
+        $userId = Auth::id();
+        $airdropProgress = app(AirdropProgressService::class)->buildForUser((int) $userId);
+        $campaign = $airdropProgress['campaign'];
+        $claimedToday = (bool) $airdropProgress['claimedToday'];
         $totalLockedObx  = '0';
         $unlockRecord    = null;
         $pastCampaigns   = [];
 
         if ($campaign) {
-            // Has user claimed today in this campaign?
-            $claimedToday = AirdropClaim::where('user_id', $userId)
-                ->where('campaign_id', $campaign->id)
-                ->whereDate('claim_date', $today)
-                ->exists();
-
             // Total OBX locked (sum of all claims in this campaign for this user)
             $amounts = AirdropClaim::where('user_id', $userId)
                 ->where('campaign_id', $campaign->id)
@@ -75,17 +66,13 @@ class AirdropController extends Controller
         $data['pastCampaigns']  = $pastCampaigns;
         $data['airdropWithdrawEnabled'] = (int) (settings(AIRDROP_WITHDRAW_ENABLED_SLUG) ?: 0) === 1;
         $data['airdropWithdrawPayCurrency'] = strtolower((string) (settings(AIRDROP_WITHDRAW_PAY_CURRENCY_SLUG) ?: 'usdtbsc'));
+        $data['airdropProgress'] = $airdropProgress;
 
-        $currentStreak     = 0;
-        $streakBonusAmount = '0';
-        $nextBonusAt       = 0;
-
-        if ($campaign) {
-            $currentStreak     = $this->getCurrentStreak($userId, $campaign->id, $today);
-            $streakBonusAmount = $campaign->streak_bonus_amount ?? '0';
-            $streakDays        = max(1, (int) ($campaign->streak_days ?? 5));
-            $mod               = $currentStreak % $streakDays;
-            $nextBonusAt       = ($mod === 0 && $currentStreak > 0) ? $streakDays : $streakDays - $mod;
+        $currentStreak = (int) ($airdropProgress['todayStreak'] ?? 0);
+        $streakBonusAmount = (string) ($airdropProgress['streakBonusAmount'] ?? '0');
+        $nextBonusAt = (int) ($airdropProgress['remainingStreak'] ?? 0);
+        if ($currentStreak > 0 && $nextBonusAt === 0) {
+            $nextBonusAt = max(1, (int) ($airdropProgress['streakDays'] ?? 1));
         }
 
         $data['currentStreak']     = $currentStreak;

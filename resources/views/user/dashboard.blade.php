@@ -47,6 +47,158 @@
 .wc-btn-outline { background: transparent; border: 1px solid rgba(99,102,241,.4); color: #a5b4fc !important; }
 .wc-btn-outline:hover { background: rgba(99,102,241,.12); color: #a5b4fc !important; }
 
+/* airdrop spotlight */
+.airdrop-spotlight {
+    background: linear-gradient(135deg, #1b2232 0%, #1a2136 100%);
+    border: 1px solid rgba(59,130,246,.28);
+    border-radius: 14px;
+    padding: 18px 20px;
+    margin-bottom: 22px;
+}
+.airdrop-spotlight .as-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+.airdrop-spotlight .as-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #dbe7ff;
+    font-weight: 700;
+    font-size: 14px;
+}
+.airdrop-spotlight .as-sub {
+    color: #91a0bf;
+    font-size: 12px;
+    margin-top: 2px;
+}
+.airdrop-spotlight .as-toggle {
+    border: 1px solid rgba(99,102,241,.45);
+    background: rgba(99,102,241,.16);
+    color: #c7d2fe;
+    border-radius: 8px;
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 6px 11px;
+    cursor: pointer;
+}
+.airdrop-spotlight .as-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+}
+.airdrop-spotlight .as-item {
+    background: rgba(255,255,255,.04);
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 10px;
+    padding: 10px 12px;
+}
+.airdrop-spotlight .as-item span {
+    display: block;
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    color: #93a0bc;
+    margin-bottom: 4px;
+}
+.airdrop-spotlight .as-item strong {
+    display: block;
+    font-size: 18px;
+    color: #e6edf3;
+    line-height: 1.2;
+}
+.airdrop-spotlight .as-msg {
+    border-radius: 10px;
+    border: 1px solid transparent;
+    font-size: 12px;
+    padding: 10px 12px;
+    margin: 10px 0;
+}
+.airdrop-spotlight .as-msg-info {
+    background: rgba(59,130,246,.10);
+    border-color: rgba(59,130,246,.24);
+    color: #bfdbfe;
+}
+.airdrop-spotlight .as-msg-success {
+    background: rgba(34,197,94,.11);
+    border-color: rgba(34,197,94,.26);
+    color: #86efac;
+}
+.airdrop-spotlight .as-msg-warning {
+    background: rgba(245,158,11,.12);
+    border-color: rgba(245,158,11,.3);
+    color: #fcd34d;
+}
+.airdrop-spotlight .as-msg-neutral {
+    background: rgba(148,163,184,.11);
+    border-color: rgba(148,163,184,.28);
+    color: #cbd5e1;
+}
+.airdrop-spotlight .as-track {
+    height: 7px;
+    background: rgba(255,255,255,.08);
+    border-radius: 99px;
+    overflow: hidden;
+    margin-top: 4px;
+}
+.airdrop-spotlight .as-track > div {
+    height: 7px;
+    border-radius: 99px;
+    background: linear-gradient(90deg, #3b82f6, #6366f1);
+    transition: width .35s ease;
+}
+.airdrop-spotlight .as-foot {
+    margin-top: 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    color: #93a0bc;
+    font-size: 11px;
+    flex-wrap: wrap;
+}
+.airdrop-spotlight .as-details {
+    margin-top: 10px;
+    border-top: 1px dashed rgba(255,255,255,.14);
+    padding-top: 10px;
+}
+.airdrop-spotlight .as-details p {
+    color: #9fb0d3;
+    font-size: 12px;
+    margin: 0 0 8px;
+}
+.airdrop-spotlight .as-open-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    text-decoration: none;
+    padding: 7px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(59,130,246,.4);
+    color: #bfdbfe;
+    font-size: 12px;
+    font-weight: 600;
+}
+.airdrop-spotlight .as-open-btn:hover {
+    color: #dbeafe;
+    text-decoration: none;
+    background: rgba(59,130,246,.13);
+}
+@media(max-width:767px) {
+    .airdrop-spotlight .as-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+@media(max-width:520px) {
+    .airdrop-spotlight .as-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
 /* stat cards */
 .dash-stat-card {
     background: #161b22;
@@ -286,6 +438,76 @@ if (!function_exists('fmtBigNum')) {
         </a>
         <a href="{{route('myPocket')}}" class="wc-btn-outline">
             <i class="fa fa-credit-card"></i> {{__('XPocket')}}
+        </a>
+    </div>
+</div>
+
+@php
+    $adProgress = $airdropProgress ?? [];
+    $adCampaign = $adProgress['campaign'] ?? null;
+    $adTodayStreak = (int) ($adProgress['todayStreak'] ?? 0);
+    $adRemaining = (int) ($adProgress['remainingStreak'] ?? 0);
+    $adProgressPct = (int) ($adProgress['progressPercent'] ?? 0);
+    $adStreakDays = (int) ($adProgress['streakDays'] ?? 0);
+    $adClaimedToday = (bool) ($adProgress['claimedToday'] ?? false);
+    $adCongrats = (string) ($adProgress['congratsMessage'] ?? __('No active airdrop campaign right now. Stay tuned!'));
+    $adCongratsToneRaw = (string) ($adProgress['congratsTone'] ?? 'info');
+    $adCongratsTone = in_array($adCongratsToneRaw, ['success', 'warning', 'info', 'neutral'], true) ? $adCongratsToneRaw : 'info';
+    $adBonusAmount = (string) ($adProgress['streakBonusAmount'] ?? '0');
+@endphp
+
+<div class="airdrop-spotlight">
+    <div class="as-head">
+        <div>
+            <div class="as-title">
+                <i class="fa fa-gift"></i>
+                {{ __('Airdrop Streak Center') }}
+            </div>
+            <div class="as-sub">
+                @if($adCampaign)
+                    {{ $adCampaign->name }}
+                @else
+                    {{ __('No active campaign selected') }}
+                @endif
+            </div>
+        </div>
+        <button type="button" class="as-toggle" data-target="airdropSpotlightDetails" data-open-text="{{ __('Show Details') }}" data-close-text="{{ __('Hide Details') }}">
+            {{ __('Show Details') }}
+        </button>
+    </div>
+
+    <div class="as-grid">
+        <div class="as-item">
+            <span>{{ __('Today Streak') }}</span>
+            <strong>{{ $adTodayStreak }}</strong>
+        </div>
+        <div class="as-item">
+            <span>{{ __('Remaining Streak') }}</span>
+            <strong>{{ $adRemaining }}</strong>
+        </div>
+        <div class="as-item">
+            <span>{{ __('Claim Status') }}</span>
+            <strong>{{ $adClaimedToday ? __('Claimed Today') : __('Not Claimed') }}</strong>
+        </div>
+    </div>
+
+    <div class="as-msg as-msg-{{ $adCongratsTone }}">{{ $adCongrats }}</div>
+
+    <div class="as-track"><div style="width:{{ $adProgressPct }}%"></div></div>
+    <div class="as-foot">
+        <span>{{ __('Milestone Cycle') }}: {{ $adStreakDays > 0 ? $adStreakDays : '--' }} {{ __('days') }}</span>
+        <span>{{ __('Progress') }}: {{ $adProgressPct }}%</span>
+    </div>
+
+    <div class="as-details" id="airdropSpotlightDetails" hidden>
+        @if($adCampaign)
+            <p>{{ __('Bonus on milestone') }}: +{{ number_format((float) $adBonusAmount, 2) }} OBX</p>
+            <p>{{ __('Campaign window') }}: {{ $adCampaign->start_date->format('M d, Y H:i') }} → {{ $adCampaign->end_date->format('M d, Y H:i') }}</p>
+        @else
+            <p>{{ __('Create or activate a campaign to start tracking streak progress here.') }}</p>
+        @endif
+        <a href="{{ route('user.airdrop') }}" class="as-open-btn">
+            <i class="fa fa-rocket"></i> {{ __('Open Airdrop Page') }}
         </a>
     </div>
 </div>
@@ -755,6 +977,26 @@ if (!function_exists('fmtBigNum')) {
             {{-- OBX live market data refresh --}}
             <script>
             (function(){
+                var streakToggle = document.querySelector('.as-toggle');
+                if (streakToggle) {
+                    streakToggle.addEventListener('click', function() {
+                        var detailsId = streakToggle.getAttribute('data-target');
+                        var details = document.getElementById(detailsId);
+                        if (!details) {
+                            return;
+                        }
+
+                        var isHidden = details.hasAttribute('hidden');
+                        if (isHidden) {
+                            details.removeAttribute('hidden');
+                            streakToggle.textContent = streakToggle.getAttribute('data-close-text') || 'Hide Details';
+                        } else {
+                            details.setAttribute('hidden', 'hidden');
+                            streakToggle.textContent = streakToggle.getAttribute('data-open-text') || 'Show Details';
+                        }
+                    });
+                }
+
                 var OBX_PRICE_API = '{{ url("/api/obx-price") }}';
 
                 function fmtNum(n) {

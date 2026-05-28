@@ -11,6 +11,7 @@ use App\Model\TempWithdraw;
 use App\Model\Wallet;
 use App\Model\WalletCoUser;
 use App\Model\WithdrawHistory;
+use App\Services\AirdropProgressService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
@@ -148,6 +149,8 @@ class DashboardController extends Controller
             $data['msig_pending_approvals'] = $pendingApprovals;
             $data['msig_pending_approvals_count'] = $pendingApprovals->count();
         }
+
+        $data['airdropProgress'] = app(AirdropProgressService::class)->buildForUser((int) Auth::id());
 
         return view('user.dashboard', $data);
     }

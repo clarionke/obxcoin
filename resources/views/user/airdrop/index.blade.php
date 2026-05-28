@@ -23,6 +23,27 @@
 .progress-bar-fill{height:6px;border-radius:99px;background:var(--accent);transition:width .4s;}
 .empty-state{text-align:center;padding:48px 24px;color:var(--muted);}
 .empty-state i{font-size:40px;margin-bottom:14px;display:block;color:rgba(99,102,241,.3);}
+.airdrop-quick-panel{background:linear-gradient(135deg,#192338 0%,#1a2030 100%);border:1px solid rgba(99,102,241,.28);border-radius:var(--r);padding:16px 18px;margin-bottom:16px;}
+.aq-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px;}
+.aq-title{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700;color:var(--text);}
+.aq-sub{font-size:12px;color:#94a3b8;margin-top:2px;}
+.aq-toggle{border:1px solid rgba(99,102,241,.45);background:rgba(99,102,241,.16);color:#c7d2fe;border-radius:7px;padding:6px 10px;font-size:11.5px;font-weight:600;cursor:pointer;}
+.aq-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;}
+.aq-item{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:9px;padding:9px 11px;}
+.aq-item span{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;color:#95a4c0;margin-bottom:3px;}
+.aq-item strong{display:block;font-size:18px;line-height:1.2;color:var(--text);}
+.aq-msg{margin-top:10px;border:1px solid transparent;border-radius:9px;padding:9px 11px;font-size:12px;}
+.aq-msg-info{background:rgba(59,130,246,.12);border-color:rgba(59,130,246,.28);color:#bfdbfe;}
+.aq-msg-success{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.3);color:#86efac;}
+.aq-msg-warning{background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.32);color:#fcd34d;}
+.aq-msg-neutral{background:rgba(148,163,184,.12);border-color:rgba(148,163,184,.3);color:#cbd5e1;}
+.aq-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;font-size:11px;color:#95a4c0;margin-top:5px;}
+.aq-details{margin-top:10px;border-top:1px dashed rgba(255,255,255,.12);padding-top:10px;}
+.aq-details p{font-size:12px;color:#a5b4cf;margin:0 0 8px;}
+.aq-open-link{display:inline-flex;align-items:center;gap:6px;border:1px solid rgba(59,130,246,.4);background:rgba(59,130,246,.12);border-radius:8px;padding:6px 11px;color:#bfdbfe;font-size:12px;font-weight:600;text-decoration:none;}
+.aq-open-link:hover{color:#dbeafe;text-decoration:none;background:rgba(59,130,246,.18);}
+@media(max-width:767px){.aq-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media(max-width:520px){.aq-grid{grid-template-columns:1fr;}}
 </style>
 @endsection
 
@@ -44,6 +65,62 @@
             <i class="fa fa-info-circle"></i> {{ session('info') }}
         </div>
     @endif
+
+    @php
+        $adProgress = $airdropProgress ?? [];
+        $adCampaign = $adProgress['campaign'] ?? null;
+        $adTodayStreak = (int) ($adProgress['todayStreak'] ?? 0);
+        $adRemaining = (int) ($adProgress['remainingStreak'] ?? 0);
+        $adProgressPct = (int) ($adProgress['progressPercent'] ?? 0);
+        $adStreakDays = (int) ($adProgress['streakDays'] ?? 0);
+        $adClaimedToday = (bool) ($adProgress['claimedToday'] ?? false);
+        $adCongrats = (string) ($adProgress['congratsMessage'] ?? __('No active airdrop campaign right now. Stay tuned!'));
+        $adCongratsToneRaw = (string) ($adProgress['congratsTone'] ?? 'info');
+        $adCongratsTone = in_array($adCongratsToneRaw, ['success', 'warning', 'info', 'neutral'], true) ? $adCongratsToneRaw : 'info';
+        $adBonusAmount = (string) ($adProgress['streakBonusAmount'] ?? '0');
+    @endphp
+
+    <div class="airdrop-quick-panel">
+        <div class="aq-head">
+            <div>
+                <div class="aq-title"><i class="fa fa-bolt"></i> {{ __('Your Airdrop Streak Status') }}</div>
+                <div class="aq-sub">{{ $adCampaign ? $adCampaign->name : __('No active campaign selected') }}</div>
+            </div>
+            <button type="button" class="aq-toggle" data-target="airdropQuickDetails" data-open-text="{{ __('Show Details') }}" data-close-text="{{ __('Hide Details') }}">{{ __('Show Details') }}</button>
+        </div>
+
+        <div class="aq-grid">
+            <div class="aq-item">
+                <span>{{ __('Today Streak') }}</span>
+                <strong>{{ $adTodayStreak }}</strong>
+            </div>
+            <div class="aq-item">
+                <span>{{ __('Remaining Streak') }}</span>
+                <strong>{{ $adRemaining }}</strong>
+            </div>
+            <div class="aq-item">
+                <span>{{ __('Claim Status') }}</span>
+                <strong>{{ $adClaimedToday ? __('Claimed Today') : __('Not Claimed') }}</strong>
+            </div>
+        </div>
+
+        <div class="aq-msg aq-msg-{{ $adCongratsTone }}">{{ $adCongrats }}</div>
+        <div class="progress-bar-wrap" style="margin-top:8px;"><div class="progress-bar-fill" style="width:{{ $adProgressPct }}%;background:linear-gradient(90deg,#3b82f6,var(--accent));"></div></div>
+        <div class="aq-foot">
+            <span>{{ __('Milestone Cycle') }}: {{ $adStreakDays > 0 ? $adStreakDays : '--' }} {{ __('days') }}</span>
+            <span>{{ __('Progress') }}: {{ $adProgressPct }}%</span>
+        </div>
+
+        <div id="airdropQuickDetails" class="aq-details" hidden>
+            @if($adCampaign)
+                <p>{{ __('Bonus on milestone') }}: +{{ number_format((float) $adBonusAmount, 2) }} OBX</p>
+                <p>{{ __('Campaign window') }}: {{ $adCampaign->start_date->format('M d, Y H:i') }} → {{ $adCampaign->end_date->format('M d, Y H:i') }}</p>
+            @else
+                <p>{{ __('Airdrop status updates will appear here when a campaign is active.') }}</p>
+            @endif
+            <a href="#main" class="aq-open-link"><i class="fa fa-arrow-down"></i> {{ __('View Full Airdrop Details') }}</a>
+        </div>
+    </div>
 
     @if($campaign)
     {{-- ── Active / Upcoming Campaign ─────────────────────────────────────── --}}
@@ -352,4 +429,29 @@
 @endsection
 
 @section('script')
+<script>
+(function(){
+    var toggle = document.querySelector('.aq-toggle');
+    if (!toggle) {
+        return;
+    }
+
+    toggle.addEventListener('click', function() {
+        var detailsId = toggle.getAttribute('data-target');
+        var details = document.getElementById(detailsId);
+        if (!details) {
+            return;
+        }
+
+        var isHidden = details.hasAttribute('hidden');
+        if (isHidden) {
+            details.removeAttribute('hidden');
+            toggle.textContent = toggle.getAttribute('data-close-text') || 'Hide Details';
+        } else {
+            details.setAttribute('hidden', 'hidden');
+            toggle.textContent = toggle.getAttribute('data-open-text') || 'Show Details';
+        }
+    });
+})();
+</script>
 @endsection

@@ -8,6 +8,7 @@ use App\Model\Coin;
 use App\Model\UserVerificationCode;
 use App\Model\VerificationDetails;
 use App\Model\Wallet;
+use App\Services\AirdropProgressService;
 use App\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -161,6 +162,7 @@ class UserController extends Controller
         $data['user'] = User::find(decrypt($request->id));
         $data['type'] = $request->type;
         $data['clubInfos'] = get_plan_info($data['user']->id);
+        $data['airdropProgress'] = app(AirdropProgressService::class)->buildForUser((int) $data['user']->id);
 
         return view('admin.users.profile',$data);
     }
