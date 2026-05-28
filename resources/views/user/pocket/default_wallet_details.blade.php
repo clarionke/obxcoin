@@ -304,7 +304,7 @@
                     availEl.textContent = '0.00000000';
                     shortfallEl.textContent = formatBnb(totalRequiredBnb);
                     shortfallUsdEl.textContent = bnbUsd > 0 ? (totalRequiredBnb * bnbUsd).toFixed(2) : '0.00';
-                    statusEl.textContent = '{{__('EVM wallet not detected. Please add a valid wallet in your profile.')}}';
+                    statusEl.textContent = '{{__('OBX Wallet not detected. Please add a valid wallet in your profile.')}}';
                     if (lowBox) lowBox.classList.add('d-none');
                     return;
                 }

@@ -103,7 +103,7 @@
                 </div>
 
                 <h3 class="mb-2" style="color:#f4f8ff; font-weight:800;">{{__('OBX Credited Successfully')}}</h3>
-                <p class="success-sub mb-3">{{__('Your purchase has been confirmed and credited to your default OBX/EVM wallet.')}}</p>
+                <p class="success-sub mb-3">{{__('Your purchase has been confirmed and credited to your OBX Wallet.')}}</p>
 
                 <div class="success-amount">{{ number_format($creditedAmount, 2) }} OBX</div>
                 <div class="success-sub">{{__('Amount Credited')}}</div>

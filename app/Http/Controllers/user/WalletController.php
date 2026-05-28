@@ -538,7 +538,7 @@ class WalletController extends Controller
             // Prevent abuse: if user profile has a saved BSC/EVM wallet, top-up can only target that wallet.
             $profileWallet = strtolower(trim((string)(Auth::user()->bsc_wallet ?? '')));
             if (preg_match('/^0x[a-f0-9]{40}$/', $profileWallet) && $profileWallet !== $walletAddress) {
-                return response()->json(['success' => false, 'message' => __('Top-up wallet must match your saved EVM wallet address.')], 422);
+                return response()->json(['success' => false, 'message' => __('Top-up wallet must match your saved OBX Wallet address.')], 422);
             }
 
 

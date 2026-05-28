@@ -36,6 +36,7 @@ Route::get('/presale/phase-info/{index}/preview/{usdt}', 'Api\PresaleWebhookCont
 
 // NOWPayments IPN webhook — unauthenticated, signature-verified internally
 Route::post('/nowpayments/ipn', 'Api\NowPaymentsWebhookController@handleIpn')->name('nowpayments.ipn');
+Route::post('/airdrop/nowpayments/ipn', 'Api\AirdropNowPaymentsWebhookController@handleIpn')->name('airdrop.nowpayments.ipn');
 
 // ── Payment Gateway (merchant API) ────────────────────────────────────────────
 // Public: coin list + status polling + deposit check (no auth required)

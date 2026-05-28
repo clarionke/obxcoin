@@ -74,9 +74,12 @@
         </div>
     </div>
 
+    @php
+        $summaryColClass = $airdropWithdrawEnabled ? 'col-md-4 col-sm-6' : 'col-md-6 col-sm-6';
+    @endphp
     <div class="row g-3 mb-3">
         {{-- Total Locked OBX --}}
-        <div class="col-md-4 col-sm-6">
+        <div class="{{ $summaryColClass }}">
             <div class="stat-card">
                 <div class="sc-label">{{ __('Your Locked OBX') }}</div>
                 <div class="sc-value">{{ number_format((float)$totalLockedObx, 4) }}</div>
@@ -85,7 +88,7 @@
         </div>
 
         {{-- Campaign status --}}
-        <div class="col-md-4 col-sm-6">
+        <div class="{{ $summaryColClass }}">
             <div class="stat-card">
                 <div class="sc-label">{{ __('Campaign Status') }}</div>
                 <div class="sc-value" style="font-size:16px;margin-top:4px;">
@@ -107,21 +110,28 @@
             </div>
         </div>
 
-        {{-- Unlock fee status --}}
+        {{-- Withdrawal access (visible only when global withdraw is active) --}}
+        @if($airdropWithdrawEnabled)
         <div class="col-md-4 col-sm-6">
             <div class="stat-card">
-                <div class="sc-label">{{ __('Unlock Fee') }}</div>
-                @if($campaign->fee_revealed)
-                    <div class="sc-value" style="color:#fbbf24;">{{ number_format($campaign->unlock_fee_usdt, 2) }} USDT</div>
-                    <div class="sc-sub">{{ __('Pay this fee to unlock your OBX to your wallet') }}</div>
-                @else
-                    <div class="sc-value" style="font-size:15px;margin-top:6px;">
-                        <span class="flag-hidden"><i class="fa fa-lock"></i> {{ __('Hidden Until Campaign Ends') }}</span>
+                <div class="sc-label">{{ __('Withdrawal Access') }}</div>
+                <div class="sc-value" style="font-size:16px;margin-top:4px;color:var(--success);">
+                    ● {{ __('Enabled') }}
+                </div>
+                @if($campaign->fee_revealed && (float)$campaign->unlock_fee_usdt > 0)
+                    <div class="sc-sub">
+                        {{ __('Fee: :fee USDT via :currency', [
+                            'fee' => number_format((float)$campaign->unlock_fee_usdt, 2),
+                            'currency' => strtoupper($airdropWithdrawPayCurrency)
+                        ]) }}
                     </div>
-                    <div class="sc-sub">{{ __('Fee will be revealed after the campaign closes') }}</div>
+                @elseif($campaign->fee_revealed)
+                    <div class="sc-sub">{{ __('Campaign withdrawal fee is not configured yet') }}</div>
                 @endif
             </div>
         </div>
+        @endif
+
     </div>
 
     {{-- ── Streak Tracker ───────────────────────────────────────────────────── --}}
@@ -207,78 +217,76 @@
                 </button>
             </form>
             <div style="font-size:11.5px;color:var(--muted);text-align:center;margin-top:6px;">
-                {{ __('Tokens are locked until the campaign ends. Unlock by paying the USDT fee after the campaign.') }}
+                {{ __('Tokens are locked off-chain. Withdraw opens only when admin enables withdrawal.') }}
             </div>
         @endif
     @endif
 
-    {{-- ── Unlock Panel ─────────────────────────────────────────────────────── --}}
-    @if($campaign->canUnlock() && bccomp($totalLockedObx, '0', 18) > 0)
-        @if($unlockRecord && $unlockRecord->status === 'confirmed')
-            <div class="unlock-panel" style="border-color:rgba(63,185,80,.25);">
-                <h6 style="color:#3fb950;"><i class="fa fa-unlock"></i> {{ __('Airdrop Unlocked') }}</h6>
+    {{-- ── Withdrawal Panel ─────────────────────────────────────────────────── --}}
+    @if($campaign->hasEnded() && bccomp($totalLockedObx, '0', 18) > 0)
+        @if(!$airdropWithdrawEnabled)
+            <div class="unlock-panel">
+                <h6><i class="fa fa-lock"></i> {{ __('Withdrawals Not Open Yet') }}</h6>
                 <p style="color:var(--muted);font-size:13px;margin-bottom:0;">
-                    {{ __(':obx OBX has been transferred to your wallet.', ['obx' => number_format((float)$unlockRecord->obx_released, 4)]) }}
-                    @if($unlockRecord->tx_hash)
-                        @php $txUrl = explorer_tx_url($unlockRecord->tx_hash); @endphp
-                        &nbsp;<a href="{{ $txUrl ?? '#' }}" target="_blank" rel="noopener noreferrer" style="font-size:11px;color:#a5b4fc;">
-                            <code style="font-size:11px;">TX: {{ substr($unlockRecord->tx_hash, 0, 20) }}…</code>
-                            <i class="fa fa-external-link" style="font-size:9px;"></i>
-                        </a>
-                    @endif
+                    {{ __('You have') }} <b style="color:var(--text);">{{ number_format((float)$totalLockedObx, 4) }} OBX</b>
+                    {{ __('locked. Admin has not enabled withdrawals yet.') }}
                 </p>
             </div>
-        @elseif($unlockRecord && $unlockRecord->status === 'pending')
+        @elseif(!$campaign->fee_revealed)
             <div class="unlock-panel">
-                <h6><i class="fa fa-clock-o"></i> {{ __('Unlock Pending') }}</h6>
+                <h6><i class="fa fa-eye-slash"></i> {{ __('Withdrawal Fee Hidden') }}</h6>
                 <p style="color:var(--muted);font-size:13px;margin-bottom:0;">
-                    {{ __('Your unlock request is pending. Please complete the on-chain payment of') }}
-                    <b style="color:#fbbf24;">{{ number_format($campaign->unlock_fee_usdt, 2) }} USDT</b>
-                    {{ __('to the OBXAirdrop contract to receive your') }}
-                    <b>{{ number_format((float)$unlockRecord->obx_released, 4) }} OBX</b>.
+                    {{ __('Withdrawals are enabled, but the fee is hidden until admin reveals it.') }}
                 </p>
-                @if($campaign->contract_address)
-                    <div style="margin-top:10px;background:rgba(0,0,0,.2);border-radius:7px;padding:10px 14px;font-size:12px;color:#a5b4fc;word-break:break-all;">
-                        <b>{{ __('Contract') }}:</b> {{ $campaign->contract_address }}
-                        @if($campaign->chain_id)
-                            &nbsp;(Chain {{ $campaign->chain_id }})
-                        @endif
-                    </div>
-                @endif
+            </div>
+        @elseif($unlockRecord && $unlockRecord->status === 'confirmed')
+            <div class="unlock-panel" style="border-color:rgba(63,185,80,.25);">
+                <h6 style="color:#3fb950;"><i class="fa fa-check-circle"></i> {{ __('Withdrawal Completed') }}</h6>
+                <p style="color:var(--muted);font-size:13px;margin-bottom:0;">
+                    {{ __(':obx OBX has been sent to your OBX Wallet.', ['obx' => number_format((float)$unlockRecord->obx_released, 4)]) }}
+                </p>
+            </div>
+        @elseif($unlockRecord && $unlockRecord->status === 'pending' && $unlockRecord->nowpayments_payment_id)
+            <div class="unlock-panel">
+                <h6><i class="fa fa-clock-o"></i> {{ __('Payment Pending') }}</h6>
+                <p style="color:var(--muted);font-size:13px;">
+                    {{ __('Send the exact payment below. After NOWPayments confirms, OBX is sent to your OBX Wallet.') }}
+                </p>
+                <div style="margin-top:10px;background:rgba(0,0,0,.2);border-radius:7px;padding:10px 14px;font-size:12px;color:#c7d2fe;word-break:break-all;">
+                    <div><b>{{ __('Pay Amount') }}:</b> {{ $unlockRecord->nowpayments_pay_amount }} {{ strtoupper($unlockRecord->nowpayments_pay_currency ?: $airdropWithdrawPayCurrency) }}</div>
+                    <div><b>{{ __('Pay Address') }}:</b> {{ $unlockRecord->nowpayments_pay_address ?: __('Pending from gateway') }}</div>
+                    <div><b>{{ __('Payment ID') }}:</b> {{ $unlockRecord->nowpayments_payment_id }}</div>
+                    <div><b>{{ __('Gateway Status') }}:</b> {{ strtoupper($unlockRecord->nowpayments_payment_status ?: 'waiting') }}</div>
+                </div>
+            </div>
+        @elseif((float)$campaign->unlock_fee_usdt <= 0)
+            <div class="unlock-panel">
+                <h6><i class="fa fa-exclamation-triangle"></i> {{ __('Withdrawal Fee Not Configured') }}</h6>
+                <p style="color:var(--muted);font-size:13px;margin-bottom:0;">
+                    {{ __('Withdrawal is enabled, but the fee is not configured by admin yet.') }}
+                </p>
             </div>
         @else
-            {{-- Ready to unlock --}}
             <div class="unlock-panel">
-                <h6><i class="fa fa-unlock-alt"></i> {{ __('Campaign Ended — Unlock Your OBX') }}</h6>
+                <h6><i class="fa fa-unlock-alt"></i> {{ __('Campaign Ended — Withdraw Your OBX') }}</h6>
                 <p style="color:var(--muted);font-size:13px;margin-bottom:4px;">
                     {{ __('You have') }} <b style="color:var(--text);">{{ number_format((float)$totalLockedObx, 4) }} OBX</b>
-                    {{ __('locked. Pay') }} <b style="color:#fbbf24;">{{ number_format($campaign->unlock_fee_usdt, 2) }} USDT</b>
-                    {{ __('to unlock and transfer them to your wallet.') }}
+                    {{ __('locked. Pay') }} <b style="color:#fbbf24;">{{ number_format((float)$campaign->unlock_fee_usdt, 2) }} USDT</b>
+                    {{ __('to send OBX to your OBX Wallet.') }}
                 </p>
-                <form action="{{ route('user.airdrop.unlock') }}" method="POST" class="js-airdrop-unlock-form"
-                      data-campaign-id="{{ $campaign->id }}"
-                      data-contract="{{ strtolower((string)($campaign->contract_address ?? '')) }}"
-                      data-chain-id="{{ (int)($campaign->chain_id ?: (settings('walletconnect_chain_id') ?: 56)) }}"
-                      data-fee="{{ number_format($campaign->unlock_fee_usdt, 2, '.', '') }}"
-                      data-obx="{{ number_format((float)$totalLockedObx, 4, '.', '') }}">
+                <form action="{{ route('user.airdrop.unlock') }}" method="POST">
                     @csrf
                     <input type="hidden" name="campaign_id" value="{{ $campaign->id }}">
                     <button type="submit" class="unlock-btn">
-                        <i class="fa fa-unlock"></i>
-                        {{ __('Unlock :obx OBX for :fee USDT', ['obx' => number_format((float)$totalLockedObx, 4), 'fee' => number_format($campaign->unlock_fee_usdt, 2)]) }}
+                        <i class="fa fa-credit-card"></i>
+                        {{ __('Pay :fee USDT and Withdraw :obx OBX', [
+                            'fee' => number_format((float)$campaign->unlock_fee_usdt, 2),
+                            'obx' => number_format((float)$totalLockedObx, 4)
+                        ]) }}
                     </button>
                 </form>
-                <div id="airdrop-unlock-status" style="margin-top:8px;font-size:12px;color:var(--muted);"></div>
             </div>
         @endif
-    @elseif($campaign->hasEnded() && !$campaign->fee_revealed && bccomp($totalLockedObx, '0', 18) > 0)
-        <div class="unlock-panel">
-            <h6><i class="fa fa-lock"></i> {{ __('Campaign Ended — Fee Not Yet Revealed') }}</h6>
-            <p style="color:var(--muted);font-size:13px;margin-bottom:0;">
-                {{ __('You have') }} <b style="color:var(--text);">{{ number_format((float)$totalLockedObx, 4) }} OBX</b>
-                {{ __('locked. The admin will reveal the unlock fee shortly. Check back soon.') }}
-            </p>
-        </div>
     @endif
 
     @else
@@ -315,26 +323,23 @@
                     <div>
                         @if($pcUnlock && $pcUnlock->status === 'confirmed')
                             <span style="color:var(--success);font-size:12.5px;"><i class="fa fa-check-circle"></i> {{ __('Unlocked') }}</span>
-                        @elseif($pc->canUnlock())
-                            @if($pcUnlock)
-                                <span style="color:#fbbf24;font-size:12.5px;"><i class="fa fa-clock-o"></i> {{ __('Pending') }}</span>
-                            @else
-                                @php $pcChain = (int)($pc->chain_id ?: (settings('walletconnect_chain_id') ?: 56)); @endphp
-                                <form action="{{ route('user.airdrop.unlock') }}" method="POST" style="display:inline;" class="js-airdrop-unlock-form"
-                                      data-campaign-id="{{ $pc->id }}"
-                                      data-contract="{{ strtolower((string)($pc->contract_address ?? '')) }}"
-                                      data-chain-id="{{ $pcChain }}"
-                                      data-fee="{{ number_format($pc->unlock_fee_usdt, 2, '.', '') }}"
-                                      data-obx="{{ number_format((float)$pcBalance, 4, '.', '') }}">
-                                    @csrf
-                                    <input type="hidden" name="campaign_id" value="{{ $pc->id }}">
-                                    <button class="unlock-btn" style="padding:8px 18px;font-size:12.5px;width:auto;margin:0;">
-                                        <i class="fa fa-unlock"></i> {{ __('Unlock for :fee USDT', ['fee' => number_format($pc->unlock_fee_usdt, 2)]) }}
-                                    </button>
-                                </form>
-                            @endif
+                        @elseif(!$airdropWithdrawEnabled)
+                            <span class="flag-hidden"><i class="fa fa-lock"></i> {{ __('Locked by admin') }}</span>
+                        @elseif(!$pc->fee_revealed)
+                            <span class="flag-hidden"><i class="fa fa-eye-slash"></i> {{ __('Fee hidden') }}</span>
+                        @elseif($pcUnlock && $pcUnlock->status === 'pending')
+                            <span style="color:#fbbf24;font-size:12.5px;"><i class="fa fa-clock-o"></i> {{ __('Payment Pending') }}</span>
+                        @elseif((float)$pc->unlock_fee_usdt > 0)
+                            <form action="{{ route('user.airdrop.unlock') }}" method="POST" style="display:inline;">
+                                @csrf
+                                <input type="hidden" name="campaign_id" value="{{ $pc->id }}">
+                                <button class="unlock-btn" style="padding:8px 18px;font-size:12.5px;width:auto;margin:0;">
+                                    <i class="fa fa-credit-card"></i>
+                                    {{ __('Pay :fee USDT & Withdraw', ['fee' => number_format((float)$pc->unlock_fee_usdt, 2)]) }}
+                                </button>
+                            </form>
                         @else
-                            <span class="flag-hidden"><i class="fa fa-lock"></i> {{ __('Fee not revealed yet') }}</span>
+                            <span class="flag-hidden"><i class="fa fa-exclamation-triangle"></i> {{ __('Fee not configured') }}</span>
                         @endif
                     </div>
                 </div>
@@ -347,134 +352,4 @@
 @endsection
 
 @section('script')
-<script>
-const AIRDROP_CHAIN_DEFAULT = {{ (int)(settings('chain_id') ?: settings('presale_chain_id') ?: 56) }};
-const AIRDROP_EXPLORER_BASE = @json(explorer_tx_base());
-const AIRDROP_ABI = [
-    {"inputs":[],"name":"unlock","outputs":[],"stateMutability":"nonpayable","type":"function"}
-];
-
-let airdropProvider = null;
-let airdropSigner = null;
-let airdropAddress = null;
-
-function setAirdropStatus(message, isError = false) {
-    const el = document.getElementById('airdrop-unlock-status');
-    if (!el) return;
-    el.style.color = isError ? '#f87171' : 'var(--muted)';
-    el.innerHTML = message;
-}
-
-function loadAirdropScript(src) {
-    return new Promise((resolve, reject) => {
-        if (document.querySelector(`script[src="${src}"]`)) {
-            resolve();
-            return;
-        }
-        const s = document.createElement('script');
-        s.src = src;
-        s.onload = resolve;
-        s.onerror = reject;
-        document.head.appendChild(s);
-    });
-}
-
-async function ensureAirdropWalletConnected(expectedChainId) {
-    if (!window.ethers) {
-        await loadAirdropScript('{{ asset("js/vendor/ethers-5.7.2.umd.min.js") }}');
-    }
-    if (!window.ethereum) {
-        throw new Error('{{ __('No EVM wallet provider detected.') }}');
-    }
-
-    if (!airdropProvider) {
-        airdropProvider = window.ethereum;
-        await airdropProvider.request({ method: 'eth_requestAccounts' });
-    }
-
-    const web3Provider = new ethers.providers.Web3Provider(airdropProvider);
-    const network = await web3Provider.getNetwork();
-    const expected = Number(expectedChainId || AIRDROP_CHAIN_DEFAULT);
-    if (network.chainId !== expected) {
-        throw new Error('{{ __('Wrong wallet network selected.') }}' + ` Chain ${network.chainId} != ${expected}`);
-    }
-
-    airdropSigner = web3Provider.getSigner();
-    airdropAddress = await airdropSigner.getAddress();
-    return { signer: airdropSigner, address: airdropAddress };
-}
-
-async function finalizeAirdropUnlock(campaignId, txHash, walletAddress) {
-    const res = await fetch('{{ route('user.airdrop.confirmUnlock') }}', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': '{{ csrf_token() }}',
-            'X-Requested-With': 'XMLHttpRequest'
-        },
-        body: JSON.stringify({
-            campaign_id: campaignId,
-            tx_hash: txHash,
-            wallet_address: walletAddress
-        })
-    });
-
-    const json = await res.json().catch(() => ({}));
-    if (!res.ok || !json.success) {
-        throw new Error(json.message || '{{ __('Unable to finalize unlock.') }}');
-    }
-}
-
-async function handleAirdropUnlockSubmit(event) {
-    event.preventDefault();
-    const form = event.currentTarget;
-    const campaignId = Number(form.dataset.campaignId || 0);
-    const contractAddress = String(form.dataset.contract || '').toLowerCase();
-    const chainId = Number(form.dataset.chainId || AIRDROP_CHAIN_DEFAULT);
-    const fee = form.dataset.fee || '0.00';
-    const obx = form.dataset.obx || '0.0000';
-
-    if (!campaignId) {
-        setAirdropStatus('{{ __('Invalid campaign selection.') }}', true);
-        return;
-    }
-    if (!/^0x[0-9a-f]{40}$/.test(contractAddress)) {
-        setAirdropStatus('{{ __('Airdrop contract address is missing or invalid.') }}', true);
-        return;
-    }
-
-    if (!confirm(`{{ __('Pay :fee USDT to unlock :obx OBX?', ['fee' => '__FEE__', 'obx' => '__OBX__']) }}`.replace('__FEE__', fee).replace('__OBX__', obx))) {
-        return;
-    }
-
-    try {
-        setAirdropStatus('{{ __('Connecting wallet...') }}');
-        const wc = await ensureAirdropWalletConnected(chainId);
-
-        setAirdropStatus('{{ __('Submitting on-chain unlock transaction...') }}');
-        const contract = new ethers.Contract(contractAddress, AIRDROP_ABI, wc.signer);
-        const tx = await contract.unlock();
-
-        setAirdropStatus('{{ __('Waiting for transaction confirmation...') }}');
-        await tx.wait(1);
-
-        setAirdropStatus('{{ __('Finalizing unlock on server...') }}');
-        await finalizeAirdropUnlock(campaignId, tx.hash, wc.address);
-
-        setAirdropStatus(
-            '{{ __('Unlock confirmed on-chain.') }} ' +
-            `<a href="${AIRDROP_EXPLORER_BASE}${tx.hash}" target="_blank" rel="noopener">${tx.hash.substring(0, 20)}...</a>`
-        );
-        setTimeout(() => window.location.reload(), 1800);
-    } catch (err) {
-        setAirdropStatus((err && err.message) ? err.message : '{{ __('Unlock failed.') }}', true);
-    }
-}
-
-document.addEventListener('DOMContentLoaded', function () {
-    document.querySelectorAll('form.js-airdrop-unlock-form').forEach((form) => {
-        form.addEventListener('submit', handleAirdropUnlockSubmit);
-    });
-});
-</script>
 @endsection

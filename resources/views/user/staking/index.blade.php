@@ -407,7 +407,7 @@ async function wcConnect() {
             await loadScript('{{ asset("js/vendor/ethers-5.7.2.umd.min.js") }}');
 
         if (!window.ethereum) {
-            setStatus('<span class="text-danger">No EVM wallet provider found. Please install or open your browser wallet.</span>');
+            setStatus('<span class="text-danger">No OBX Wallet provider found. Please install or open your browser wallet.</span>');
             return;
         }
 

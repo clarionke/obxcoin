@@ -7,9 +7,12 @@ use Illuminate\Foundation\Testing\DatabaseTransactions;
 use App\Model\AirdropCampaign;
 use App\Model\AirdropClaim;
 use App\Model\AirdropUnlock;
+use App\Model\AdminSetting;
+use App\Services\BlockchainService;
+use App\Services\NowPaymentsService;
 use App\User;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\Http;
+use Mockery;
 
 /**
  * Airdrop Feature Tests
@@ -82,6 +85,39 @@ class AirdropTest extends TestCase
         ]);
     }
 
+    private function enableAirdropWithdraw(float $fee = 5.0, string $payCurrency = 'usdtbsc'): void
+    {
+        AdminSetting::updateOrCreate(['slug' => AIRDROP_WITHDRAW_ENABLED_SLUG], ['value' => '1']);
+        AdminSetting::updateOrCreate(
+            ['slug' => AIRDROP_WITHDRAW_FEE_USDT_SLUG],
+            ['value' => number_format($fee, 2, '.', '')]
+        );
+        AdminSetting::updateOrCreate(['slug' => AIRDROP_WITHDRAW_PAY_CURRENCY_SLUG], ['value' => $payCurrency]);
+        AdminSetting::updateOrCreate(['slug' => 'nowpayments_enabled'], ['value' => '1']);
+    }
+
+    private function mockAirdropNowPaymentsCreatePayment(array $overrides = []): void
+    {
+        $mock = Mockery::mock(NowPaymentsService::class);
+        $mock->shouldReceive('createPayment')
+            ->once()
+            ->andReturn(array_merge([
+                'payment_id' => 'np_airdrop_1001',
+                'pay_address' => '0xpayaddress1234567890',
+                'pay_amount' => '5.4321',
+                'pay_currency' => 'usdtbsc',
+                'payment_status' => 'waiting',
+            ], $overrides));
+
+        $this->app->instance(NowPaymentsService::class, $mock);
+    }
+
+    private function nowPaymentsSignature(array $payload, string $secret): string
+    {
+        ksort($payload);
+        return hash_hmac('sha512', json_encode($payload), $secret);
+    }
+
     // ═══════════════════════════════════════════════════════════════════════
     // Auth boundary
     // ═══════════════════════════════════════════════════════════════════════
@@ -139,6 +175,7 @@ class AirdropTest extends TestCase
             'daily_claim_amount'  => '100',
             'streak_days'         => '5',
             'streak_bonus_amount' => '500',
+            'unlock_fee_usdt'     => '5.00',
             'is_active'           => '1',
         ]);
 
@@ -358,10 +395,10 @@ class AirdropTest extends TestCase
     }
 
     /** @test */
-    public function user_cannot_unlock_before_fee_is_revealed()
+    public function user_cannot_unlock_when_admin_has_not_enabled_withdrawals()
     {
         $user     = $this->makeUser();
-        $campaign = $this->endedCampaign(false); // fee NOT revealed
+        $campaign = $this->endedCampaign(false);
 
         AirdropClaim::create([
             'user_id'     => $user->id,
@@ -383,6 +420,7 @@ class AirdropTest extends TestCase
     {
         $user     = $this->makeUser();
         $campaign = $this->endedCampaign(true, 5.0);
+        $this->enableAirdropWithdraw(5.0);
 
         $response = $this->actingAs($user)->post(route('user.airdrop.unlock'), [
             'campaign_id' => $campaign->id,
@@ -394,10 +432,12 @@ class AirdropTest extends TestCase
     }
 
     /** @test */
-    public function user_can_request_unlock_after_campaign_ends_and_fee_revealed()
+    public function user_can_request_unlock_after_campaign_ends_when_withdraw_is_enabled()
     {
         $user     = $this->makeUser();
         $campaign = $this->endedCampaign(true, 5.0);
+        $this->enableAirdropWithdraw(5.0);
+        $this->mockAirdropNowPaymentsCreatePayment();
 
         AirdropClaim::create([
             'user_id'     => $user->id,
@@ -417,6 +457,7 @@ class AirdropTest extends TestCase
             'user_id'     => $user->id,
             'campaign_id' => $campaign->id,
             'status'      => 'pending',
+            'nowpayments_payment_id' => 'np_airdrop_1001',
         ]);
     }
 
@@ -425,6 +466,8 @@ class AirdropTest extends TestCase
     {
         $user     = $this->makeUser();
         $campaign = $this->endedCampaign(true, 5.0);
+        $this->enableAirdropWithdraw(5.0);
+        $this->mockAirdropNowPaymentsCreatePayment();
 
         AirdropClaim::create([
             'user_id'     => $user->id,
@@ -578,60 +621,70 @@ class AirdropTest extends TestCase
     }
 
     /** @test */
-    public function confirm_unlock_credits_user_wallet_balance()
+    public function nowpayments_ipn_confirms_airdrop_unlock_and_sends_obx_on_chain_once()
     {
         $user     = $this->makeUser();
-        $campaign = $this->endedCampaign(true, 5.0);
-        $walletAddress = '0x2222222222222222222222222222222222222222';
+        $user->bsc_wallet = '0x2222222222222222222222222222222222222222';
+        $user->save();
 
-        Http::fake([
-            '*' => Http::sequence()
-                ->push([
-                    'jsonrpc' => '2.0',
-                    'id' => 1,
-                    'result' => [
-                        'status' => '0x1',
-                        'to' => strtolower($campaign->contract_address),
-                    ],
-                ], 200)
-                ->push([
-                    'jsonrpc' => '2.0',
-                    'id' => 2,
-                    'result' => [
-                        'from' => strtolower($walletAddress),
-                        'input' => '0xa69df4b5',
-                    ],
-                ], 200),
-        ]);
+        $campaign = $this->endedCampaign(false, 5.0);
 
-        // Create pending unlock
-        AirdropUnlock::create([
+        AdminSetting::updateOrCreate(['slug' => 'nowpayments_ipn_secret'], ['value' => 'ipn_test_secret']);
+
+        $blockchain = Mockery::mock(BlockchainService::class);
+        $blockchain->shouldReceive('transferObxOnChain')
+            ->once()
+            ->andReturn(['txHash' => '0x' . str_repeat('c', 64)]);
+        $blockchain->shouldReceive('getLastSignerError')->andReturn(null);
+        $this->app->instance(BlockchainService::class, $blockchain);
+
+        $primaryBefore = get_primary_wallet($user->id, DEFAULT_COIN_TYPE);
+        $beforeBalance = $primaryBefore ? (float) $primaryBefore->balance : null;
+
+        $unlock = AirdropUnlock::create([
             'user_id'      => $user->id,
             'campaign_id'  => $campaign->id,
             'usdt_paid'    => 5.0,
             'obx_released' => '100',
             'status'       => 'pending',
+            'nowpayments_payment_id' => 'np_airdrop_2002',
+            'nowpayments_order_id' => 'airdrop_unlock_pending',
+            'nowpayments_payment_status' => 'waiting',
         ]);
 
-        // Simulate confirmUnlock callback (route requires auth as regular user)
-        $response = $this->actingAs($user)->post(route('user.airdrop.confirmUnlock'), [
-            'campaign_id' => $campaign->id,
-            'tx_hash'     => '0x' . str_repeat('a', 64),
-            'wallet_address' => $walletAddress,
-        ]);
+        $payload = [
+            'payment_id' => 'np_airdrop_2002',
+            'payment_status' => 'finished',
+            'order_id' => 'airdrop_unlock_' . $unlock->id,
+            'pay_address' => '0xpayaddress1234567890',
+            'pay_amount' => '5.1234',
+            'pay_currency' => 'usdtbsc',
+            'payin_hash' => '0x' . str_repeat('b', 64),
+        ];
 
+        $sig = $this->nowPaymentsSignature($payload, 'ipn_test_secret');
+
+        $response = $this->withHeaders(['x-nowpayments-sig' => $sig])
+            ->postJson(route('airdrop.nowpayments.ipn'), $payload);
         $response->assertStatus(200);
-        $response->assertJson(['success' => true]);
 
-        // Wallet balance should now be 100
-    $primaryWallet = get_primary_wallet($user->id, DEFAULT_COIN_TYPE);
-    $this->assertEquals(100.0, (float) $primaryWallet->balance);
+        // Duplicate callback should not double-credit.
+        $responseAgain = $this->withHeaders(['x-nowpayments-sig' => $sig])
+            ->postJson(route('airdrop.nowpayments.ipn'), $payload);
+        $responseAgain->assertStatus(200);
 
-        // Unlock record should be confirmed
+        // Internal OBX wallet balance should not be directly credited by this flow.
+        $primaryAfter = get_primary_wallet($user->id, DEFAULT_COIN_TYPE);
+        $afterBalance = $primaryAfter ? (float) $primaryAfter->balance : null;
+        $this->assertSame($beforeBalance, $afterBalance);
+
+        // Unlock record should be confirmed and contain on-chain delivery hash.
         $this->assertDatabaseHas('airdrop_unlocks', [
             'user_id'     => $user->id,
             'campaign_id' => $campaign->id,
             'status'      => 'confirmed',
+            'nowpayments_payment_status' => 'finished',
+            'tx_hash' => '0x' . str_repeat('c', 64),
         ]);
     }
 }

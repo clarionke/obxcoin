@@ -16,10 +16,17 @@ class AirdropUnlock extends Model
         'obx_released',
         'unlocked_at',
         'status',
+        'nowpayments_payment_id',
+        'nowpayments_order_id',
+        'nowpayments_pay_address',
+        'nowpayments_pay_amount',
+        'nowpayments_pay_currency',
+        'nowpayments_payment_status',
     ];
 
     protected $casts = [
         'unlocked_at' => 'datetime',
+        'usdt_paid' => 'decimal:6',
     ];
 
     public function user()

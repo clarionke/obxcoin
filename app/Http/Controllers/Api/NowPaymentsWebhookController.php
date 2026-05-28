@@ -116,7 +116,7 @@ class NowPaymentsWebhookController extends Controller
             if (!$targetWallet) {
                 $purchase->update([
                     'obx_delivery_status' => 'failed',
-                    'obx_delivery_error' => 'No valid EVM wallet configured for delivery',
+                    'obx_delivery_error' => 'No valid OBX Wallet configured for delivery',
                 ]);
                 Log::warning("NowPaymentsIPN: EVM delivery failed, missing wallet for order #{$purchase->id}");
                 return response('OK', 200);

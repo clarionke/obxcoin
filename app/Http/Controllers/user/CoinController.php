@@ -378,7 +378,7 @@ class CoinController extends Controller
             if (!$targetWallet) {
                 $purchase->update([
                     'obx_delivery_status' => 'failed',
-                    'obx_delivery_error' => 'No valid EVM wallet configured for delivery',
+                    'obx_delivery_error' => 'No valid OBX Wallet configured for delivery',
                 ]);
                 return;
             }

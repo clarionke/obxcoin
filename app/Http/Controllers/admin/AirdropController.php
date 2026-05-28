@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Model\AirdropCampaign;
 use App\Model\AirdropClaim;
 use App\Model\AirdropUnlock;
+use App\Model\AdminSetting;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -24,6 +25,26 @@ class AirdropController extends Controller
         return view('admin.airdrop.index', $data);
     }
 
+    public function updateSettings(Request $request)
+    {
+        $request->validate([
+            'airdrop_withdraw_pay_currency' => 'required|string|max:30|regex:/^[a-zA-Z0-9_]+$/',
+        ]);
+
+        AdminSetting::updateOrCreate(
+            ['slug' => AIRDROP_WITHDRAW_ENABLED_SLUG],
+            ['value' => $request->has('airdrop_withdraw_enabled') ? '1' : '0']
+        );
+
+        AdminSetting::updateOrCreate(
+            ['slug' => AIRDROP_WITHDRAW_PAY_CURRENCY_SLUG],
+            ['value' => strtolower(trim((string) $request->airdrop_withdraw_pay_currency))]
+        );
+
+        return redirect()->back()
+            ->with('success', __('Airdrop withdrawal settings updated.'));
+    }
+
     // ─── Create form ──────────────────────────────────────────────────────────
 
     public function create()
@@ -32,6 +53,7 @@ class AirdropController extends Controller
         $data['menu']     = 'airdrop';
         $data['sub_menu'] = 'airdrop_create';
         $data['campaign'] = null;
+        $this->appendGlobalSetupSettings($data);
 
         return view('admin.airdrop.form', $data);
     }
@@ -47,6 +69,7 @@ class AirdropController extends Controller
             'daily_claim_amount'  => 'required|numeric|min:0.000000000000000001',
             'streak_days'         => 'required|integer|min:1|max:365',
             'streak_bonus_amount' => 'required|numeric|min:0',
+            'unlock_fee_usdt'     => 'required|numeric|min:0.01|max:99999',
             'contract_address'    => 'nullable|regex:/^0x[0-9a-fA-F]{40}$/',
             'chain_id'            => 'nullable|integer|min:1',
         ]);
@@ -58,6 +81,8 @@ class AirdropController extends Controller
             'daily_claim_amount'  => bcmul($request->daily_claim_amount, '1', 18),
             'streak_days'         => $request->streak_days,
             'streak_bonus_amount' => bcmul($request->streak_bonus_amount, '1', 18),
+            'unlock_fee_usdt'     => number_format((float) $request->unlock_fee_usdt, 2, '.', ''),
+            'fee_revealed'        => $request->boolean('fee_revealed', false),
             'contract_address'    => $request->contract_address,
             'chain_id'            => $request->chain_id,
             'is_active'           => $request->boolean('is_active', true),
@@ -82,6 +107,7 @@ class AirdropController extends Controller
         $data['menu']     = 'airdrop';
         $data['sub_menu'] = 'airdrop_list';
         $data['campaign'] = $campaign;
+        $this->appendGlobalSetupSettings($data);
 
         return view('admin.airdrop.form', $data);
     }
@@ -104,6 +130,7 @@ class AirdropController extends Controller
             'daily_claim_amount'  => 'required|numeric|min:0.000000000000000001',
             'streak_days'         => 'required|integer|min:1|max:365',
             'streak_bonus_amount' => 'required|numeric|min:0',
+            'unlock_fee_usdt'     => 'required|numeric|min:0.01|max:99999',
             'contract_address'    => 'nullable|regex:/^0x[0-9a-fA-F]{40}$/',
             'chain_id'            => 'nullable|integer|min:1',
         ]);
@@ -115,6 +142,8 @@ class AirdropController extends Controller
             'daily_claim_amount'  => bcmul($request->daily_claim_amount, '1', 18),
             'streak_days'         => $request->streak_days,
             'streak_bonus_amount' => bcmul($request->streak_bonus_amount, '1', 18),
+            'unlock_fee_usdt'     => number_format((float) $request->unlock_fee_usdt, 2, '.', ''),
+            'fee_revealed'        => $request->boolean('fee_revealed', false),
             'contract_address'    => $request->contract_address,
             'chain_id'            => $request->chain_id,
             'is_active'           => $request->boolean('is_active', true),
@@ -208,5 +237,11 @@ class AirdropController extends Controller
             ->paginate(50);
 
         return view('admin.airdrop.unlocks', $data);
+    }
+
+    private function appendGlobalSetupSettings(array &$data): void
+    {
+        $data['airdropWithdrawEnabled'] = (int) (settings(AIRDROP_WITHDRAW_ENABLED_SLUG) ?: 0) === 1;
+        $data['airdropWithdrawPayCurrency'] = strtolower((string) (settings(AIRDROP_WITHDRAW_PAY_CURRENCY_SLUG) ?: 'usdtbsc'));
     }
 }

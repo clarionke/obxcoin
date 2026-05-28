@@ -145,6 +145,7 @@ Route::group(['prefix'=>'admin','namespace'=>'admin','middleware'=> ['auth','adm
 
     // ─── Airdrop ──────────────────────────────────────────────────────────────
     Route::get('airdrop',                      'AirdropController@index')->name('admin.airdrop.index');
+    Route::post('airdrop/settings',            'AirdropController@updateSettings')->name('admin.airdrop.settings');
     Route::get('airdrop/create',               'AirdropController@create')->name('admin.airdrop.create');
     Route::post('airdrop/store',               'AirdropController@store')->name('admin.airdrop.store');
     Route::get('airdrop/{id}/edit',            'AirdropController@edit')->name('admin.airdrop.edit');

@@ -133,6 +133,10 @@ const CO_WALLET_WITHDRAWAL_USER_APPROVAL_PERCENTAGE_SLUG = 'co_wallet_withdrawal
 const CO_WALLET_SIGNATORY_CHANGE_MIN_APPROVALS_SLUG = 'co_wallet_signatory_change_min_approvals';
 const WITHDRAWAL_2FA_REQUIRED_SLUG = 'withdrawal_2fa_required';
 const OBX_WITHDRAWAL_FEE_PERCENT_SLUG = 'obx_withdrawal_fee_percent';
+const AIRDROP_WITHDRAW_ENABLED_SLUG = 'airdrop_withdraw_enabled';
+const AIRDROP_WITHDRAW_FEE_USDT_SLUG = 'airdrop_withdraw_fee_usdt';
+const AIRDROP_WITHDRAW_PAY_CURRENCY_SLUG = 'airdrop_withdraw_pay_currency';
+const AIRDROP_WITHDRAW_FEE_VISIBLE_SLUG = 'airdrop_withdraw_fee_visible';
 
 const CHECK_STATUS = 1;
 const CHECK_WITHDRAWAL_STATUS = 2;

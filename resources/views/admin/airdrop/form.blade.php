@@ -28,6 +28,50 @@
                             </div>
                         @endif
 
+                        <div class="card border-0 shadow-sm mb-4">
+                            <div class="card-body">
+                                <h5 class="mb-3">{{ __('Airdrop Setup Settings') }}</h5>
+
+                                <form method="POST" action="{{ route('admin.airdrop.settings') }}" class="mb-3">
+                                    @csrf
+                                    <div class="row align-items-end">
+                                        <div class="col-md-4 mt-2">
+                                            <div class="custom-control custom-switch mt-2">
+                                                <input type="checkbox"
+                                                       class="custom-control-input"
+                                                       id="airdrop_withdraw_enabled"
+                                                       name="airdrop_withdraw_enabled"
+                                                       value="1"
+                                                       {{ $airdropWithdrawEnabled ? 'checked' : '' }}>
+                                                <label class="custom-control-label" for="airdrop_withdraw_enabled">
+                                                    {{ __('Withdraw Enabled') }}
+                                                </label>
+                                            </div>
+                                            <small class="text-muted">{{ __('If disabled, users only see daily claim.') }}</small>
+                                        </div>
+
+                                        <div class="col-md-4 mt-2">
+                                            <label>{{ __('NOWPayments Pay Currency') }}</label>
+                                            <input type="text"
+                                                   name="airdrop_withdraw_pay_currency"
+                                                   class="form-control"
+                                                   maxlength="30"
+                                                   value="{{ old('airdrop_withdraw_pay_currency', $airdropWithdrawPayCurrency) }}"
+                                                   placeholder="usdtbsc"
+                                                   required>
+                                            <small class="text-muted">{{ __('Example: usdtbsc, usdttrc20, btc') }}</small>
+                                        </div>
+
+                                        <div class="col-md-4 mt-2 text-md-right">
+                                            <button type="submit" class="btn btn-primary">
+                                                <i class="fa fa-save"></i> {{ __('Save Setup') }}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+
                         <form method="POST"
                               action="{{ $campaign ? route('admin.airdrop.update', $campaign->id) : route('admin.airdrop.store') }}">
                             @csrf
@@ -101,7 +145,50 @@
                                 </div>
                             </div>
 
-                            {{-- Row 3: Contract + Chain + Active --}}
+                            {{-- Row 3: Withdrawal fee setup --}}
+                            <div class="row">
+                                <div class="col-md-4 mt-20">
+                                    <div class="form-group">
+                                        <label>{{ __('Campaign Withdrawal Fee (USDT)') }} <span class="text-danger">*</span></label>
+                                        <input type="number" name="unlock_fee_usdt" class="form-control"
+                                               min="0.01" step="0.01"
+                                               value="{{ old('unlock_fee_usdt', $campaign ? number_format((float)$campaign->unlock_fee_usdt, 2, '.', '') : '5.00') }}"
+                                               required>
+                                        <small class="text-muted">{{ __('Users pay this fee before OBX is sent to their OBX Wallet.') }}</small>
+                                        <span class="text-danger"><strong>{{ $errors->first('unlock_fee_usdt') }}</strong></span>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-4 mt-20">
+                                    <div class="form-group">
+                                        <label>{{ __('Fee Visibility') }}</label>
+                                        <div class="custom-control custom-switch mt-2">
+                                            <input type="checkbox" class="custom-control-input" id="fee_revealed"
+                                                   name="fee_revealed" value="1"
+                                                   {{ old('fee_revealed', $campaign->fee_revealed ?? false) ? 'checked' : '' }}>
+                                            <label class="custom-control-label" for="fee_revealed">{{ __('Reveal fee to users') }}</label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-4 mt-20">
+                                    <div class="form-group">
+                                        <label class="d-block">{{ __('Quick Action') }}</label>
+                                        @php $feeIsVisible = old('fee_revealed', $campaign->fee_revealed ?? false); @endphp
+                                        <button type="button"
+                                                class="btn {{ $feeIsVisible ? 'btn-warning' : 'btn-success' }} mt-2 js-fee-visibility-toggle"
+                                                data-target="fee_revealed"
+                                                data-visible-label="{{ __('Hide Fee') }}"
+                                                data-hidden-label="{{ __('Reveal Fee') }}">
+                                            <i class="fa fa-{{ $feeIsVisible ? 'eye-slash' : 'eye' }}"></i>
+                                            <span class="js-fee-visibility-label">{{ $feeIsVisible ? __('Hide Fee') : __('Reveal Fee') }}</span>
+                                        </button>
+                                        <small class="d-block text-muted mt-2">{{ __('This toggles the fee visibility switch above. Save campaign to apply.') }}</small>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {{-- Row 4: Contract + Chain + Active --}}
                             <div class="row">
                                 <div class="col-md-5 mt-20">
                                     <div class="form-group">
@@ -136,7 +223,7 @@
 
                             <div class="alert alert-info mt-3">
                                 <i class="fa fa-info-circle mr-1"></i>
-                                {{ __('The unlock fee is set separately after the campaign ends. Use the "Reveal Fee" action from the campaign list.') }}
+                                {{ __('Users only see the withdraw button when global withdraw is enabled and this campaign fee is revealed.') }}
                             </div>
 
                             <div class="mt-3">
@@ -154,5 +241,53 @@
             </div>
         </div>
     </div>
+@endsection
+
+@section('script')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var btn = document.querySelector('.js-fee-visibility-toggle');
+    if (!btn) {
+        return;
+    }
+
+    btn.addEventListener('click', function () {
+        var targetId = btn.getAttribute('data-target');
+        var checkbox = targetId ? document.getElementById(targetId) : null;
+        if (!checkbox) {
+            return;
+        }
+
+        checkbox.checked = !checkbox.checked;
+
+        var visibleLabel = btn.getAttribute('data-visible-label') || 'Hide Fee';
+        var hiddenLabel = btn.getAttribute('data-hidden-label') || 'Reveal Fee';
+        var icon = btn.querySelector('i');
+        var label = btn.querySelector('.js-fee-visibility-label');
+
+        if (checkbox.checked) {
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-warning');
+            if (icon) {
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            }
+            if (label) {
+                label.textContent = visibleLabel;
+            }
+        } else {
+            btn.classList.remove('btn-warning');
+            btn.classList.add('btn-success');
+            if (icon) {
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+            if (label) {
+                label.textContent = hiddenLabel;
+            }
+        }
+    });
+});
+</script>
 @endsection
 

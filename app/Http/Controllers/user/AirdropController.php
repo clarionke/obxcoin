@@ -6,10 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Model\AirdropCampaign;
 use App\Model\AirdropClaim;
 use App\Model\AirdropUnlock;
-use App\Model\Wallet;
+use App\Services\NowPaymentsService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -30,9 +29,9 @@ class AirdropController extends Controller
         $userId   = Auth::id();
         $today    = Carbon::today();
         $campaign = AirdropCampaign::where('is_active', true)
-            ->where('start_date', '<=', now())
             ->where('end_date', '>', now())
-            ->orderByDesc('start_date')
+            ->orderByRaw('CASE WHEN start_date <= ? THEN 0 ELSE 1 END', [now()])
+            ->orderBy('start_date', 'asc')
             ->first();
         $claimedToday    = false;
         $totalLockedObx  = '0';
@@ -74,6 +73,8 @@ class AirdropController extends Controller
         $data['totalLockedObx'] = $totalLockedObx;
         $data['unlockRecord']   = $unlockRecord;
         $data['pastCampaigns']  = $pastCampaigns;
+        $data['airdropWithdrawEnabled'] = (int) (settings(AIRDROP_WITHDRAW_ENABLED_SLUG) ?: 0) === 1;
+        $data['airdropWithdrawPayCurrency'] = strtolower((string) (settings(AIRDROP_WITHDRAW_PAY_CURRENCY_SLUG) ?: 'usdtbsc'));
 
         $currentStreak     = 0;
         $streakBonusAmount = '0';
@@ -191,17 +192,7 @@ class AirdropController extends Controller
     // ─── Unlock ───────────────────────────────────────────────────────────────
 
     /**
-     * User requests to unlock their airdrop tokens by paying the USDT fee.
-     *
-     * Flow:
-     *  1. Validate campaign ended + fee revealed
-     *  2. Compute total locked OBX for this user
-     *  3. Create an AirdropUnlock record (status=pending)
-     *  4. Redirect user to payment / on-chain unlock flow
-     *
-     * The actual on-chain transfer happens when the user calls OBXAirdrop.unlock()
-     * directly (or via the front-end dApp connector). The Laravel side records
-     * the on-chain tx_hash once confirmed.
+     * Create (or reuse) a NOWPayments order for off-chain airdrop withdrawal.
      */
     public function requestUnlock(Request $request)
     {
@@ -214,8 +205,27 @@ class AirdropController extends Controller
             return redirect()->route('user.airdrop')->with('dismiss', __('Campaign has not ended yet.'));
         }
 
+        [$withdrawEnabled, $payCurrency] = $this->getAirdropWithdrawConfig();
+        $withdrawFeeUsdt = is_numeric($campaign->unlock_fee_usdt) ? (float) $campaign->unlock_fee_usdt : 0.0;
+
+        if (!$withdrawEnabled) {
+            return redirect()->route('user.airdrop')
+                ->with('dismiss', __('Airdrop withdrawals are not enabled yet. Please wait for admin activation.'));
+        }
+
         if (!$campaign->fee_revealed) {
-            return redirect()->route('user.airdrop')->with('dismiss', __('The unlock fee has not been revealed yet. Please check back soon.'));
+            return redirect()->route('user.airdrop')
+                ->with('dismiss', __('Airdrop withdrawal fee is hidden for this campaign. Please wait for admin to reveal it.'));
+        }
+
+        if ($withdrawFeeUsdt <= 0) {
+            return redirect()->route('user.airdrop')
+                ->with('dismiss', __('Airdrop withdrawal fee is not configured yet.'));
+        }
+
+        if ((int) (settings('nowpayments_enabled') ?? 0) !== 1) {
+            return redirect()->route('user.airdrop')
+                ->with('dismiss', __('NOWPayments is currently disabled. Please contact support.'));
         }
 
         // Check user has a locked balance
@@ -236,34 +246,79 @@ class AirdropController extends Controller
             ->where('campaign_id', $campaign->id)
             ->first();
 
-        if ($existing) {
-            if ($existing->status === 'confirmed') {
-                return redirect()->route('user.airdrop')->with('dismiss', __('Already unlocked.'));
-            }
-            // Already pending — redirect to payment
-            return redirect()->route('user.airdrop')
-                ->with('info', __('Your unlock request is pending on-chain confirmation.'));
+        if ($existing && $existing->status === 'confirmed') {
+            return redirect()->route('user.airdrop')->with('dismiss', __('Already withdrawn.'));
         }
 
         try {
-            DB::transaction(function () use ($userId, $campaign, $totalLockedObx) {
-                AirdropUnlock::create([
-                    'user_id'      => $userId,
-                    'campaign_id'  => $campaign->id,
-                    'usdt_paid'    => $campaign->unlock_fee_usdt,
-                    'obx_released' => $totalLockedObx,
-                    'status'       => 'pending',
-                ]);
+            $unlock = DB::transaction(function () use ($existing, $userId, $campaign, $totalLockedObx, $withdrawFeeUsdt) {
+                $record = $existing;
+
+                if (!$record) {
+                    $record = AirdropUnlock::create([
+                        'user_id' => $userId,
+                        'campaign_id' => $campaign->id,
+                        'usdt_paid' => number_format($withdrawFeeUsdt, 2, '.', ''),
+                        'obx_released' => $totalLockedObx,
+                        'status' => 'pending',
+                        'nowpayments_payment_status' => 'waiting',
+                    ]);
+                } else {
+                    $record->update([
+                        'usdt_paid' => number_format($withdrawFeeUsdt, 2, '.', ''),
+                        'obx_released' => $totalLockedObx,
+                        'status' => 'pending',
+                        'nowpayments_payment_status' => $record->nowpayments_payment_status ?: 'waiting',
+                    ]);
+                }
+
+                return $record->fresh();
             });
+
+            $hasOpenPayment = !empty($unlock->nowpayments_payment_id)
+                && !in_array(strtolower((string) $unlock->nowpayments_payment_status), ['failed', 'expired', 'refunded'], true);
+
+            if ($hasOpenPayment) {
+                return redirect()->route('user.airdrop')
+                    ->with('info', __('You already have a pending withdrawal payment. Complete it to receive your OBX.'));
+            }
+
+            $orderId = 'airdrop_unlock_' . $unlock->id;
+
+            $nowPayments = app(NowPaymentsService::class);
+            $npResponse = $nowPayments->createPayment(
+                priceAmount: (float) number_format($withdrawFeeUsdt, 2, '.', ''),
+                payCurrency: $payCurrency,
+                orderId: $orderId,
+                ipnCallbackUrl: route('airdrop.nowpayments.ipn'),
+                description: "Airdrop Withdraw #{$unlock->id}"
+            );
+
+            if (empty($npResponse['payment_id'])) {
+                throw new \RuntimeException('NOWPayments did not return payment_id.');
+            }
+
+            $unlock->update([
+                'nowpayments_payment_id' => (string) $npResponse['payment_id'],
+                'nowpayments_order_id' => $orderId,
+                'nowpayments_pay_address' => $npResponse['pay_address'] ?? null,
+                'nowpayments_pay_amount' => isset($npResponse['pay_amount']) ? (string) $npResponse['pay_amount'] : null,
+                'nowpayments_pay_currency' => strtolower((string) ($npResponse['pay_currency'] ?? $payCurrency)),
+                'nowpayments_payment_status' => strtolower((string) ($npResponse['payment_status'] ?? 'waiting')),
+            ]);
 
             return redirect()->route('user.airdrop')
                 ->with('success', __(
-                    'Unlock initiated. Pay :fee USDT on-chain via the OBXAirdrop contract to release your :obx OBX.',
+                    'Withdrawal request created. Pay :fee USDT to send :obx OBX to your OBX Wallet.',
                     [
-                        'fee' => number_format((float) $campaign->unlock_fee_usdt, 2),
+                        'fee' => number_format((float) $withdrawFeeUsdt, 2),
                         'obx' => number_format((float) $totalLockedObx, 4),
                     ]
                 ));
+        } catch (\RuntimeException $e) {
+            Log::error('Airdrop unlock NOWPayments error', ['user_id' => $userId, 'error' => $e->getMessage()]);
+            return redirect()->route('user.airdrop')
+                ->with('dismiss', __('Payment gateway error. Please try again in a moment.'));
         } catch (\Exception $e) {
             Log::error('Airdrop unlock request failed', ['user_id' => $userId, 'error' => $e->getMessage()]);
             return redirect()->route('user.airdrop')->with('dismiss', __('Something went wrong. Please try again.'));
@@ -273,145 +328,26 @@ class AirdropController extends Controller
     // ─── Confirm unlock (webhook / callback) ─────────────────────────────────
 
     /**
-     * Called by the blockchain listener job when the on-chain OBXAirdrop.unlock()
-     * event is confirmed. Marks the user's unlock record as confirmed.
-     *
-     * This is an internal endpoint — only reachable from the job, not the user.
+     * Legacy endpoint kept for backward compatibility.
      */
     public function confirmUnlock(Request $request)
     {
-        $request->validate([
-            'campaign_id' => 'required|integer|exists:airdrop_campaigns,id',
-            'tx_hash'     => 'required|string|size:66|regex:/^0x[0-9a-fA-F]{64}$/',
-            'wallet_address' => 'required|string|size:42|regex:/^0x[0-9a-fA-F]{40}$/',
-        ]);
-
-        $userId = Auth::id();
-        $campaign = AirdropCampaign::findOrFail($request->campaign_id);
-
-        if (empty($campaign->contract_address)) {
-            return response()->json([
-                'success' => false,
-                'message' => __('Airdrop contract is not configured for this campaign.'),
-            ], 422);
-        }
-
-        $unlock = AirdropUnlock::where('user_id', $userId)
-            ->where('campaign_id', $campaign->id)
-            ->first();
-
-        $claimedAmount = (string) AirdropClaim::where('user_id', $userId)
-            ->where('campaign_id', $campaign->id)
-            ->sum('amount_obx');
-
-        $totalLockedObx = $unlock ? (string)$unlock->obx_released : $claimedAmount;
-        if (bccomp($totalLockedObx, '0', 18) <= 0) {
-            $totalLockedObx = $claimedAmount;
-        }
-
-        if (bccomp($totalLockedObx, '0', 18) <= 0) {
-            return response()->json([
-                'success' => false,
-                'message' => __('No locked airdrop balance found for this campaign.'),
-            ], 422);
-        }
-
-        if (!$unlock) {
-            $unlock = AirdropUnlock::create([
-                'user_id' => $userId,
-                'campaign_id' => $campaign->id,
-                'usdt_paid' => $campaign->unlock_fee_usdt,
-                'obx_released' => $totalLockedObx,
-                'status' => 'pending',
-            ]);
-        }
-
-        if ($unlock->status === 'confirmed') {
-            return response()->json([
-                'success' => true,
-                'message' => __('Unlock already confirmed.'),
-            ]);
-        }
-
-        $verification = $this->verifyOnchainUnlock(
-            strtolower($request->tx_hash),
-            strtolower($request->wallet_address),
-            strtolower($campaign->contract_address)
-        );
-
-        if (!$verification['ok']) {
-            return response()->json([
-                'success' => false,
-                'message' => $verification['message'],
-            ], 422);
-        }
-
-        $unlock->update([
-            'tx_hash'      => $request->tx_hash,
-            'obx_released' => $totalLockedObx,
-            'unlocked_at'  => now(),
-            'status'       => 'confirmed',
-        ]);
-
-        // Credit user's internal OBX wallet balance
-        $wallet = get_primary_wallet($userId, DEFAULT_COIN_TYPE);
-
-        if ($wallet) {
-            $wallet->increment('balance', (float) $totalLockedObx);
-        }
-
-        return response()->json(['success' => true]);
+        return response()->json([
+            'success' => false,
+            'message' => __('On-chain unlock is disabled. Please use the off-chain withdrawal payment flow.'),
+        ], 410);
     }
 
-    private function verifyOnchainUnlock(string $txHash, string $walletAddress, string $contractAddress): array
+    private function getAirdropWithdrawConfig(): array
     {
-        try {
-            $rpcUrl = trim((string)(settings('chain_link') ?: config('blockchain.bsc_rpc_url', 'https://bsc-dataseed.binance.org/')));
-            if ($rpcUrl === '') {
-                return ['ok' => false, 'message' => __('RPC endpoint is not configured.')];
-            }
+        $enabled = (int) (settings(AIRDROP_WITHDRAW_ENABLED_SLUG) ?: 0) === 1;
 
-            $receiptRes = Http::timeout(20)->post($rpcUrl, [
-                'jsonrpc' => '2.0',
-                'method' => 'eth_getTransactionReceipt',
-                'params' => [$txHash],
-                'id' => 1,
-            ])->json();
-            $txRes = Http::timeout(20)->post($rpcUrl, [
-                'jsonrpc' => '2.0',
-                'method' => 'eth_getTransactionByHash',
-                'params' => [$txHash],
-                'id' => 2,
-            ])->json();
-
-            $receipt = $receiptRes['result'] ?? null;
-            $tx = $txRes['result'] ?? null;
-            if (!$receipt || !$tx) {
-                return ['ok' => false, 'message' => __('Transaction not found on-chain yet. Please wait and retry.')];
-            }
-
-            if (strtolower((string)($receipt['status'] ?? '0x0')) !== '0x1') {
-                return ['ok' => false, 'message' => __('Transaction failed on-chain.')];
-            }
-
-            if (strtolower((string)($receipt['to'] ?? '')) !== $contractAddress) {
-                return ['ok' => false, 'message' => __('Transaction target contract mismatch.')];
-            }
-
-            if (strtolower((string)($tx['from'] ?? '')) !== $walletAddress) {
-                return ['ok' => false, 'message' => __('Wallet address does not match transaction sender.')];
-            }
-
-            $input = strtolower((string)($tx['input'] ?? ''));
-            if (!str_starts_with($input, '0xa69df4b5')) {
-                return ['ok' => false, 'message' => __('Transaction is not an airdrop unlock call.')];
-            }
-
-            return ['ok' => true, 'message' => __('Verified')];
-        } catch (\Throwable $e) {
-            Log::warning('Airdrop unlock verification failed: ' . $e->getMessage(), ['tx_hash' => $txHash]);
-            return ['ok' => false, 'message' => __('Unable to verify on-chain transaction right now.')];
+        $payCurrency = strtolower(trim((string) (settings(AIRDROP_WITHDRAW_PAY_CURRENCY_SLUG) ?: 'usdtbsc')));
+        if (!preg_match('/^[a-z0-9_]+$/', $payCurrency)) {
+            $payCurrency = 'usdtbsc';
         }
+
+        return [$enabled, $payCurrency];
     }
 
     // ─── Streak helper ────────────────────────────────────────────────────────

@@ -48,7 +48,7 @@ class NowPaymentsService
      *
      * @param  float  $priceAmount    Amount in USD the user should pay
      * @param  string $payCurrency    Crypto the user will pay in (e.g. "btc", "eth", "usdtbsc")
-     * @param  int    $orderId        Our internal buy_coin_histories.id
+     * @param  int|string $orderId    Our internal order reference
      * @param  string $ipnCallbackUrl Full URL for IPN webhook
      * @param  string $description    Custom order description
      * @return array  NOWPayments raw response, e.g. ['payment_id', 'pay_address', 'pay_amount', ...]
@@ -56,7 +56,7 @@ class NowPaymentsService
     public function createPayment(
         float  $priceAmount,
         string $payCurrency,
-        int    $orderId,
+        int|string $orderId,
         string $ipnCallbackUrl,
         string $description = ''
     ): array {
