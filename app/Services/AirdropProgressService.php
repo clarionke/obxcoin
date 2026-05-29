@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Model\AirdropCampaign;
 use App\Model\AirdropClaim;
+use App\Model\BuyCoinHistory;
 use Carbon\Carbon;
 
 class AirdropProgressService
@@ -31,6 +32,16 @@ class AirdropProgressService
                 'filledDays' => 0,
                 'progressPercent' => 0,
                 'streakBonusAmount' => '0',
+                'dailyClaimAmount' => '0',
+                'claimTierLabel' => '--',
+                'claimTierName' => '--',
+                'claimTierRequirement' => '--',
+                'claimTierRows' => [],
+                'hasNextTier' => false,
+                'nextTierName' => null,
+                'nextTierRequirement' => null,
+                'nextTierMinUsd' => null,
+                'amountToNextUsd' => 0.0,
                 'isMilestoneToday' => false,
                 'congratsMessage' => __('No active airdrop campaign right now. Stay tuned!'),
                 'congratsTone' => 'neutral',
@@ -38,8 +49,27 @@ class AirdropProgressService
         }
 
         $today = Carbon::today();
-        $streakDays = max(1, (int) ($campaign->streak_days ?? 5));
+        $userTotalPurchasedUsd = $this->getUserTotalPurchasedUsd($userId);
+        $claimTierConfig = $campaign->resolveClaimConfigByPurchaseUsd($userTotalPurchasedUsd);
+        $streakDays = max(1, (int) ($claimTierConfig['streak_days'] ?? $campaign->streak_days ?? 5));
         $bonusAmount = (string) ($campaign->streak_bonus_amount ?? '0');
+        $dailyClaimAmount = (string) ($claimTierConfig['daily_claim_amount'] ?? '0');
+        $claimTierLabel = (string) ($claimTierConfig['tier_label'] ?? '--');
+        $claimTierName = (string) ($claimTierConfig['tier_name'] ?? '--');
+        $claimTierRequirement = (string) ($claimTierConfig['tier_requirement'] ?? '--');
+        $claimTierRows = (array) ($claimTierConfig['tiers'] ?? []);
+        $hasNextTier = !empty($claimTierConfig['has_next_tier']);
+        $nextTierName = $claimTierConfig['next_tier_name'] ?? null;
+        $nextTierRequirement = $claimTierConfig['next_tier_requirement'] ?? null;
+        $nextTierMinUsd = isset($claimTierConfig['next_tier_min_usd']) ? (float) $claimTierConfig['next_tier_min_usd'] : null;
+        $amountToNextUsd = isset($claimTierConfig['amount_to_next_usd']) ? (float) $claimTierConfig['amount_to_next_usd'] : 0.0;
+
+        $claimTierRows = array_map(function (array $row, int $index) use ($claimTierConfig, $userTotalPurchasedUsd) {
+            $row['is_current'] = ((int) ($claimTierConfig['tier_index'] ?? -1)) === $index;
+            $row['is_next'] = ((int) ($claimTierConfig['tier_index'] ?? -1)) + 1 === $index;
+            $row['is_locked'] = !$row['is_current'] && $userTotalPurchasedUsd < (float) ($row['min_usd'] ?? 0);
+            return $row;
+        }, $claimTierRows, array_keys($claimTierRows));
 
         $claimedToday = AirdropClaim::where('user_id', $userId)
             ->where('campaign_id', (int) $campaign->id)
@@ -106,10 +136,27 @@ class AirdropProgressService
             'filledDays' => $filledDays,
             'progressPercent' => max(0, min(100, $progressPercent)),
             'streakBonusAmount' => $bonusAmount,
+            'dailyClaimAmount' => $dailyClaimAmount,
+            'claimTierLabel' => $claimTierLabel,
+            'claimTierName' => $claimTierName,
+            'claimTierRequirement' => $claimTierRequirement,
+            'claimTierRows' => $claimTierRows,
+            'hasNextTier' => $hasNextTier,
+            'nextTierName' => $nextTierName,
+            'nextTierRequirement' => $nextTierRequirement,
+            'nextTierMinUsd' => $nextTierMinUsd,
+            'amountToNextUsd' => $amountToNextUsd,
             'isMilestoneToday' => $isMilestoneToday,
             'congratsMessage' => $congratsMessage,
             'congratsTone' => $congratsTone,
         ];
+    }
+
+    private function getUserTotalPurchasedUsd(int $userId): float
+    {
+        return (float) BuyCoinHistory::where('user_id', $userId)
+            ->where('status', STATUS_SUCCESS)
+            ->sum('doller');
     }
 
     /**

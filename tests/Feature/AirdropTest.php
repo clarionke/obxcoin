@@ -226,6 +226,18 @@ class AirdropTest extends TestCase
             'daily_claim_amount'  => '100',
             'streak_days'         => '5',
             'streak_bonus_amount' => '500',
+            'claim_daily_no_purchase_obx' => '2',
+            'claim_daily_lt_50_obx' => '3.5',
+            'claim_daily_lt_100_obx' => '5',
+            'claim_daily_lt_500_obx' => '10',
+            'claim_daily_lt_1000_obx' => '20',
+            'claim_daily_gte_1000_obx' => '25',
+            'claim_streak_no_purchase_days' => '15',
+            'claim_streak_lt_50_days' => '20',
+            'claim_streak_lt_100_days' => '30',
+            'claim_streak_lt_500_days' => '50',
+            'claim_streak_lt_1000_days' => '80',
+            'claim_streak_gte_1000_days' => '100',
             'unlock_fee_lt_100_usdt' => '8.00',
             'unlock_fee_lt_500_usdt' => '6.00',
             'unlock_fee_lt_1000_usdt' => '4.00',
@@ -237,6 +249,8 @@ class AirdropTest extends TestCase
         $this->assertDatabaseHas('airdrop_campaigns', [
             'name' => 'Wave 1',
             'streak_days' => 5,
+            'claim_streak_no_purchase_days' => 15,
+            'claim_streak_lt_1000_days' => 80,
             'unlock_fee_lt_100_usdt' => 8.0,
             'unlock_fee_lt_500_usdt' => 6.0,
             'unlock_fee_lt_1000_usdt' => 4.0,
@@ -338,6 +352,82 @@ class AirdropTest extends TestCase
         $this->assertDatabaseHas('airdrop_claims', [
             'user_id'     => $user->id,
             'campaign_id' => $campaign->id,
+        ]);
+    }
+
+    /** @test */
+    public function user_claim_uses_personalized_daily_amount_based_on_purchase_tier()
+    {
+        $user = $this->makeUser();
+
+        $campaign = $this->liveCampaign([
+            'claim_daily_no_purchase_obx' => '2.000000000000000000',
+            'claim_daily_lt_50_obx' => '3.500000000000000000',
+            'claim_daily_lt_100_obx' => '5.000000000000000000',
+            'claim_daily_lt_500_obx' => '10.000000000000000000',
+            'claim_daily_lt_1000_obx' => '20.000000000000000000',
+            'claim_daily_gte_1000_obx' => '25.000000000000000000',
+            'claim_streak_no_purchase_days' => 15,
+            'claim_streak_lt_50_days' => 20,
+            'claim_streak_lt_100_days' => 30,
+            'claim_streak_lt_500_days' => 50,
+            'claim_streak_lt_1000_days' => 80,
+            'claim_streak_gte_1000_days' => 100,
+        ]);
+
+        $this->seedSuccessfulPurchaseUsd((int) $user->id, 650.00);
+
+        $response = $this->actingAs($user)->post(route('user.airdrop.claim'));
+        $response->assertRedirect(route('user.airdrop'));
+        $response->assertSessionHas('success');
+
+        $regularClaim = AirdropClaim::where('user_id', $user->id)
+            ->where('campaign_id', $campaign->id)
+            ->where('is_bonus', false)
+            ->first();
+
+        $this->assertNotNull($regularClaim);
+        $this->assertSame('20.000000000000000000', bcmul((string) $regularClaim->amount_obx, '1', 18));
+    }
+
+    /** @test */
+    public function personalized_streak_target_controls_bonus_award()
+    {
+        $user = $this->makeUser();
+
+        $campaign = $this->liveCampaign([
+            'streak_days' => 5,
+            'streak_bonus_amount' => '100.000000000000000000',
+            'claim_daily_no_purchase_obx' => '2.000000000000000000',
+            'claim_daily_lt_50_obx' => '3.500000000000000000',
+            'claim_daily_lt_100_obx' => '5.000000000000000000',
+            'claim_daily_lt_500_obx' => '10.000000000000000000',
+            'claim_daily_lt_1000_obx' => '20.000000000000000000',
+            'claim_daily_gte_1000_obx' => '25.000000000000000000',
+            'claim_streak_no_purchase_days' => 2,
+            'claim_streak_lt_50_days' => 20,
+            'claim_streak_lt_100_days' => 30,
+            'claim_streak_lt_500_days' => 50,
+            'claim_streak_lt_1000_days' => 80,
+            'claim_streak_gte_1000_days' => 100,
+        ]);
+
+        AirdropClaim::create([
+            'user_id' => $user->id,
+            'campaign_id' => $campaign->id,
+            'claim_date' => Carbon::yesterday(),
+            'amount_obx' => '2.000000000000000000',
+            'is_bonus' => false,
+        ]);
+
+        $response = $this->actingAs($user)->post(route('user.airdrop.claim'));
+        $response->assertRedirect(route('user.airdrop'));
+        $response->assertSessionHas('success');
+
+        $this->assertDatabaseHas('airdrop_claims', [
+            'user_id' => $user->id,
+            'campaign_id' => $campaign->id,
+            'is_bonus' => 1,
         ]);
     }
 
@@ -619,6 +709,38 @@ class AirdropTest extends TestCase
         $response->assertStatus(200);
         $response->assertSee('Spring Drop');
         $response->assertSee(route('user.airdrop.claim'));
+    }
+
+    /** @test */
+    public function airdrop_dashboard_shows_total_paid_and_next_tier_upgrade_guide()
+    {
+        $user = $this->makeUser();
+
+        $this->liveCampaign([
+            'claim_daily_no_purchase_obx' => '2.000000000000000000',
+            'claim_daily_lt_50_obx' => '3.500000000000000000',
+            'claim_daily_lt_100_obx' => '5.000000000000000000',
+            'claim_daily_lt_500_obx' => '10.000000000000000000',
+            'claim_daily_lt_1000_obx' => '20.000000000000000000',
+            'claim_daily_gte_1000_obx' => '25.000000000000000000',
+            'claim_streak_no_purchase_days' => 15,
+            'claim_streak_lt_50_days' => 20,
+            'claim_streak_lt_100_days' => 30,
+            'claim_streak_lt_500_days' => 50,
+            'claim_streak_lt_1000_days' => 80,
+            'claim_streak_gte_1000_days' => 100,
+        ]);
+
+        $this->seedSuccessfulPurchaseUsd((int) $user->id, 120.00);
+
+        $response = $this->actingAs($user)->get(route('user.airdrop'));
+        $response->assertStatus(200);
+        $response->assertSee('Claim Tier Guide');
+        $response->assertSee('Total Paid to Buy OBX');
+        $response->assertSee('$120.00', false);
+        $response->assertSee('Gold Grinder');
+        $response->assertSee('How to move to next tier');
+        $response->assertSee('Platinum Pioneer');
     }
 
     /** @test */

@@ -70,6 +70,18 @@ class AirdropController extends Controller
             'daily_claim_amount'  => 'required|numeric|min:0.000000000000000001',
             'streak_days'         => 'required|integer|min:1|max:365',
             'streak_bonus_amount' => 'required|numeric|min:0',
+            'claim_daily_no_purchase_obx' => 'required|numeric|min:0.000000000000000001',
+            'claim_daily_lt_50_obx' => 'required|numeric|min:0.000000000000000001',
+            'claim_daily_lt_100_obx' => 'required|numeric|min:0.000000000000000001',
+            'claim_daily_lt_500_obx' => 'required|numeric|min:0.000000000000000001',
+            'claim_daily_lt_1000_obx' => 'required|numeric|min:0.000000000000000001',
+            'claim_daily_gte_1000_obx' => 'required|numeric|min:0.000000000000000001',
+            'claim_streak_no_purchase_days' => 'required|integer|min:1|max:365',
+            'claim_streak_lt_50_days' => 'required|integer|min:1|max:365',
+            'claim_streak_lt_100_days' => 'required|integer|min:1|max:365',
+            'claim_streak_lt_500_days' => 'required|integer|min:1|max:365',
+            'claim_streak_lt_1000_days' => 'required|integer|min:1|max:365',
+            'claim_streak_gte_1000_days' => 'required|integer|min:1|max:365',
             'unlock_fee_usdt'     => 'nullable|numeric|min:0.01|max:99999',
             'unlock_fee_lt_100_usdt' => 'nullable|numeric|min:0.01|max:99999',
             'unlock_fee_lt_500_usdt' => 'nullable|numeric|min:0.01|max:99999',
@@ -80,10 +92,16 @@ class AirdropController extends Controller
         ]);
 
         $tierFees = $this->resolveTieredFees($request);
+        $claimTierConfig = $this->resolveClaimTierConfig($request, (string) $request->daily_claim_amount, (int) $request->streak_days);
         if ($this->hasInvalidTierFee($tierFees)) {
             return redirect()->back()
                 ->withInput()
                 ->withErrors(['unlock_fee_lt_100_usdt' => __('All withdrawal fee tiers are required and must be greater than zero.')]);
+        }
+        if ($this->hasInvalidClaimTierConfig($claimTierConfig)) {
+            return redirect()->back()
+                ->withInput()
+                ->withErrors(['claim_daily_no_purchase_obx' => __('All personalized claim tiers are required and must be greater than zero.')]);
         }
 
         AirdropCampaign::create([
@@ -93,6 +111,18 @@ class AirdropController extends Controller
             'daily_claim_amount'  => bcmul($request->daily_claim_amount, '1', 18),
             'streak_days'         => $request->streak_days,
             'streak_bonus_amount' => bcmul($request->streak_bonus_amount, '1', 18),
+            'claim_daily_no_purchase_obx' => $claimTierConfig['claim_daily_no_purchase_obx'],
+            'claim_daily_lt_50_obx' => $claimTierConfig['claim_daily_lt_50_obx'],
+            'claim_daily_lt_100_obx' => $claimTierConfig['claim_daily_lt_100_obx'],
+            'claim_daily_lt_500_obx' => $claimTierConfig['claim_daily_lt_500_obx'],
+            'claim_daily_lt_1000_obx' => $claimTierConfig['claim_daily_lt_1000_obx'],
+            'claim_daily_gte_1000_obx' => $claimTierConfig['claim_daily_gte_1000_obx'],
+            'claim_streak_no_purchase_days' => $claimTierConfig['claim_streak_no_purchase_days'],
+            'claim_streak_lt_50_days' => $claimTierConfig['claim_streak_lt_50_days'],
+            'claim_streak_lt_100_days' => $claimTierConfig['claim_streak_lt_100_days'],
+            'claim_streak_lt_500_days' => $claimTierConfig['claim_streak_lt_500_days'],
+            'claim_streak_lt_1000_days' => $claimTierConfig['claim_streak_lt_1000_days'],
+            'claim_streak_gte_1000_days' => $claimTierConfig['claim_streak_gte_1000_days'],
             'unlock_fee_usdt'     => $tierFees['unlock_fee_lt_100_usdt'],
             'unlock_fee_lt_100_usdt' => $tierFees['unlock_fee_lt_100_usdt'],
             'unlock_fee_lt_500_usdt' => $tierFees['unlock_fee_lt_500_usdt'],
@@ -146,6 +176,18 @@ class AirdropController extends Controller
             'daily_claim_amount'  => 'required|numeric|min:0.000000000000000001',
             'streak_days'         => 'required|integer|min:1|max:365',
             'streak_bonus_amount' => 'required|numeric|min:0',
+            'claim_daily_no_purchase_obx' => 'required|numeric|min:0.000000000000000001',
+            'claim_daily_lt_50_obx' => 'required|numeric|min:0.000000000000000001',
+            'claim_daily_lt_100_obx' => 'required|numeric|min:0.000000000000000001',
+            'claim_daily_lt_500_obx' => 'required|numeric|min:0.000000000000000001',
+            'claim_daily_lt_1000_obx' => 'required|numeric|min:0.000000000000000001',
+            'claim_daily_gte_1000_obx' => 'required|numeric|min:0.000000000000000001',
+            'claim_streak_no_purchase_days' => 'required|integer|min:1|max:365',
+            'claim_streak_lt_50_days' => 'required|integer|min:1|max:365',
+            'claim_streak_lt_100_days' => 'required|integer|min:1|max:365',
+            'claim_streak_lt_500_days' => 'required|integer|min:1|max:365',
+            'claim_streak_lt_1000_days' => 'required|integer|min:1|max:365',
+            'claim_streak_gte_1000_days' => 'required|integer|min:1|max:365',
             'unlock_fee_usdt'     => 'nullable|numeric|min:0.01|max:99999',
             'unlock_fee_lt_100_usdt' => 'nullable|numeric|min:0.01|max:99999',
             'unlock_fee_lt_500_usdt' => 'nullable|numeric|min:0.01|max:99999',
@@ -156,10 +198,16 @@ class AirdropController extends Controller
         ]);
 
         $tierFees = $this->resolveTieredFees($request);
+        $claimTierConfig = $this->resolveClaimTierConfig($request, (string) $request->daily_claim_amount, (int) $request->streak_days);
         if ($this->hasInvalidTierFee($tierFees)) {
             return redirect()->back()
                 ->withInput()
                 ->withErrors(['unlock_fee_lt_100_usdt' => __('All withdrawal fee tiers are required and must be greater than zero.')]);
+        }
+        if ($this->hasInvalidClaimTierConfig($claimTierConfig)) {
+            return redirect()->back()
+                ->withInput()
+                ->withErrors(['claim_daily_no_purchase_obx' => __('All personalized claim tiers are required and must be greater than zero.')]);
         }
 
         $campaign->update([
@@ -169,6 +217,18 @@ class AirdropController extends Controller
             'daily_claim_amount'  => bcmul($request->daily_claim_amount, '1', 18),
             'streak_days'         => $request->streak_days,
             'streak_bonus_amount' => bcmul($request->streak_bonus_amount, '1', 18),
+            'claim_daily_no_purchase_obx' => $claimTierConfig['claim_daily_no_purchase_obx'],
+            'claim_daily_lt_50_obx' => $claimTierConfig['claim_daily_lt_50_obx'],
+            'claim_daily_lt_100_obx' => $claimTierConfig['claim_daily_lt_100_obx'],
+            'claim_daily_lt_500_obx' => $claimTierConfig['claim_daily_lt_500_obx'],
+            'claim_daily_lt_1000_obx' => $claimTierConfig['claim_daily_lt_1000_obx'],
+            'claim_daily_gte_1000_obx' => $claimTierConfig['claim_daily_gte_1000_obx'],
+            'claim_streak_no_purchase_days' => $claimTierConfig['claim_streak_no_purchase_days'],
+            'claim_streak_lt_50_days' => $claimTierConfig['claim_streak_lt_50_days'],
+            'claim_streak_lt_100_days' => $claimTierConfig['claim_streak_lt_100_days'],
+            'claim_streak_lt_500_days' => $claimTierConfig['claim_streak_lt_500_days'],
+            'claim_streak_lt_1000_days' => $claimTierConfig['claim_streak_lt_1000_days'],
+            'claim_streak_gte_1000_days' => $claimTierConfig['claim_streak_gte_1000_days'],
             'unlock_fee_usdt'     => $tierFees['unlock_fee_lt_100_usdt'],
             'unlock_fee_lt_100_usdt' => $tierFees['unlock_fee_lt_100_usdt'],
             'unlock_fee_lt_500_usdt' => $tierFees['unlock_fee_lt_500_usdt'],
@@ -466,10 +526,68 @@ class AirdropController extends Controller
         return '0.00';
     }
 
+    private function resolveClaimTierConfig(Request $request, string $fallbackDailyAmount, int $fallbackStreakDays): array
+    {
+        return [
+            'claim_daily_no_purchase_obx' => $this->formatClaimTierAmount($request->input('claim_daily_no_purchase_obx'), $fallbackDailyAmount),
+            'claim_daily_lt_50_obx' => $this->formatClaimTierAmount($request->input('claim_daily_lt_50_obx'), $fallbackDailyAmount),
+            'claim_daily_lt_100_obx' => $this->formatClaimTierAmount($request->input('claim_daily_lt_100_obx'), $fallbackDailyAmount),
+            'claim_daily_lt_500_obx' => $this->formatClaimTierAmount($request->input('claim_daily_lt_500_obx'), $fallbackDailyAmount),
+            'claim_daily_lt_1000_obx' => $this->formatClaimTierAmount($request->input('claim_daily_lt_1000_obx'), $fallbackDailyAmount),
+            'claim_daily_gte_1000_obx' => $this->formatClaimTierAmount($request->input('claim_daily_gte_1000_obx'), $fallbackDailyAmount),
+            'claim_streak_no_purchase_days' => $this->formatClaimTierStreakDays($request->input('claim_streak_no_purchase_days'), $fallbackStreakDays),
+            'claim_streak_lt_50_days' => $this->formatClaimTierStreakDays($request->input('claim_streak_lt_50_days'), $fallbackStreakDays),
+            'claim_streak_lt_100_days' => $this->formatClaimTierStreakDays($request->input('claim_streak_lt_100_days'), $fallbackStreakDays),
+            'claim_streak_lt_500_days' => $this->formatClaimTierStreakDays($request->input('claim_streak_lt_500_days'), $fallbackStreakDays),
+            'claim_streak_lt_1000_days' => $this->formatClaimTierStreakDays($request->input('claim_streak_lt_1000_days'), $fallbackStreakDays),
+            'claim_streak_gte_1000_days' => $this->formatClaimTierStreakDays($request->input('claim_streak_gte_1000_days'), $fallbackStreakDays),
+        ];
+    }
+
+    private function formatClaimTierAmount($rawValue, string $fallback): string
+    {
+        if (is_numeric($rawValue) && (float) $rawValue > 0) {
+            return bcmul((string) $rawValue, '1', 18);
+        }
+
+        if (is_numeric($fallback) && (float) $fallback > 0) {
+            return bcmul($fallback, '1', 18);
+        }
+
+        return '0';
+    }
+
+    private function formatClaimTierStreakDays($rawValue, int $fallback): int
+    {
+        if (is_numeric($rawValue) && (int) $rawValue > 0) {
+            return min(365, max(1, (int) $rawValue));
+        }
+
+        return min(365, max(1, $fallback));
+    }
+
     private function hasInvalidTierFee(array $tierFees): bool
     {
         foreach ($tierFees as $fee) {
             if (!is_numeric($fee) || (float) $fee <= 0) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function hasInvalidClaimTierConfig(array $claimTierConfig): bool
+    {
+        foreach ($claimTierConfig as $key => $value) {
+            if (str_starts_with($key, 'claim_daily_')) {
+                if (!is_numeric($value) || (float) $value <= 0) {
+                    return true;
+                }
+                continue;
+            }
+
+            if (!is_numeric($value) || (int) $value <= 0) {
                 return true;
             }
         }

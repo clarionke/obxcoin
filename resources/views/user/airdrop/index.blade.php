@@ -42,6 +42,24 @@
 .aq-details p{font-size:12px;color:#a5b4cf;margin:0 0 8px;}
 .aq-open-link{display:inline-flex;align-items:center;gap:6px;border:1px solid rgba(59,130,246,.4);background:rgba(59,130,246,.12);border-radius:8px;padding:6px 11px;color:#bfdbfe;font-size:12px;font-weight:600;text-decoration:none;}
 .aq-open-link:hover{color:#dbeafe;text-decoration:none;background:rgba(59,130,246,.18);}
+.tier-guide-card{background:linear-gradient(160deg,#152238 0%,#1a2030 100%);border:1px solid rgba(56,189,248,.28);border-radius:var(--r);padding:18px 20px;margin-bottom:18px;}
+.tier-guide-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px;}
+.tier-guide-head h6{font-size:14.5px;font-weight:700;color:var(--text);margin:0 0 4px;}
+.tier-guide-head p{font-size:12px;color:#9fb0c8;margin:0;}
+.tier-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;border:1px solid rgba(125,211,252,.32);background:rgba(125,211,252,.12);color:#bae6fd;font-size:11.5px;font-weight:700;}
+.tier-next-msg{border:1px solid rgba(56,189,248,.28);background:rgba(56,189,248,.09);border-radius:10px;padding:10px 12px;font-size:12.2px;color:#d7f5ff;}
+.tier-next-msg strong{color:#fff;}
+.tier-table-wrap{margin-top:12px;overflow-x:auto;}
+.tier-table{width:100%;border-collapse:separate;border-spacing:0;font-size:12px;color:#cbd5e1;min-width:760px;}
+.tier-table th,.tier-table td{padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.08);text-align:left;white-space:nowrap;}
+.tier-table th{font-size:10.8px;letter-spacing:.05em;text-transform:uppercase;color:#93a4be;background:rgba(255,255,255,.03);}
+.tier-table tr.is-current td{background:rgba(14,116,144,.2);color:#ecfeff;}
+.tier-table tr.is-next td{background:rgba(217,119,6,.13);}
+.tier-status{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:4px 9px;font-size:10.8px;font-weight:700;}
+.tier-status-current{background:rgba(16,185,129,.18);color:#a7f3d0;border:1px solid rgba(16,185,129,.35);}
+.tier-status-next{background:rgba(245,158,11,.16);color:#fcd34d;border:1px solid rgba(245,158,11,.3);}
+.tier-status-open{background:rgba(59,130,246,.16);color:#bfdbfe;border:1px solid rgba(59,130,246,.3);}
+.tier-status-locked{background:rgba(148,163,184,.16);color:#cbd5e1;border:1px solid rgba(148,163,184,.3);}
 @media(max-width:767px){.aq-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
 @media(max-width:520px){.aq-grid{grid-template-columns:1fr;}}
 </style>
@@ -65,6 +83,11 @@
             <i class="fa fa-info-circle"></i> {{ session('info') }}
         </div>
     @endif
+    @if(!empty($claimLevelNotice))
+        <div style="background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.35);border-radius:8px;padding:12px 16px;margin-bottom:18px;color:#bfdbfe;font-size:13px;">
+            <i class="fa fa-bell"></i> {{ $claimLevelNotice }}
+        </div>
+    @endif
 
     @php
         $adProgress = $airdropProgress ?? [];
@@ -74,6 +97,16 @@
         $adProgressPct = (int) ($adProgress['progressPercent'] ?? 0);
         $adStreakDays = (int) ($adProgress['streakDays'] ?? 0);
         $adClaimedToday = (bool) ($adProgress['claimedToday'] ?? false);
+        $adDailyClaimAmount = (string) ($adProgress['dailyClaimAmount'] ?? ($campaign->daily_claim_amount ?? '0'));
+        $adClaimTierLabel = (string) ($adProgress['claimTierLabel'] ?? '--');
+        $adClaimTierName = (string) ($adProgress['claimTierName'] ?? ($userClaimTierName ?? '--'));
+        $adClaimTierRequirement = (string) ($adProgress['claimTierRequirement'] ?? ($userClaimTierRequirement ?? '--'));
+        $adClaimTierRows = (array) ($adProgress['claimTierRows'] ?? ($claimTierRows ?? []));
+        $adHasNextTier = (bool) ($adProgress['hasNextTier'] ?? ($hasNextTier ?? false));
+        $adNextTierName = (string) ($adProgress['nextTierName'] ?? ($nextTierName ?? ''));
+        $adNextTierRequirement = (string) ($adProgress['nextTierRequirement'] ?? ($nextTierRequirement ?? ''));
+        $adNextTierMinUsd = isset($adProgress['nextTierMinUsd']) ? (float) $adProgress['nextTierMinUsd'] : (float) ($nextTierMinUsd ?? 0);
+        $adAmountToNextUsd = isset($adProgress['amountToNextUsd']) ? (float) $adProgress['amountToNextUsd'] : (float) ($amountToNextUsd ?? 0);
         $adCongrats = (string) ($adProgress['congratsMessage'] ?? __('No active airdrop campaign right now. Stay tuned!'));
         $adCongratsToneRaw = (string) ($adProgress['congratsTone'] ?? 'info');
         $adCongratsTone = in_array($adCongratsToneRaw, ['success', 'warning', 'info', 'neutral'], true) ? $adCongratsToneRaw : 'info';
@@ -118,6 +151,7 @@
             @if($adCampaign)
                 <p>{{ __('Bonus on milestone') }}: +{{ number_format((float) $adBonusAmount, 2) }} OBX</p>
                 <p>{{ __('Campaign window') }}: {{ $adCampaign->start_date->format('M d, Y H:i') }} → {{ $adCampaign->end_date->format('M d, Y H:i') }}</p>
+                <p>{{ __('Your claim tier') }}: {{ $adClaimTierName }} ({{ $adClaimTierRequirement }}) {{ __('| Daily claim') }}: {{ number_format((float)$adDailyClaimAmount, 2) }} OBX {{ __('| Streak target') }}: {{ $adStreakDays }} {{ __('days') }}</p>
                 <p>{{ __('Your fee tier') }}: {{ $userTierLabel }} {{ __('| Total buy') }}: ${{ number_format($userPurchaseUsd, 2) }} {{ __('| Fee') }}: {{ number_format($userTierFee, 2) }} USDT</p>
             @else
                 <p>{{ __('Airdrop status updates will appear here when a campaign is active.') }}</p>
@@ -136,7 +170,7 @@
             </div>
             <span class="obx-badge">
                 <i class="fa fa-gift"></i>
-                {{ number_format((float)$campaign->daily_claim_amount, 2) }} OBX / day
+                {{ number_format((float)$adDailyClaimAmount, 2) }} OBX / day
             </span>
         </div>
 
@@ -216,10 +250,87 @@
 
     </div>
 
+    {{-- ── Claim Tier Guide ────────────────────────────────────────────────── --}}
+    <div class="tier-guide-card">
+        <div class="tier-guide-head">
+            <div>
+                <h6>{{ __('Claim Tier Guide') }}</h6>
+                <p>{{ __('Total Paid to Buy OBX') }}: <strong style="color:#fff;">${{ number_format($userPurchaseUsd, 2) }}</strong></p>
+            </div>
+            <span class="tier-chip"><i class="fa fa-star"></i> {{ __('Current Tier') }}: {{ $adClaimTierName }}</span>
+        </div>
+
+        @if($adHasNextTier)
+            <div class="tier-next-msg">
+                @if($adAmountToNextUsd > 0)
+                    {!! __('How to move to next tier: buy <strong>:amount USD</strong> more to unlock <strong>:tier</strong> (requires total buy of <strong>:target USD</strong>).', [
+                        'amount' => number_format($adAmountToNextUsd, 2),
+                        'tier' => e($adNextTierName),
+                        'target' => number_format($adNextTierMinUsd, 2),
+                    ]) !!}
+                @else
+                    {!! __('You have reached the requirement for <strong>:tier</strong>. Make a claim to refresh your current level view.', [
+                        'tier' => e($adNextTierName),
+                    ]) !!}
+                @endif
+            </div>
+        @else
+            <div class="tier-next-msg">
+                {!! __('You are already on the highest claim tier: <strong>:tier</strong>. Keep claiming daily to maximize rewards.', [
+                    'tier' => e($adClaimTierName),
+                ]) !!}
+            </div>
+        @endif
+
+        <div class="tier-table-wrap">
+            <table class="tier-table">
+                <thead>
+                    <tr>
+                        <th>{{ __('Tier Name') }}</th>
+                        <th>{{ __('Requirement') }}</th>
+                        <th>{{ __('Daily Claim') }}</th>
+                        <th>{{ __('Streak Target') }}</th>
+                        <th>{{ __('Status') }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($adClaimTierRows as $tierRow)
+                        @php
+                            $isCurrentTierRow = !empty($tierRow['is_current']);
+                            $isNextTierRow = !empty($tierRow['is_next']);
+                            $isLockedTierRow = !empty($tierRow['is_locked']);
+                        @endphp
+                        <tr class="{{ $isCurrentTierRow ? 'is-current' : ($isNextTierRow ? 'is-next' : '') }}">
+                            <td>{{ $tierRow['tier_name'] ?? '--' }}</td>
+                            <td>{{ $tierRow['requirement_label'] ?? '--' }}</td>
+                            <td>{{ number_format((float) ($tierRow['daily_claim_amount'] ?? 0), 2) }} OBX</td>
+                            <td>{{ (int) ($tierRow['streak_days'] ?? 1) }} {{ __('days') }}</td>
+                            <td>
+                                @if($isCurrentTierRow)
+                                    <span class="tier-status tier-status-current">{{ __('Current') }}</span>
+                                @elseif($isNextTierRow)
+                                    <span class="tier-status tier-status-next">{{ __('Next') }}</span>
+                                @elseif($isLockedTierRow)
+                                    <span class="tier-status tier-status-locked">{{ __('Locked') }}</span>
+                                @else
+                                    <span class="tier-status tier-status-open">{{ __('Unlocked') }}</span>
+                                @endif
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="5" style="color:#94a3b8;">{{ __('Tier requirements are not available yet.') }}</td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </div>
+
     {{-- ── Streak Tracker ───────────────────────────────────────────────────── --}}
     @if($campaign->isLive())
     @php
-        $streakDays  = max(1, (int)($campaign->streak_days ?? 5));
+        $streakDays  = max(1, (int)($adStreakDays > 0 ? $adStreakDays : ($campaign->streak_days ?? 5)));
         $mod         = $currentStreak % $streakDays;
         $filledDots  = $mod === 0 && $currentStreak > 0 ? $streakDays : $mod;
     @endphp
@@ -295,7 +406,7 @@
                 @csrf
                 <button type="submit" class="claim-btn">
                     <i class="fa fa-gift"></i>
-                    {{ __('Claim') }} {{ number_format((float)$campaign->daily_claim_amount, 2) }} {{ __('OBX Today') }}
+                    {{ __('Claim') }} {{ number_format((float)$adDailyClaimAmount, 2) }} {{ __('OBX Today') }}
                 </button>
             </form>
             <div style="font-size:11.5px;color:var(--muted);text-align:center;margin-top:6px;">

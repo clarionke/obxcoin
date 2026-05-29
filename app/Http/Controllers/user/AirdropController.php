@@ -78,6 +78,74 @@ class AirdropController extends Controller
         $data['userWithdrawFeeUsdt'] = $userWithdrawFeeUsdt;
         $data['userWithdrawFeeTierLabel'] = $userWithdrawFeeTierLabel;
         $data['airdropProgress'] = $airdropProgress;
+        $data['userDailyClaimAmount'] = (string) ($airdropProgress['dailyClaimAmount'] ?? ($campaign->daily_claim_amount ?? '0'));
+        $data['userClaimTierLabel'] = (string) ($airdropProgress['claimTierLabel'] ?? '--');
+        $data['userClaimTierName'] = (string) ($airdropProgress['claimTierName'] ?? '--');
+        $data['userClaimTierRequirement'] = (string) ($airdropProgress['claimTierRequirement'] ?? '--');
+        $data['claimTierRows'] = (array) ($airdropProgress['claimTierRows'] ?? []);
+        $data['hasNextTier'] = (bool) ($airdropProgress['hasNextTier'] ?? false);
+        $data['nextTierName'] = $airdropProgress['nextTierName'] ?? null;
+        $data['nextTierRequirement'] = $airdropProgress['nextTierRequirement'] ?? null;
+        $data['nextTierMinUsd'] = isset($airdropProgress['nextTierMinUsd']) ? (float) $airdropProgress['nextTierMinUsd'] : null;
+        $data['amountToNextUsd'] = isset($airdropProgress['amountToNextUsd']) ? (float) $airdropProgress['amountToNextUsd'] : 0.0;
+
+        $claimLevelNotice = null;
+        if ($campaign) {
+            $tierLabel = (string) ($airdropProgress['claimTierLabel'] ?? '--');
+            $dailyAmount = (string) ($airdropProgress['dailyClaimAmount'] ?? '0');
+            $tierStreakDays = max(1, (int) ($airdropProgress['streakDays'] ?? 1));
+
+            $claimLevelNotice = __('Claim Level: :tier | Daily Claim: :amount OBX | Streak Target: :days days.', [
+                'tier' => $tierLabel,
+                'amount' => number_format((float) $dailyAmount, 2),
+                'days' => $tierStreakDays,
+            ]);
+
+            $hasNextTier = (bool) ($airdropProgress['hasNextTier'] ?? false);
+            $amountToNextUsd = isset($airdropProgress['amountToNextUsd']) ? (float) $airdropProgress['amountToNextUsd'] : 0.0;
+            $nextTierName = (string) ($airdropProgress['nextTierName'] ?? '');
+            $nextTierMinUsd = isset($airdropProgress['nextTierMinUsd']) ? (float) $airdropProgress['nextTierMinUsd'] : 0.0;
+
+            if ($hasNextTier && $amountToNextUsd > 0) {
+                $claimLevelNotice .= ' ' . __('To move to :tier, buy :amount USD more (target: :target USD total buy).', [
+                    'tier' => $nextTierName,
+                    'amount' => number_format($amountToNextUsd, 2),
+                    'target' => number_format($nextTierMinUsd, 2),
+                ]);
+            } elseif (!$hasNextTier) {
+                $claimLevelNotice .= ' ' . __('You are currently at the highest claim tier.');
+            }
+
+            $currentTierSignature = implode('|', [
+                $tierLabel,
+                number_format((float) $dailyAmount, 8, '.', ''),
+                (string) $tierStreakDays,
+            ]);
+            $previousTierSignature = (string) session('airdrop_claim_level_signature', '');
+
+            if ($currentTierSignature !== $previousTierSignature && !session()->has('info')) {
+                $levelUpdateMessage = __('Your claim level has been updated to :tier. You can now claim :amount OBX daily with a :days-day streak target.', [
+                    'tier' => $tierLabel,
+                    'amount' => number_format((float) $dailyAmount, 2),
+                    'days' => $tierStreakDays,
+                ]);
+
+                if ($hasNextTier && $amountToNextUsd > 0) {
+                    $levelUpdateMessage .= ' ' . __('Need :amount USD more to reach :tier.', [
+                        'amount' => number_format($amountToNextUsd, 2),
+                        'tier' => $nextTierName,
+                    ]);
+                } elseif (!$hasNextTier) {
+                    $levelUpdateMessage .= ' ' . __('You are already at the top tier.');
+                }
+
+                session()->flash('info', $levelUpdateMessage);
+            }
+
+            session(['airdrop_claim_level_signature' => $currentTierSignature]);
+        }
+
+        $data['claimLevelNotice'] = $claimLevelNotice;
 
         $currentStreak = (int) ($airdropProgress['todayStreak'] ?? 0);
         $streakBonusAmount = (string) ($airdropProgress['streakBonusAmount'] ?? '0');
@@ -138,17 +206,25 @@ class AirdropController extends Controller
             return redirect()->route('user.airdrop')->with('dismiss', __('You have already unlocked your airdrop for this campaign.'));
         }
 
+        $userTotalPurchasedUsd = $this->getUserTotalPurchasedUsd((int) $userId);
+        $claimTierConfig = $campaign->resolveClaimConfigByPurchaseUsd($userTotalPurchasedUsd);
+        $dailyClaimAmount = (string) ($claimTierConfig['daily_claim_amount'] ?? $campaign->daily_claim_amount ?? '0');
+        $streakDays = max(1, (int) ($claimTierConfig['streak_days'] ?? $campaign->streak_days ?? 5));
+
+        if (!is_numeric($dailyClaimAmount) || bccomp($dailyClaimAmount, '0', 18) <= 0) {
+            return redirect()->route('user.airdrop')->with('dismiss', __('Daily claim amount is not configured for your tier yet.'));
+        }
+
         try {
             AirdropClaim::create([
                 'user_id'     => $userId,
                 'campaign_id' => $campaign->id,
                 'claim_date'  => $today,
-                'amount_obx'  => $campaign->daily_claim_amount,
+                'amount_obx'  => $dailyClaimAmount,
             ]);
 
             // Streak gamification — award bonus on every N-day milestone
             $streak       = $this->getCurrentStreak($userId, $campaign->id, $today);
-            $streakDays   = max(1, (int) ($campaign->streak_days ?? 5));
             $bonusAmount  = $campaign->streak_bonus_amount ?? '0';
             $bonusAwarded = false;
 
@@ -167,7 +243,7 @@ class AirdropController extends Controller
 
             $message = __(
                 'Successfully claimed :amount OBX! Tokens are locked until the campaign ends.',
-                ['amount' => number_format((float) $campaign->daily_claim_amount, 2)]
+                ['amount' => number_format((float) $dailyClaimAmount, 2)]
             );
 
             if ($bonusAwarded) {
@@ -176,6 +252,34 @@ class AirdropController extends Controller
                     ['days' => $streakDays, 'bonus' => number_format((float) $bonusAmount, 2)]
                 );
             }
+
+            $tierLabel = (string) ($claimTierConfig['tier_label'] ?? '--');
+            $tierRequirement = (string) ($claimTierConfig['tier_requirement'] ?? '--');
+            $message .= ' ' . __('Claim level: :tier (:requirement) | Daily claim: :amount OBX | Streak target: :days days.', [
+                'tier' => $tierLabel,
+                'requirement' => $tierRequirement,
+                'amount' => number_format((float) $dailyClaimAmount, 2),
+                'days' => $streakDays,
+            ]);
+
+            $hasNextTier = !empty($claimTierConfig['has_next_tier']);
+            $amountToNextUsd = isset($claimTierConfig['amount_to_next_usd']) ? (float) $claimTierConfig['amount_to_next_usd'] : 0.0;
+            $nextTierName = (string) ($claimTierConfig['next_tier_name'] ?? '');
+
+            if ($hasNextTier && $amountToNextUsd > 0) {
+                $message .= ' ' . __('To reach :tier, buy :amount USD more in OBX.', [
+                    'tier' => $nextTierName,
+                    'amount' => number_format($amountToNextUsd, 2),
+                ]);
+            } elseif (!$hasNextTier) {
+                $message .= ' ' . __('You are already at the highest claim tier.');
+            }
+
+            session(['airdrop_claim_level_signature' => implode('|', [
+                $tierLabel,
+                number_format((float) $dailyClaimAmount, 8, '.', ''),
+                (string) $streakDays,
+            ])]);
 
             return redirect()->route('user.airdrop')->with('success', $message);
         } catch (\Illuminate\Database\UniqueConstraintViolationException $e) {
