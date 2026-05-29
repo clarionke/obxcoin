@@ -7,6 +7,10 @@ use App\Http\Requests\UserProfileUpdate;
 use App\Http\Services\AuthService;
 use App\Http\Services\CommonService;
 use App\Jobs\SendMail;
+use App\Model\ActivityLog;
+use App\Model\AirdropCampaign;
+use App\Model\AirdropClaim;
+use App\Model\AirdropUnlock;
 use App\Model\BuyCoinHistory;
 use App\Model\DepositeTransaction;
 use App\Model\MembershipBonusDistributionHistory;
@@ -34,11 +38,88 @@ class DashboardController extends Controller
         $data['total_member'] = MembershipClub::where('status',STATUS_ACTIVE)->count();
         $data['bonus_distribution'] = MembershipBonusDistributionHistory::where('status',STATUS_ACTIVE)->sum('bonus_amount');
         $data['total_user'] = User::count();
+        $data['presale_start_block'] = (int) (settings('presale_start_block') ?: 0);
         $total_active_user = User::where('status', STATUS_ACTIVE)->count();
         $total_inactive_user = User::where('status','<>', STATUS_ACTIVE)->count();
-        $data['active_percentage'] = ($total_active_user*100)/$data['total_user'];
-        $data['inactive_percentage'] = ($total_inactive_user*100)/$data['total_user'];
+        if ($data['total_user'] > 0) {
+            $data['active_percentage'] = ($total_active_user * 100) / $data['total_user'];
+            $data['inactive_percentage'] = ($total_inactive_user * 100) / $data['total_user'];
+        } else {
+            $data['active_percentage'] = 0;
+            $data['inactive_percentage'] = 0;
+        }
+
+        $today = Carbon::today();
+        $last24HoursStart = Carbon::now()->subDay();
+
+        $data['total_usdt_paid'] = BuyCoinHistory::where('status', STATUS_SUCCESS)->sum('doller');
+        $data['today_usdt_paid'] = BuyCoinHistory::where('status', STATUS_SUCCESS)
+            ->whereDate('created_at', $today)
+            ->sum('doller');
+        $data['last_24h_usdt_paid'] = BuyCoinHistory::where('status', STATUS_SUCCESS)
+            ->where('created_at', '>=', $last24HoursStart)
+            ->sum('doller');
+        $data['successful_buy_count'] = BuyCoinHistory::where('status', STATUS_SUCCESS)->count();
+
+        $data['today_buy_activity_count'] = BuyCoinHistory::where('status', STATUS_SUCCESS)
+            ->whereDate('created_at', $today)
+            ->count();
+        $data['today_buy_activity_usdt'] = BuyCoinHistory::where('status', STATUS_SUCCESS)
+            ->whereDate('created_at', $today)
+            ->sum('doller');
+        $data['today_deposit_activity_count'] = DepositeTransaction::where('status', STATUS_SUCCESS)
+            ->whereDate('created_at', $today)
+            ->count();
+        $data['today_deposit_activity_amount'] = DepositeTransaction::where('status', STATUS_SUCCESS)
+            ->whereDate('created_at', $today)
+            ->sum('amount');
+        $data['today_withdraw_activity_count'] = WithdrawHistory::where('status', STATUS_SUCCESS)
+            ->whereDate('created_at', $today)
+            ->count();
+        $data['today_withdraw_activity_amount'] = WithdrawHistory::where('status', STATUS_SUCCESS)
+            ->whereDate('created_at', $today)
+            ->sum('amount');
+        $data['activity_last_24h_count'] = ActivityLog::where('created_at', '>=', $last24HoursStart)->count();
+        $data['recent_user_activities'] = ActivityLog::with('user:id,first_name,last_name,email')
+            ->orderByDesc('id')
+            ->limit(12)
+            ->get();
+        $data['user_activity_labels'] = userActivity();
+
+        $data['total_airdrop_campaigns'] = AirdropCampaign::count();
+        $data['live_airdrop_campaigns'] = AirdropCampaign::where('is_active', true)
+            ->where('start_date', '<=', Carbon::now())
+            ->where('end_date', '>', Carbon::now())
+            ->count();
+        $data['total_airdrop_participants'] = AirdropClaim::distinct('user_id')->count('user_id');
+        $data['total_airdrop_claimed_obx'] = AirdropClaim::sum('amount_obx');
+        $data['total_airdrop_confirmed_unlock_users'] = AirdropUnlock::where('status', 'confirmed')
+            ->distinct('user_id')
+            ->count('user_id');
+        $data['total_airdrop_pending_unlocks'] = AirdropUnlock::where('status', 'pending')->count();
+        $data['total_airdrop_usdt_paid'] = AirdropUnlock::where('status', 'confirmed')->sum('usdt_paid');
+
         $allMonths = all_months();
+
+        // usdt paid from successful buys
+        $monthlyUsdtPaid = BuyCoinHistory::select(DB::raw('sum(doller) as totalUsdPaid'), DB::raw('MONTH(created_at) as months'))
+            ->whereYear('created_at', Carbon::now()->year)
+            ->where('status', STATUS_SUCCESS)
+            ->groupBy('months')
+            ->get();
+
+        if (isset($monthlyUsdtPaid[0])) {
+            foreach ($monthlyUsdtPaid as $paid) {
+                $data['usdt_paid'][$paid->months] = $paid->totalUsdPaid;
+            }
+        }
+
+        $allUsdtPaid = [];
+        foreach ($allMonths as $month) {
+            $allUsdtPaid[] = isset($data['usdt_paid'][$month]) ? $data['usdt_paid'][$month] : 0;
+        }
+        $data['monthly_usdt_paid'] = $allUsdtPaid;
+
         // deposit
         $monthlyDeposits = DepositeTransaction::select(DB::raw('sum(amount) as totalDepo'), DB::raw('MONTH(created_at) as months'))
             ->whereYear('created_at', Carbon::now()->year)

@@ -536,13 +536,46 @@ class CoinController extends Controller
     {
         $data['title'] = __('Buy Coin History');
         if ($request->ajax()) {
+            $formatAmount = function ($amount, $decimals = 8) {
+                $formatted = number_format((float) $amount, (int) $decimals, '.', '');
+                $formatted = rtrim(rtrim($formatted, '0'), '.');
+
+                return $formatted === '' ? '0' : $formatted;
+            };
+
             $items = BuyCoinHistory::where(['user_id'=>Auth::id()]);
             return datatables($items)
-                ->addColumn('coin_name', function ($item) {
-                    return DEFAULT_COIN_TYPE;
+                ->addColumn('obx_to_receive', function ($item) use ($formatAmount) {
+                    $obxAmount = (float) ($item->coin ?? 0);
+                    if ($obxAmount <= 0) {
+                        $obxAmount = (float) ($item->requested_amount ?? 0);
+                    }
+
+                    return $formatAmount($obxAmount, 8).' '.DEFAULT_COIN_TYPE;
                 })
-                ->addColumn('pay_currency', function ($item) {
-                    return strtoupper($item->coin_type ?? '');
+                ->addColumn('payable_coin_amount', function ($item) use ($formatAmount) {
+                    $payableAmount = 0;
+                    $payableCurrency = strtoupper(trim((string) ($item->nowpayments_pay_currency ?? $item->coin_type ?? '')));
+
+                    if (!empty($item->nowpayments_pay_amount) && is_numeric($item->nowpayments_pay_amount)) {
+                        $payableAmount = (float) $item->nowpayments_pay_amount;
+                    } elseif (!empty($item->btc) && is_numeric($item->btc) && (float) $item->btc > 0) {
+                        $payableAmount = (float) $item->btc;
+                    } elseif (!empty($item->doller) && is_numeric($item->doller)) {
+                        $payableAmount = (float) $item->doller;
+                        if ($payableCurrency === '') {
+                            $payableCurrency = 'USDT';
+                        }
+                    }
+
+                    if ($payableCurrency === '') {
+                        $payableCurrency = 'USDT';
+                    }
+
+                    return $formatAmount($payableAmount, 8).' '.$payableCurrency;
+                })
+                ->addColumn('stable_coin_paid', function ($item) use ($formatAmount) {
+                    return $formatAmount((float) ($item->doller ?? 0), 2).' USDT';
                 })
                 ->addColumn('type', function ($item) {
                     return byCoinType($item->type);

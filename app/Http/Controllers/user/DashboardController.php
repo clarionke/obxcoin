@@ -26,6 +26,7 @@ class DashboardController extends Controller
         $data['title'] = __('Dashboard');
         $data['balance'] = getUserBalance(Auth::id());
         $data['total_buy_coin'] = BuyCoinHistory::where(['user_id'=> Auth::id(),'status'=> STATUS_ACTIVE])->sum('coin');
+        $data['total_presale_usdt_paid'] = BuyCoinHistory::where(['user_id'=> Auth::id(),'status'=> STATUS_SUCCESS])->sum('doller');
         $from = Carbon::now()->subMonth(6)->format('Y-m-d h:i:s');
         $to = Carbon::now()->format('Y-m-d h:i:s');
 

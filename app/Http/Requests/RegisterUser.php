@@ -37,6 +37,7 @@ class RegisterUser extends FormRequest
             ],
             'password_confirmation' => 'required|min:8|same:password',
             'country'    => ['required', 'string', 'max:100'],
+            'country_code' => ['nullable', 'string', 'size:2'],
             'phone'      => ['required', 'numeric', 'digits_between:6,15'],
         ];
 

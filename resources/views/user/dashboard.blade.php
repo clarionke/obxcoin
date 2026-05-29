@@ -557,7 +557,7 @@ if (!function_exists('fmtBigNum')) {
 
 {{-- Stat cards --}}
 <div class="row mb-4">
-    <div class="col-xl-4 col-md-6 col-12 mb-3 mb-xl-0">
+    <div class="col-xl-3 col-md-6 col-12 mb-3 mb-xl-0">
         <div class="dash-stat-card">
             <div class="dsc-icon dsc-icon-blue">
                 <i class="fa fa-coins" style="font-size:18px;"></i>
@@ -565,11 +565,11 @@ if (!function_exists('fmtBigNum')) {
             <div class="dsc-body">
                 <div class="dsc-label">{{__('Available OBXCoin')}}</div>
                 <div class="dsc-value"><i class="fa fa-wallet" style="margin-right:8px;font-size:15px;opacity:.9;"></i>{{number_format($balance['available_coin'],2)}}</div>
-                <div class="dsc-sub">{{__('Used')}}: {{number_format($balance['available_used'],2)}}</div>
+                <div class="dsc-sub">{{__('USD')}}: {{number_format($balance['available_used'],2)}}</div>
             </div>
         </div>
     </div>
-    <div class="col-xl-4 col-md-6 col-12 mb-3 mb-xl-0">
+    <div class="col-xl-3 col-md-6 col-12 mb-3 mb-xl-0">
         <div class="dash-stat-card">
             <div class="dsc-icon dsc-icon-green">
                 <i class="fa fa-arrow-up"></i>
@@ -581,7 +581,7 @@ if (!function_exists('fmtBigNum')) {
             </div>
         </div>
     </div>
-    <div class="col-xl-4 col-md-6 col-12">
+    <div class="col-xl-3 col-md-6 col-12 mb-3 mb-xl-0">
         <div class="dash-stat-card">
             <div class="dsc-icon dsc-icon-amber">
                 <i class="fa fa-shopping-cart"></i>
@@ -590,6 +590,18 @@ if (!function_exists('fmtBigNum')) {
                 <div class="dsc-label">{{__('Total Purchased')}}</div>
                 <div class="dsc-value">{{number_format($total_buy_coin,2)}}</div>
                 <div class="dsc-sub">{{__('All-time buy total')}}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6 col-12">
+        <div class="dash-stat-card">
+            <div class="dsc-icon dsc-icon-blue">
+                <i class="fa fa-usd"></i>
+            </div>
+            <div class="dsc-body">
+                <div class="dsc-label">{{__('My Presale USDT Paid')}}</div>
+                <div class="dsc-value">{{number_format((float) $total_presale_usdt_paid,2)}} USDT</div>
+                <div class="dsc-sub">{{__('Only your successful presale payments')}}</div>
             </div>
         </div>
     </div>
@@ -807,7 +819,7 @@ if (!function_exists('fmtBigNum')) {
                         pageLength: 10,
                         bLengthChange: true,
                         responsive: false,
-                        ajax: '{{route('transactionHistories')}}?type=withdraw',
+                        ajax: '{{ route('transactionHistories', [], false) }}?type=withdraw',
                         order: [4, 'desc'],
                         autoWidth: false,
                         language: {
@@ -842,7 +854,7 @@ if (!function_exists('fmtBigNum')) {
                         retrieve: true,
                         bLengthChange: true,
                         responsive: false,
-                        ajax: '{{route('transactionHistories')}}?type=deposit',
+                        ajax: '{{ route('transactionHistories', [], false) }}?type=deposit',
                         order: [4, 'desc'],
                         autoWidth: false,
                         language: {

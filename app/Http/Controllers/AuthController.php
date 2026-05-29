@@ -17,6 +17,7 @@ use App\Repository\AffiliateRepository;
 use App\Services\MailService;
 use App\User;
 use Carbon\Carbon;
+use Illuminate\Http\Client\Pool;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Config;
@@ -67,8 +68,24 @@ class AuthController extends Controller
     public function signUpProcess(RegisterUser $request)
     {
         $geo = $this->resolveSignupGeo($request);
-        if (empty($geo['country'])) {
-            return redirect()->back()->withInput()->with('dismiss', __('We could not detect your country automatically. Please refresh and try again.'));
+
+        $country = trim((string) $request->input('country', ''));
+        if ($country === '') {
+            $country = trim((string) ($geo['country'] ?? ''));
+        }
+        if ($country === '') {
+            $country = 'Singapore';
+        }
+
+        $countryCode = strtoupper(trim((string) $request->input('country_code', '')));
+        if ($countryCode === '') {
+            $countryCode = strtoupper(trim((string) ($geo['country_code'] ?? '')));
+        }
+        if ($countryCode === '') {
+            $countryCode = (string) ($this->resolveCountryCodeByCountryName($country) ?? '');
+        }
+        if ($countryCode === '' && strcasecmp($country, 'Singapore') === 0) {
+            $countryCode = 'SG';
         }
 
         DB::beginTransaction();
@@ -96,8 +113,8 @@ class AuthController extends Controller
                 'email' => $request['email'],
                 'role' => USER_ROLE_USER,
                 'password' => Hash::make($request['password']),
-                'country' => $geo['country'],
-                'country_code' => $geo['country_code'] ?? null,
+                'country' => $country,
+                'country_code' => $countryCode !== '' ? $countryCode : null,
                 'phone'   => $request['phone'],
             ]);
             UserVerificationCode::create(['user_id' => $user->id, 'code' => $mail_key, 'expired_at' => date('Y-m-d', strtotime('+15 days'))]);
@@ -131,48 +148,146 @@ class AuthController extends Controller
 
     private function resolveSignupGeo(Request $request): array
     {
-        $ip = (string) $request->ip();
-        if (in_array($ip, ['127.0.0.1', '::1'])) {
-            // Local development fallback
-            return [
-                'country' => (string) ($request->country ?? ''),
-                'country_code' => null,
-            ];
+        $ip = $this->resolveClientIp($request);
+        if (!$this->isPublicIp($ip)) {
+            return ['country' => null, 'country_code' => null];
         }
 
-        // Primary source: ip-api (proxy/hosting detection)
         try {
-            $primary = Http::timeout(8)->get('http://ip-api.com/json/' . $ip, [
-                'fields' => 'status,country,countryCode,proxy,hosting,mobile',
-            ]);
-            if ($primary->ok()) {
-                $data = $primary->json();
-                if (($data['status'] ?? null) === 'success') {
-                    return [
-                        'country' => $data['country'] ?? null,
-                        'country_code' => $data['countryCode'] ?? null,
-                    ];
+            $responses = Http::pool(function (Pool $pool) use ($ip) {
+                return [
+                    $pool->as('ip_api')->timeout(3)->get('http://ip-api.com/json/' . $ip, [
+                        'fields' => 'status,country,countryCode',
+                    ]),
+                    $pool->as('ipwhois')->timeout(3)->get('https://ipwho.is/' . $ip),
+                    $pool->as('ipapi')->timeout(3)->get('https://ipapi.co/' . $ip . '/json/'),
+                ];
+            });
+
+            $providers = [
+                $this->normalizeGeoPayload($responses['ip_api']->ok() ? $responses['ip_api']->json() : null, 'ip_api'),
+                $this->normalizeGeoPayload($responses['ipwhois']->ok() ? $responses['ipwhois']->json() : null, 'ipwhois'),
+                $this->normalizeGeoPayload($responses['ipapi']->ok() ? $responses['ipapi']->json() : null, 'ipapi'),
+            ];
+
+            foreach ($providers as $geo) {
+                if (!empty($geo['country'])) {
+                    return $geo;
                 }
             }
         } catch (\Exception $e) {
-            // Fallback below
-        }
-
-        // Fallback source: ipapi (country only)
-        try {
-            $fallback = Http::timeout(8)->get('https://ipapi.co/' . $ip . '/json/');
-            if ($fallback->ok()) {
-                $data = $fallback->json();
-                return [
-                    'country' => $data['country_name'] ?? null,
-                    'country_code' => $data['country_code'] ?? null,
-                ];
-            }
-        } catch (\Exception $e) {
-            // Ignore and return empty
+            // Best-effort detection; fallback handled by manual/default country.
         }
 
         return ['country' => null, 'country_code' => null];
+    }
+
+    private function resolveClientIp(Request $request): string
+    {
+        $candidateIps = [];
+
+        $forwardedFor = (string) $request->header('X-Forwarded-For', '');
+        if ($forwardedFor !== '') {
+            foreach (explode(',', $forwardedFor) as $forwardedIp) {
+                $candidateIps[] = trim($forwardedIp);
+            }
+        }
+
+        $candidateIps[] = (string) $request->header('CF-Connecting-IP', '');
+        $candidateIps[] = (string) $request->header('X-Real-IP', '');
+        $candidateIps[] = (string) $request->ip();
+
+        foreach ($candidateIps as $ip) {
+            if (filter_var($ip, FILTER_VALIDATE_IP)) {
+                return $ip;
+            }
+        }
+
+        return (string) $request->ip();
+    }
+
+    private function isPublicIp(string $ip): bool
+    {
+        if (!filter_var($ip, FILTER_VALIDATE_IP)) {
+            return false;
+        }
+
+        if (in_array($ip, ['127.0.0.1', '::1'], true)) {
+            return false;
+        }
+
+        return (bool) filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE);
+    }
+
+    private function normalizeGeoPayload(?array $payload, string $provider): array
+    {
+        if (empty($payload)) {
+            return ['country' => null, 'country_code' => null];
+        }
+
+        $country = null;
+        $countryCode = null;
+
+        if ($provider === 'ip_api' && ($payload['status'] ?? null) === 'success') {
+            $country = $payload['country'] ?? null;
+            $countryCode = $payload['countryCode'] ?? null;
+        }
+
+        if ($provider === 'ipwhois' && ($payload['success'] ?? false) === true) {
+            $country = $payload['country'] ?? null;
+            $countryCode = $payload['country_code'] ?? null;
+        }
+
+        if ($provider === 'ipapi' && empty($payload['error'])) {
+            $country = $payload['country_name'] ?? null;
+            $countryCode = $payload['country_code'] ?? null;
+        }
+
+        $country = trim((string) $country);
+        $countryCode = strtoupper(trim((string) $countryCode));
+
+        if ($country === '') {
+            return ['country' => null, 'country_code' => null];
+        }
+
+        if ($countryCode === '') {
+            $countryCode = (string) ($this->resolveCountryCodeByCountryName($country) ?? '');
+        }
+
+        return [
+            'country' => $country,
+            'country_code' => $countryCode !== '' ? $countryCode : null,
+        ];
+    }
+
+    private function resolveCountryCodeByCountryName(string $country): ?string
+    {
+        $country = trim($country);
+        if ($country === '') {
+            return null;
+        }
+
+        if (strcasecmp($country, 'Singapore') === 0) {
+            return 'SG';
+        }
+
+        try {
+            $response = Http::timeout(3)->get('https://restcountries.com/v3.1/name/' . rawurlencode($country), [
+                'fullText' => 'true',
+                'fields' => 'cca2',
+            ]);
+
+            if ($response->ok()) {
+                $data = $response->json();
+                if (is_array($data) && !empty($data[0]['cca2'])) {
+                    return strtoupper((string) $data[0]['cca2']);
+                }
+            }
+        } catch (\Exception $e) {
+            // Optional enrichment only.
+        }
+
+        return null;
     }
 
     private function generate_email_verification_key()

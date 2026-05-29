@@ -55,8 +55,9 @@
                                     <thead>
                                     <tr>
                                         <th scope="col" class="all">{{__('Email')}}</th>
-                                        <th scope="col" class="desktop">{{__('Coin amount')}}</th>
-                                        <th scope="col" class="desktop">{{__('Payable Coin')}}</th>
+                                        <th scope="col" class="desktop">{{__('OBX To Receive')}}</th>
+                                        <th scope="col" class="desktop">{{__('Payable Coin Amount')}}</th>
+                                        <th scope="col" class="desktop">{{__('Stable Coin Paid (USDT)')}}</th>
                                         <th scope="col" class="desktop">{{__('Payment Type')}}</th>
                                         <th scope="col" class="desktop">{{__('Address')}}</th>
                                         <th scope="col" class="all">{{__('Date')}}</th>
@@ -84,8 +85,9 @@
                                     <thead>
                                     <tr>
                                         <th scope="col" class="all">{{__('Email')}}</th>
-                                        <th scope="col" class="desktop">{{__('Coin Amount')}}</th>
-                                        <th scope="col" class="desktop">{{__('Payable Coin')}}</th>
+                                        <th scope="col" class="desktop">{{__('OBX To Receive')}}</th>
+                                        <th scope="col" class="desktop">{{__('Payable Coin Amount')}}</th>
+                                        <th scope="col" class="desktop">{{__('Stable Coin Paid (USDT)')}}</th>
                                         <th scope="col" class="desktop">{{__('Payment Type')}}</th>
                                         <th scope="col" class="desktop">{{__('Address')}}</th>
                                         <th scope="col" class="all">{{__('Date')}}</th>
@@ -111,8 +113,9 @@
                                     <thead>
                                     <tr>
                                         <th scope="col" class="all">{{__('Email')}}</th>
-                                        <th scope="col" class="desktop">{{__('Coin Amount')}}</th>
-                                        <th scope="col" class="desktop">{{__('Payable Coin')}}</th>
+                                        <th scope="col" class="desktop">{{__('OBX To Receive')}}</th>
+                                        <th scope="col" class="desktop">{{__('Payable Coin Amount')}}</th>
+                                        <th scope="col" class="desktop">{{__('Stable Coin Paid (USDT)')}}</th>
                                         <th scope="col" class="desktop">{{__('Payment Type')}}</th>
                                         <th scope="col" class="desktop">{{__('Address')}}</th>
                                         <th scope="col" class="all">{{__('Date')}}</th>
@@ -138,7 +141,7 @@
                     serverSide: true,
                     pageLength: 10,
                     responsive: true,
-                    order: [5, 'desc'],
+                    order: [6, 'desc'],
                     autoWidth: false,
                     ajax: '{{route('adminPendingCoinOrder')}}',
                     language: {
@@ -149,8 +152,9 @@
                     },
                     columns: [
                         {"data": "email","orderable": true},
-                        {"data": "coin","orderable": true},
-                        {"data": "btc","orderable": true},
+                        {"data": "obx_to_receive","orderable": false},
+                        {"data": "payable_coin_amount","orderable": false},
+                        {"data": "stable_coin_paid","orderable": false},
                         {"data": "payment_type","orderable": false},
                         {"data": "address","orderable": true},
                         {"data": "created_at","orderable": true},
@@ -165,7 +169,7 @@
                     serverSide: true,
                     pageLength: 25,
                     responsive: true,
-                    order: [5, 'desc'],
+                    order: [6, 'desc'],
                     autoWidth: false,
                     ajax: '{{route('adminApprovedOrder')}}',
                     language: {
@@ -175,11 +179,12 @@
                         }
                     },
                     columns: [
-                        {"data": "email"},
-                        {"data": "coin"},
-                        {"data": "btc"},
+                        {"data": "email", "orderable": true},
+                        {"data": "obx_to_receive", "orderable": false},
+                        {"data": "payable_coin_amount", "orderable": false},
+                        {"data": "stable_coin_paid", "orderable": false},
                         {"data": "payment_type","orderable": false},
-                        {"data": "address"},
+                        {"data": "address", "orderable": true},
                         {"data": "created_at","orderable": true},
                     ]
                 });
@@ -191,7 +196,7 @@
                     serverSide: true,
                     pageLength: 10,
                     responsive: true,
-                    order: [5, 'desc'],
+                    order: [6, 'desc'],
                     autoWidth: false,
                     ajax: '{{route('adminRejectedOrder')}}',
                     language: {
@@ -201,11 +206,12 @@
                         }
                     },
                     columns: [
-                        {"data": "email"},
-                        {"data": "coin"},
-                        {"data": "btc"},
+                        {"data": "email", "orderable": true},
+                        {"data": "obx_to_receive", "orderable": false},
+                        {"data": "payable_coin_amount", "orderable": false},
+                        {"data": "stable_coin_paid", "orderable": false},
                         {"data": "payment_type","orderable": false},
-                        {"data": "address"},
+                        {"data": "address", "orderable": true},
                         {"data": "created_at","orderable": true},
                     ]
                 });

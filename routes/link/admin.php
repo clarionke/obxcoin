@@ -152,6 +152,7 @@ Route::group(['prefix'=>'admin','namespace'=>'admin','middleware'=> ['auth','adm
     Route::post('airdrop/{id}/update',         'AirdropController@update')->name('admin.airdrop.update');
     Route::post('airdrop/{id}/reveal-fee',     'AirdropController@revealFee')->name('admin.airdrop.revealFee');
     Route::get('airdrop/{id}/toggle-active',   'AirdropController@toggleActive')->name('admin.airdrop.toggleActive');
+    Route::get('airdrop/{id}/stats',           'AirdropController@stats')->name('admin.airdrop.stats');
     Route::get('airdrop/{id}/claims',          'AirdropController@claims')->name('admin.airdrop.claims');
     Route::get('airdrop/{id}/unlocks',         'AirdropController@unlocks')->name('admin.airdrop.unlocks');
 

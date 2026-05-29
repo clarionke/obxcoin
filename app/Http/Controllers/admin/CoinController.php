@@ -48,8 +48,14 @@ class CoinController extends Controller
                 ->addColumn('email', function ($dpst) {
                     return isset($dpst->user()->first()->email) ? $dpst->user()->first()->email : '';
                 })
-                ->addColumn('btc', function ($dpst) {
-                    return $dpst->btc.' '.find_coin_type($dpst->coin_type);
+                ->addColumn('obx_to_receive', function ($dpst) {
+                    return $this->formatObxToReceive($dpst);
+                })
+                ->addColumn('payable_coin_amount', function ($dpst) {
+                    return $this->formatPayableCoinAmount($dpst);
+                })
+                ->addColumn('stable_coin_paid', function ($dpst) {
+                    return $this->formatStableCoinPaid($dpst);
                 })
                 ->addColumn('action', function ($wdrl) {
                     $action = '<ul>';
@@ -85,8 +91,14 @@ class CoinController extends Controller
                 ->addColumn('email', function ($dpst) {
                     return $dpst->user()->first()->email;
                 })
-                ->addColumn('btc', function ($dpst) {
-                    return $dpst->btc.' '.find_coin_type($dpst->coin_type);
+                ->addColumn('obx_to_receive', function ($dpst) {
+                    return $this->formatObxToReceive($dpst);
+                })
+                ->addColumn('payable_coin_amount', function ($dpst) {
+                    return $this->formatPayableCoinAmount($dpst);
+                })
+                ->addColumn('stable_coin_paid', function ($dpst) {
+                    return $this->formatStableCoinPaid($dpst);
                 })
                 ->rawColumns(['payment_type'])
                 ->make(true);
@@ -115,8 +127,14 @@ class CoinController extends Controller
                 ->addColumn('email', function ($dpst) {
                     return $dpst->user()->first()->email;
                 })
-                ->addColumn('btc', function ($dpst) {
-                    return $dpst->btc.' '.find_coin_type($dpst->coin_type);
+                ->addColumn('obx_to_receive', function ($dpst) {
+                    return $this->formatObxToReceive($dpst);
+                })
+                ->addColumn('payable_coin_amount', function ($dpst) {
+                    return $this->formatPayableCoinAmount($dpst);
+                })
+                ->addColumn('stable_coin_paid', function ($dpst) {
+                    return $this->formatStableCoinPaid($dpst);
                 })
                 ->editColumn('created_at', function ($dpst) {
                     return $dpst->created_at;
@@ -341,6 +359,52 @@ class CoinController extends Controller
         } else {
             return response()->json(['message'=>__('Coin not found')]);
         }
+    }
+
+    private function formatObxToReceive($history)
+    {
+        $amount = (float) ($history->coin ?? 0);
+        if ($amount <= 0) {
+            $amount = (float) ($history->requested_amount ?? 0);
+        }
+
+        return $this->formatAmount($amount, 8).' '.DEFAULT_COIN_TYPE;
+    }
+
+    private function formatPayableCoinAmount($history)
+    {
+        $payableAmount = 0;
+        $payableCurrency = strtoupper(trim((string) ($history->nowpayments_pay_currency ?? $history->coin_type ?? '')));
+
+        if (!empty($history->nowpayments_pay_amount) && is_numeric($history->nowpayments_pay_amount)) {
+            $payableAmount = (float) $history->nowpayments_pay_amount;
+        } elseif (!empty($history->btc) && is_numeric($history->btc) && (float) $history->btc > 0) {
+            $payableAmount = (float) $history->btc;
+        } elseif (!empty($history->doller) && is_numeric($history->doller)) {
+            $payableAmount = (float) $history->doller;
+            if ($payableCurrency === '') {
+                $payableCurrency = 'USDT';
+            }
+        }
+
+        if ($payableCurrency === '') {
+            $payableCurrency = 'USDT';
+        }
+
+        return $this->formatAmount($payableAmount, 8).' '.$payableCurrency;
+    }
+
+    private function formatStableCoinPaid($history)
+    {
+        return $this->formatAmount((float) ($history->doller ?? 0), 2).' USDT';
+    }
+
+    private function formatAmount($amount, $decimals = 8)
+    {
+        $formatted = number_format((float) $amount, (int) $decimals, '.', '');
+        $formatted = rtrim(rtrim($formatted, '0'), '.');
+
+        return $formatted === '' ? '0' : $formatted;
     }
 
 

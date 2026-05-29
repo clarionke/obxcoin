@@ -121,6 +121,12 @@
                                                         </button>
                                                     </a>
 
+                                                    <a href="{{ route('admin.airdrop.stats', $c->id) }}">
+                                                        <button class="dropdown-item" type="button">
+                                                            <i class="fa fa-bar-chart mr-1"></i> {{ __('Stats') }}
+                                                        </button>
+                                                    </a>
+
                                                     <a href="{{ route('admin.airdrop.unlocks', $c->id) }}">
                                                         <button class="dropdown-item" type="button">
                                                             <i class="fa fa-key mr-1"></i> {{ __('Unlocks') }}

@@ -14,6 +14,9 @@
                 </ul>
             </div>
             <div class="col-sm-3 text-right">
+                <a class="add-btn theme-btn mr-2" href="{{ route('admin.airdrop.stats', $campaign->id) }}">
+                    <i class="fa fa-bar-chart"></i> {{ __('Stats') }}
+                </a>
                 <a class="add-btn theme-btn" href="{{ route('admin.airdrop.index') }}">
                     <i class="fa fa-arrow-left"></i> {{ __('Back') }}
                 </a>

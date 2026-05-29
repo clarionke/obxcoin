@@ -1,0 +1,2423 @@
+
+  [30;43;1m WARN [39;49;22m Your XML configuration validates against a deprecated schema. Migrate your XML configuration using "--migrate-configuration"!
+
+   PASS  Tests\Unit\BlockchainServiceTest
+  ✓ usd rate converts correctly to contract rate                                  9.07s  
+  ✓ hex to decimal converts correctly                                             0.05s  
+  ✓ zero usd rate returns zero contract rate                                      0.08s  
+  ✓ decode tokens purchased log extracts correct fields                           0.06s  
+
+   PASS  Tests\Unit\ExampleTest
+  ✓ basic test                                                                    3.36s  
+
+   PASS  Tests\Unit\GaslessSponsorshipServiceTest
+  ✓ quote returns eligible when enabled and wallet needs topup                    2.65s  
+  ✓ sponsor creates broadcasted record when transfer succeeds                     1.05s  
+
+   PASS  Tests\Unit\OBXTokenomicsTest
+  ✓ initial supply is exactly 100 million obx                                     0.05s  
+  ✓ burn floor is exactly 41 million obx                                          0.06s  
+  ✓ total tokens to be burned is 59 million obx                                   0.07s  
+  ✓ burn floor plus total burned equals initial supply                            0.08s  
+  ✓ burned amount is 59 percent of initial supply                                 0.10s  
+  ✓ remaining supply is 41 percent of initial supply                              0.07s  
+  ✓ burn fee bps equals 0 05 percent                                              0.08s  
+  ✓ burn amount per transfer is correct                                           0.10s  
+  ✓ recipient receives amount minus burn                                          0.08s  
+  ✓ burn is capped when supply is near floor                                      0.10s  
+  ✓ burn produces zero when supply already at floor                               0.06s  
+  ✓ burn produces zero when supply is below floor                                 0.06s  
+  ✓ simulated burn never drops supply below floor                                 0.63s  
+  ✓ maximum tokens ever burned cannot exceed 59 million                           0.07s  
+
+   PASS  Tests\Unit\StakingMathTest
+  ✓ burn on stake 100 bps of 100 obx equals 1 obx                                 0.08s  
+  ✓ net staked after 100 bps burn is 99 obx                                       0.04s  
+  ✓ burn on stake with 0 bps results in zero burn                                 0.04s  
+  ✓ burn on stake at max 1000 bps equals 10 percent                               0.04s  
+  ✓ net staked at max burn is 90 percent of gross                                 0.06s  
+  ✓ apy reward 1000 obx 500bps 30days is correct                                  0.07s  
+  ✓ pro rata apy half duration gives half reward                                  0.06s  
+  ✓ elapsed capped at duration prevents over reward                               0.06s  
+  ✓ zero apy gives zero reward                                                    0.04s  
+  ✓ burn on unstake 200 bps of 990 obx equals 19 point 8                          0.05s  
+  ✓ burn on unstake with 0 bps is zero                                            0.07s  
+  ✓ total return is net minus burn unstake plus reward                            0.08s  
+  ✓ total return is always less than gross when burns exceed reward               0.06s  
+  ✓ full round trip stake 100 1pct burn in 30d 5pct apy 2pct burn out             0.05s  
+
+   PASS  Tests\Unit\Web3PresaleMathTest
+  ✓ usdt 100 at rate 10000 obx per usdt gives 1 million obx                       0.07s  
+  ✓ usdt 1 at rate 1 obx per usdt gives 1 obx                                     0.06s  
+  ✓ usdt 0 gives 0 obx                                                            0.07s  
+  ✓ rate 0 obx per usdt gives 0 obx for any usdt amount                           0.06s  
+  ✓ bonus bps 500 on 1000 obx gives 50 obx                                        0.07s  
+  ✓ bonus bps 0 gives zero bonus                                                  0.06s  
+  ✓ total obx equals base plus bonus                                              0.06s  
+  ✓ phase fee bps 100 on 1000 obx gives 10 obx fee                                0.06s  
+  ✓ burn fee is 0 05 percent of transfer amount                                   0.06s  
+  ✓ apply burn fee reduces supply correctly                                       0.07s  
+  ✓ burn stops when supply is exactly at burn floor                               0.06s  
+  ✓ burn stops when supply is below burn floor                                    0.06s  
+  ✓ partial burn at burn floor boundary does not overshoot                        0.06s  
+  ✓ total burned over lifetime cannot exceed 59 million obx                       0.06s  
+  ✓ purchase that exceeds phase cap would be rejected                             0.07s  
+  ✓ purchase exactly at phase cap is allowed                                      0.08s  
+  ✓ zero obx purchase should not be credited                                      0.07s  
+  ✓ max possible obx allocation fits in bcmath string                             0.06s  
+  ✓ summing obx allocations does not overflow bcmath                              0.06s  
+  ✓ referral bonus 2 percent on 100 o b x gives 2 o b x                           0.06s  
+  ✓ referral bonus stacks additively with phase bonus                             0.06s  
+  ✓ rate 0 01 usdt per obx gives 100 obx per usdt exact                           0.06s  
+  ✓ float rounding does not occur in bcmath division                              0.06s  
+
+   PASS  Tests\Feature\AdminImpersonationTest
+  ✓ admin can start impersonating a regular user                                  1.64s  
+  ✓ impersonation stores admin id in session                                      0.08s  
+  ✓ admin cannot impersonate another admin                                        0.09s  
+  ✓ regular user cannot access impersonate route                                  0.27s  
+  ✓ stop impersonating restores admin session                                     0.09s  
+  ✓ stop impersonating clears session key                                         0.15s  
+  ✓ stop impersonating without session redirects safely                           0.07s  
+  ✓ impersonating a nonexistent user redirects with error                         0.07s  
+  ✓ impersonation success flash message is set                                    0.08s  
+  ✓ stop impersonating success flash message is set                               0.09s  
+
+   PASS  Tests\Feature\AirdropTest
+  ✓ unauthenticated user cannot view airdrop dashboard                            0.17s  
+  ✓ unauthenticated user cannot claim                                             0.09s  
+  ✓ unauthenticated user cannot access admin airdrop                              0.11s  
+  ✓ regular user cannot access admin airdrop                                      0.08s  
+  ✓ admin can view airdrop campaign list                                          2.99s  
+  ✓ admin can create a campaign                                                   0.55s  
+  ✓ admin cannot edit a campaign that has started                                 0.08s  
+  ✓ admin can toggle campaign active status                                       0.10s  
+  ✓ admin cannot reveal fee before campaign ends                                  0.09s  
+  ✓ admin can reveal fee after campaign ends                                      0.69s  
+  ✓ admin cannot reveal fee twice                                                 0.10s  
+  ✓ user can claim airdrop during live campaign                                   0.16s  
+  ✓ user cannot claim twice on the same day                                       0.11s  
+  ✓ user cannot claim before campaign starts                                      0.09s  
+  ✓ user cannot claim after campaign ends                                         0.09s  
+  ✓ locked balance accumulates across multiple claims                             0.10s  
+  ✓ different users have isolated claim balances                                  0.11s  
+  ✓ user cannot unlock before campaign ends                                       0.10s  
+  ✓ user cannot unlock before fee is revealed                                     0.09s  
+  ✓ user with no claims cannot unlock                                             0.11s  
+  ✓ user can request unlock after campaign ends and fee revealed                  0.11s  
+  ✓ duplicate unlock request returns info not error                               0.11s  
+  ✓ airdrop dashboard shows claim button for live campaign                        1.89s  
+  ✓ airdrop dashboard shows already claimed state                                 0.16s  
+  ✓ streak bonus is awarded on nth consecutive day                                0.14s  
+  ✓ streak bonus is not awarded before milestone                                  0.16s  
+  ✓ streak resets when a day is missed                                            0.11s  
+  ✓ confirm unlock credits user wallet balance                                    0.58s  
+
+   PASS  Tests\Feature\AuthBoundaryTest
+  ✓ unauthenticated user cannot access dashboard                                  0.40s  
+  ✓ unauthenticated user cannot access my pocket                                  0.30s  
+  ✓ unauthenticated user cannot access buy coin page                              0.17s  
+  ✓ unauthenticated user cannot post buy coin                                     0.08s  
+  ✓ api wallet list requires authentication                                       0.61s  
+  ✓ api wallet generate requires authentication                                   0.10s  
+  ✓ api wallet refresh requires authentication                                    0.12s  
+  ✓ unauthenticated user cannot access admin users page                           0.13s  
+  ✓ regular user cannot access admin user list                                    0.15s  
+  ✓ regular user cannot access admin dashboard                                    0.22s  
+  ✓ regular user cannot access admin coin settings                                0.24s  
+  ✓ regular user cannot impersonate other users                                   0.92s  
+  ✓ admin cannot impersonate another admin                                        0.17s  
+  ✓ impersonating invalid encrypted id does not crash                             0.15s  
+  ✓ withdrawal callback requires authentication                                   0.12s  
+  ✓ deposit callback requires authentication                                      0.11s  
+  ✓ authenticated user can access dashboard                                       0.30s  
+  ✓ authenticated user can access buy coin page                                   0.76s  
+  ✓ authenticated admin can access admin dashboard                                0.49s  
+  ✓ logged out user cannot reach protected route                                  0.28s  
+  ✓ buy coin post without csrf token is rejected                                  0.35s  
+  ✓ withdraw balance post without csrf token is rejected for unauthenticated use… 0.07s  
+
+   PASS  Tests\Feature\BuyCoinByAddressLookupTest
+  ✓ it resolves numeric nowpayments payment id before local numeric id            0.53s  
+
+   FAIL  Tests\Feature\BuyCoinCompletedPageTest
+  ⨯ confirmed purchase renders completed page with amount                         2.24s  
+
+   FAIL  Tests\Feature\CoWalletUserManagementTest
+  ✓ creator can add user to multisig wallet by email                              0.64s  
+  ✓ non creator cannot add user to multisig wallet                                0.13s  
+  ✓ creator can create multiple team wallets with same coin type and unique iden… 0.41s  
+  ✓ team wallet obx actions show withdraw and hide give request actions           0.57s  
+  ✓ team wallet list shows uid column for obx team wallets                        0.19s  
+  ⨯ co wallet member can generate address for team xpocket                        0.11s  
+
+   PASS  Tests\Feature\ExampleTest
+  ✓ basic test                                                                    4.93s  
+
+   PASS  Tests\Feature\MultiSigSecurityGovernanceTest
+  ✓ creator can assign signatory permission to co user                            0.12s  
+  ✓ non signatory cannot approve pending withdrawal                               0.28s  
+  ✓ signatory change request is applied after required approval                   0.22s  
+  ✓ expired pending withdrawals are auto cancelled by command                     2.63s  
+  ✓ signatory cannot approve expired pending withdrawal                           0.13s  
+
+   FAIL  Tests\Feature\MultiSignatureDashboardTest
+  ⨯ dashboard shows multisig panel when feature is enabled                        0.22s  
+  ✓ dashboard hides multisig panel when feature is disabled                       0.19s  
+  ✓ dashboard only lists pending requests that user has not approved              0.21s  
+
+   FAIL  Tests\Feature\NowPaymentsOnchainFinalizationTest
+  ✓ finished ipn marks delivery failed and does not credit when onchain transfer… 0.27s  
+  ⨯ finished ipn finalizes success after onchain delivery and credits wallet      0.17s  
+
+   FAIL  Tests\Feature\NowPaymentsPaymentStatusSyncTest
+  ⨯ status endpoint auto syncs finished payment and credits default wallet        0.50s  
+  ⨯ status endpoint uses default obx wallet history when bsc wallet is missing    0.15s  
+
+   PASS  Tests\Feature\ObxExternalWithdrawalRollbackTest
+  ✓ obx external withdrawal marks success and debits balance when chain send suc… 0.15s  
+  ✓ obx external withdrawal rolls back wallet and history when chain send fails   0.09s  
+  ✓ user can withdraw from personal wallet to a team wallet where they are a mem… 0.09s  
+
+   PASS  Tests\Feature\ObxWalletTest
+  ✓ user gets a primary wallet automatically                                      0.13s  
+  ✓ primary wallet label defaults to primary wallet                               0.08s  
+  ✓ user can list wallets via api                                                 0.08s  
+  ✓ api never exposes private key in wallet list                                  0.10s  
+  ✓ user can generate additional wallet via api                                   0.08s  
+  ✓ generated wallet label defaults to wallet when not provided                   0.11s  
+  ✓ user can update wallet label                                                  0.09s  
+  ✓ label must not exceed 100 characters                                          0.09s  
+  ✓ label must not be empty                                                       0.08s  
+  ✓ user cannot update another users wallet label                                 0.12s  
+  ✓ wallet balance refresh returns balance                                        0.13s  
+  ✓ wallet balance refresh endpoint returns json                                  0.13s  
+  ✓ user cannot refresh another users wallet balance                              0.11s  
+  ✓ wallet addresses are unique per address field                                 0.12s  
+  ✓ explorer url matches configured chain                                         0.08s  
+
+   PASS  Tests\Feature\PaymentGatewayTest
+  ✓ list coins returns active deposit coins                                       0.20s  
+  ✓ list coins does not require authentication                                    0.13s  
+  ✓ merchant can create payment order                                             0.94s  
+  ✓ create order requires valid coin type                                         0.09s  
+  ✓ create order requires positive amount                                         0.11s  
+  ✓ create order rejects duplicate merchant order id                              0.09s  
+  ✓ key with allowed coins restriction rejects other coins                        0.09s  
+  ✓ create order respects custom expiry minutes                                   0.08s  
+  ✓ merchant can get own order                                                    0.09s  
+  ✓ merchant cannot get another merchants order                                   0.09s  
+  ✓ get order returns 404 for nonexistent uuid                                    0.10s  
+  ✓ poll status returns order status without auth                                 0.09s  
+  ✓ poll status auto expires overdue order                                        0.08s  
+  ✓ check deposit returns no deposit when none found                              0.13s  
+  ✓ check deposit does not reprocess completed order                              0.08s  
+  ✓ request without auth headers is rejected                                      0.10s  
+  ✓ request with wrong signature is rejected                                      0.18s  
+  ✓ request with expired timestamp is rejected                                    0.09s  
+  ✓ request from non whitelisted ip is rejected                                   0.09s  
+  ✓ inactive api key is rejected                                                  0.08s  
+  ✓ future timestamp within window is accepted                                    0.09s  
+  ✓ authenticated user can list own api keys                                      0.16s  
+  ✓ authenticated user can create api key                                         0.11s  
+  ✓ user cannot see another users api keys                                        0.08s  
+  ✓ authenticated user can revoke own key                                         0.09s  
+  ✓ user cannot revoke another users key                                          0.09s  
+  ✓ max 10 active keys enforced                                                   0.08s  
+  ✓ authenticated user can list own orders                                        0.14s  
+  ✓ checkout page renders for pending order                                       1.01s  
+  ✓ checkout page returns 404 for invalid uuid                                    0.11s  
+  ✓ checkout page shows completed state                                           0.09s  
+  ✓ checkout page shows expired state                                             0.12s  
+  ✓ generate credentials produces valid key format                                0.06s  
+  ✓ verify secret returns true for correct secret                                 0.07s  
+  ✓ verify secret returns false for wrong secret                                  0.09s  
+  ✓ payment order uuid is auto generated on create                                0.09s  
+  ✓ is expired returns true when past expiry                                      0.08s  
+  ✓ is expired returns false for completed order                                  0.08s  
+  ✓ checkout url returns expected format                                          0.11s  
+  ✓ to api array contains required keys                                           0.06s  
+  ✓ dispatch webhook job is queued after check completes order                    0.22s  
+
+   PASS  Tests\Feature\PresaleWebhookTest
+  ✓ webhook rejects invalid signature                                             0.14s  
+  ✓ webhook accepts valid signature and processes event                           0.12s  
+  ✓ webhook is idempotent for duplicate tx hash                                   0.11s  
+  ✓ webhook handles unknown buyer wallet gracefully                               0.07s  
+  ✓ save bsc wallet validates address format                                      0.26s  
+  ✓ save bsc wallet accepts valid address                                         0.08s  
+
+   PASS  Tests\Feature\ReferralTest
+  ✓ create referral user records parent child link                                0.13s  
+  ✓ signup bonus pays direct parent onchain                                       0.13s  
+  ✓ signup bonus is capped at five levels                                         0.16s  
+  ✓ signup bonus skips credit when onchain fails                                  0.11s  
+  ✓ withdrawal referral is disabled                                               0.11s  
+  ✓ buy referral pays direct parent onchain                                       0.11s  
+  ✓ buy referral is capped at five levels                                         0.17s  
+  ✓ referral repository builds upline and downline tree                           0.09s  
+
+   PASS  Tests\Feature\RegistrationWalletProvisioningTest
+  ✓ api signup creates only default obxcoin xpocket                               2.27s  
+
+   FAIL  Tests\Feature\RetryFailedObxDeliveriesCommandTest
+  ⨯ command retries failed delivery and finalizes order                           0.20s  
+
+   PASS  Tests\Feature\SecurityHeadersTest
+  ✓ login page has x content type options header                                  0.32s  
+  ✓ login page has x frame options sameorigin                                     0.09s  
+  ✓ login page has xss protection header                                          0.07s  
+  ✓ login page has referrer policy header                                         0.08s  
+  ✓ login page has permissions policy header                                      0.09s  
+  ✓ authenticated dashboard has security headers                                  0.16s  
+  ✓ api unauthenticated request has security headers                              0.06s  
+  ✓ webhook endpoint has security headers                                         0.06s  
+  ✓ responses do not expose x powered by php version                              0.08s  
+  ✓ responses do not expose server software header                                0.06s  
+  ✓ http request does not set hsts header                                         0.08s  
+
+   PASS  Tests\Feature\StakingTest
+  ✓ unauthenticated user cannot view staking index                                0.19s  
+  ✓ unauthenticated user cannot post confirm stake                                0.07s  
+  ✓ authenticated user can view staking index                                     0.42s  
+  ✓ user cannot stake with invalid pool id                                        0.09s  
+  ✓ user cannot stake with missing wallet address                                 0.09s  
+  ✓ user cannot stake with malformed tx hash                                      0.08s  
+  ✓ user can confirm a valid stake and two transactions are recorded              0.14s  
+  ✓ user cannot stake with duplicate tx hash                                      0.12s  
+  ✓ confirm stake with zero burn bps creates only stake in transaction            0.11s  
+  ✓ user cannot unstake unknown position                                          0.11s  
+  ✓ user cannot unstake another users position                                    0.09s  
+  ✓ user can confirm unstake and position is marked unstaked                      0.10s  
+  ✓ admin can view staking index                                                  0.17s  
+  ✓ admin can view staking pools                                                  0.27s  
+  ✓ admin can save a new pool                                                     0.08s  
+  ✓ admin can update an existing pool                                             0.09s  
+
+   PASS  Tests\Feature\Web3SecurityTest
+  ✓ wallet list never contains encrypted private key field                        0.10s  
+  ✓ wallet generation response never contains private key                         0.09s  
+  ✓ balance refresh response never contains private key                           0.07s  
+  ✓ user b cannot read user a wallets via api                                     0.08s  
+  ✓ user b cannot refresh user a wallet balance                                   0.08s  
+  ✓ user b cannot relabel user a wallet                                           0.09s  
+  ✓ webhook rejects request with no signature header                              0.07s  
+  ✓ webhook rejects a wrong hmac signature                                        0.06s  
+  ✓ webhook rejects when secret is not configured                                 0.07s  
+  ✓ webhook rejects tampered payload where only signature is reused               0.08s  
+  ✓ webhook does not double process same tx hash                                  0.07s  
+  ✓ wallet label containing script tag is stored as plain text not executed       0.09s  
+  ✓ wallet label cannot exceed 100 characters                                     0.13s  
+  ✓ wallet label cannot be empty string                                           0.06s  
+  ✓ wallet label cannot be null                                                   0.06s  
+  ✓ refresh balance on nonexistent wallet returns 404                             0.08s  
+  ✓ update label on nonexistent wallet returns 404                                0.09s  
+  ✓ explorer url uses bscscan for chain 56                                        0.09s  
+  ✓ explorer url uses bscscan testnet for chain 97                                0.13s  
+  ✓ cannot insert duplicate wallet address                                        0.11s  
+  ✓ unauthenticated user cannot list wallets                                      0.09s  
+  ✓ unauthenticated user cannot generate wallet                                   0.11s  
+  ✓ wallet count reflects only requesting users wallets                           0.10s  
+  ─────────────────────────────────────────────────────────────────────────────────────  
+   FAILED  Tests\Feature\BuyCoinCompletedPageTest > confirmed purchase renders comple…   
+  Failed asserting that 41.979 matches expected 42.0.
+
+  at tests\Feature\BuyCoinCompletedPageTest.php:68
+     64▕         $response = $this->actingAs($user)->get(route('buyCoinCompleted', ['address' => 'np-done-42']));
+     65▕ 
+     66▕         $response->assertOk();
+     67▕         $response->assertViewIs('user.buy_coin.payment_completed');
+  ➜  68▕         $response->assertViewHas('creditedAmount', 42.0);
+     69▕         $response->assertSee('OBX Credited Successfully');
+     70▕     }
+     71▕ }
+     72▕
+
+  ─────────────────────────────────────────────────────────────────────────────────────  
+   FAILED  Tests\Feature\CoWalletUserManagementTest > co wallet member can generate a…   
+  Session has unexpected key [dismiss].
+Failed asserting that true is false.
+
+  at tests\Feature\CoWalletUserManagementTest.php:313
+    309▕ 
+    310▕         $response = $this->actingAs($member)->get(route('generateNewAddress', ['wallet_id' => $walletId]));
+    311▕ 
+    312▕         $response->assertRedirect();
+  ➜ 313▕         $response->assertSessionMissing('dismiss');
+    314▕     }
+    315▕ }
+    316▕
+
+  ─────────────────────────────────────────────────────────────────────────────────────  
+   FAILED  Tests\Feature\MultiSignatureDashboardTest > dashboard shows multisig panel…   
+  Failed asserting that '<!DOCTYPE HTML>\r\n
+<html class="no-js" lang="en">\r\n
+<head>\r\n
+    <!-- Required meta tags -->\r\n
+    <meta charset="utf-8">\r\n
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">\r\n
+    <meta http-equiv="x-ua-compatible" content="ie=edge">\r\n
+    <meta name="description" content="The Highly Secured Bitcoin XPocket">\r\n
+    <meta name="viewport" content="width=device-width, initial-scale=1">\r\n
+    <meta property="og:type" content="article" />\r\n
+    <meta property="og:title" content="OBXCoin"/>\r\n
+    <meta property="og:image" content="http://localhost/assets/user/images/logo.svg">\r\n
+    <meta property="og:site_name" content="Cpoket"/>\r\n
+    <meta property="og:url" content="http://localhost/user/dashboard"/>\r\n
+    <meta property="og:type" content="OBXCoin"/>\r\n
+    <meta itemscope itemtype="http://localhost/user/dashboard/OBXCoin" />\r\n
+    <meta itemprop="headline" content="OBXCoin" />\r\n
+    <meta itemprop="image" content="http://localhost/assets/user/images/logo.svg" />\r\n
+    <!-- Bootstrap CSS -->\r\n
+    <link rel="stylesheet" href="http://localhost/assets/user/css/bootstrap.min.css">\r\n
+    <!-- metismenu CSS -->\r\n
+    <link rel="stylesheet" href="http://localhost/assets/user/css/metisMenu.min.css">\r\n
+    \r\n
+    <link href="http://localhost/assets/toast/vanillatoasts.css" rel="stylesheet" >\r\n
+    <!-- Datatable CSS -->\r\n
+    <link rel="stylesheet" href="http://localhost/assets/user/css/datatable/datatables.min.css">\r\n
+    <link rel="stylesheet" href="http://localhost/assets/user/css/datatable/dataTables.bootstrap.min.css">\r\n
+    <link rel="stylesheet" href="http://localhost/assets/user/css/datatable/dataTables.jqueryui.min.css">\r\n
+    <link rel="stylesheet" href="http://localhost/assets/user/css/datatable/jquery.dataTables.min.css">\r\n
+\r\n
+    <link rel="stylesheet" href="http://localhost/assets/user/css/jquery.scrollbar.css">\r\n
+    <link rel="stylesheet" href="http://localhost/assets/user/css/font-awesome.min.css">\r\n
+\r\n
+    <link rel="stylesheet" href="http://localhost/assets/user/css/jquery.countdown.css">\r\n
+\r\n
+\r\n
+    \r\n
+    <link rel="stylesheet" href="http://localhost/assets/dropify/dropify.css">\r\n
+\r\n
+    <!-- Style CSS -->\r\n
+    <link rel="stylesheet" href="http://localhost/assets/user/style.css">\r\n
+    <!-- Responsive CSS -->\r\n
+    <link rel="stylesheet" href="http://localhost/assets/user/css/responsive.css">\r\n
+    <!-- Google Fonts – Inter -->\r\n
+    <link rel="preconnect" href="https://fonts.googleapis.com">\r\n
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\r\n
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">\r\n
+    <style>\r\n
+    /* ================================================================\r\n
+       OBXCoin – Dark Mode Dashboard  |  v3\r\n
+    ================================================================ */\r\n
+    :root {\r\n
+        --sidebar-w:    260px;\r\n
+        --topbar-h:     56px;\r\n
+        --dark:         #0d1117;\r\n
+        --dark2:        #161b22;\r\n
+        --dark3:        #1c2333;\r\n
+        --dark4:        #21262d;\r\n
+        --accent:       #6366f1;\r\n
+        --accent-h:     #4f46e5;\r\n
+        --accent-glow:  rgba(99,102,241,.25);\r\n
+        --border:       rgba(255,255,255,.08);\r\n
+        --border-light: rgba(255,255,255,.05);\r\n
+        --text:         #e6edf3;\r\n
+        --text-2:       #c9d1d9;\r\n
+        --muted:        #7d8590;\r\n
+        --success:      #3fb950;\r\n
+        --warning:      #d29922;\r\n
+        --danger:       #f85149;\r\n
+        --r:            10px;\r\n
+        --r-sm:         7px;\r\n
+        --shadow:       0 1px 3px rgba(0,0,0,.3),0 2px 8px rgba(0,0,0,.2);\r\n
+        --shadow-md:    0 4px 16px rgba(0,0,0,.4);\r\n
+        --shadow-lg:    0 10px 32px rgba(0,0,0,.5);\r\n
+    }\r\n
+    *{box-sizing:border-box;}\r\n
+    html{color-scheme:dark;}\r\n
+    body,body.cp-user-body-bg{\r\n
+        font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif!important;\r\n
+        background:var(--dark)!important;\r\n
+        color:var(--text)!important;\r\n
+    }\r\n
+    /* ---- SIDEBAR — full viewport height, starts at top ---- */\r\n
+    /* style.css sets padding-top:129px — kill it explicitly */\r\n
+    .cp-user-sidebar{\r\n
+        position:fixed!important;top:0!important;left:0!important;\r\n
+        width:var(--sidebar-w)!important;height:100vh!important;\r\n
+        margin:0!important;padding:0!important;padding-top:0!important;\r\n
+        background:var(--dark2)!important;z-index:1040!important;\r\n
+        overflow:hidden!important;display:flex!important;flex-direction:column!important;\r\n
+        transition:transform .28s cubic-bezier(.4,0,.2,1)!important;\r\n
+        border-right:1px solid var(--border)!important;\r\n
+    }\r\n
+    .cp-user-sidebar.cp-user-sidebar-hide{transform:translateX(-100%)!important;}\r\n
+    /* Sidebar brand — logo + close btn, same height as topbar */\r\n
+    .sidebar-brand{\r\n
+        display:flex!important;align-items:center!important;justify-content:space-between!important;\r\n
+        padding:0 16px!important;height:var(--topbar-h)!important;min-height:var(--topbar-h)!important;\r\n
+        flex-shrink:0!important;border-bottom:1px solid var(--border)!important;\r\n
+    }\r\n
+    .sidebar-brand img{max-height:28px;max-width:120px;object-fit:contain;}\r\n
+    .sidebar-close-btn{\r\n
+        display:none;align-items:center;justify-content:center;\r\n
+        width:26px;height:26px;border-radius:6px;\r\n
+        background:rgba(255,255,255,.06);border:none;\r\n
+        color:var(--muted);cursor:pointer;font-size:12px;transition:all .15s;\r\n
+    }\r\n
+    .sidebar-close-btn:hover{background:rgba(255,255,255,.12);color:var(--text);}\r\n
+    .cp-user-sidebar .cp-user-logo,.cp-user-sidebar .nav-bottom-img,.cp-user-sidebar .mb-sidebar-toggler{display:none!important;}\r\n
+    .cp-user-sidebar-menu{flex:1;overflow-y:auto;padding:6px 0 16px;}\r\n
+    .cp-user-sidebar-menu::-webkit-scrollbar{width:2px;}\r\n
+    .cp-user-sidebar-menu::-webkit-scrollbar-thumb{background:var(--border);border-radius:1px;}\r\n
+    /* nav label */\r\n
+    .nav-section-label{\r\n
+        font-size:9.5px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;\r\n
+        color:var(--muted);padding:16px 20px 6px;\r\n
+    }\r\n
+    #metismenu,#metismenu ul{list-style:none;padding:0;margin:0;}\r\n
+    #metismenu>li{margin:1px 8px;}\r\n
+    #metismenu>li>a{\r\n
+        display:flex!important;align-items:center!important;gap:10px!important;\r\n
+        padding:9px 12px!important;border-radius:var(--r-sm)!important;\r\n
+        color:var(--muted)!important;text-decoration:none!important;\r\n
+        font-size:13px!important;font-weight:500!important;\r\n
+        transition:all .15s!important;white-space:nowrap!important;\r\n
+    }\r\n
+    #metismenu>li>a:hover{background:var(--dark4)!important;color:var(--text-2)!important;}\r\n
+    #metismenu>li.cp-user-active-page>a{\r\n
+        background:var(--accent-glow)!important;color:#a5b4fc!important;\r\n
+        border-left:3px solid var(--accent)!important;padding-left:9px!important;\r\n
+    }\r\n
+    #metismenu>li>a.arrow-icon::after{\r\n
+        content:'\f105';font-family:FontAwesome;margin-left:auto;\r\n
+        font-size:10px;opacity:.4;transition:transform .2s;\r\n
+    }\r\n
+    #metismenu>li.mm-active>a.arrow-icon::after{transform:rotate(90deg);opacity:.7;}\r\n
+    #metismenu>li>ul{padding:2px 0 4px 34px!important;margin:0 8px 2px!important;}\r\n
+    #metismenu>li>ul>li>a{\r\n
+        display:flex!important;align-items:center!important;gap:7px!important;\r\n
+        padding:6px 10px!important;border-radius:6px!important;\r\n
+        color:var(--muted)!important;font-size:12px!important;\r\n
+        text-decoration:none!important;transition:all .15s!important;\r\n
+    }\r\n
+    #metismenu>li>ul>li>a::before{content:'';width:3px;height:3px;border-radius:50%;background:currentColor;flex-shrink:0;opacity:.5;}\r\n
+    #metismenu>li>ul>li>a:hover{color:var(--text-2)!important;background:var(--dark4)!important;}\r\n
+    #metismenu>li>ul>li.cp-user-submenu-active>a{color:#a5b4fc!important;font-weight:500!important;}\r\n
+    .cp-user-side-bar-icon,.cp-user-side-bar-icon-hover{display:none!important;}\r\n
+    .nav-icon{width:18px;height:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:13px;}\r\n
+    .cp-user-active-page .nav-icon{color:#a5b4fc;}\r\n
+    /* ---- TOPBAR — sits to the right of the sidebar on desktop ---- */\r\n
+    /* Kill the original theme's min-height:130px and line-height:130px */\r\n
+    .cp-user-top-bar,\r\n
+    .cp-user-top-bar.cp-user-content-expend{\r\n
+        position:fixed!important;\r\n
+        top:0!important;\r\n
+        left:var(--sidebar-w)!important;right:0!important;\r\n
+        width:auto!important;\r\n
+        height:var(--topbar-h)!important;\r\n
+        min-height:var(--topbar-h)!important;\r\n
+        max-height:var(--topbar-h)!important;\r\n
+        line-height:1!important;\r\n
+        background:var(--dark2)!important;\r\n
+        border-bottom:1px solid var(--border)!important;\r\n
+        z-index:1030!important;\r\n
+        padding:0!important;margin:0!important;\r\n
+        overflow:visible!important;\r\n
+    }\r\n
+    /* When sidebar is hidden, topbar stretches full width */\r\n
+    .cp-user-top-bar.cp-user-content-expend{\r\n
+        left:0!important;\r\n
+    }\r\n
+    .cp-user-top-bar>.container-fluid{\r\n
+        height:var(--topbar-h)!important;\r\n
+        min-height:0!important;\r\n
+        line-height:1!important;\r\n
+        display:flex!important;align-items:center!important;\r\n
+        padding:0 3px!important;gap:4px;\r\n
+        flex-wrap:nowrap;\r\n
+    }\r\n
+    /* kill any Bootstrap row/col inside topbar that the theme injected */\r\n
+    .cp-user-top-bar .row{display:contents!important;}\r\n
+    /* hide original logo col in topbar */\r\n
+    .cp-user-top-bar .cp-user-logo{display:none!important;}\r\n
+    .topbar-left{display:flex;align-items:center;gap:8px;flex-shrink:0;}\r\n
+    /* topbar-center no longer used — stats moved into topbar-right */\r\n
+    .topbar-center{display:none!important;}\r\n
+    .topbar-right{display:flex;align-items:center;gap:6px;flex-shrink:0;margin-left:auto;overflow:visible;min-width:0;}\r\n
+    /* ---- Inline stats (always visible, next to bell) ---- */\r\n
+    .topbar-stats-inline{\r\n
+        display:flex;align-items:center;gap:4px;\r\n
+        flex-shrink:1;min-width:0;overflow:visible;\r\n
+        margin-right:4px;flex-wrap:nowrap;\r\n
+    }\r\n
+    /* Full pill style — all screen sizes */\r\n
+    .topbar-stats-inline .tb-stat{\r\n
+        padding:4px 10px;\r\n
+        flex-shrink:0;\r\n
+    }\r\n
+    /* On smaller screens keep labels, reduce font/padding */\r\n
+    @media(max-width:991px){\r\n
+        .topbar-stats-inline .tb-stat{\r\n
+            padding:3px 7px;\r\n
+        }\r\n
+        .topbar-stats-inline .tb-stat-label{font-size:8px;}\r\n
+        .topbar-stats-inline .tb-stat-sub{display:none;}\r\n
+        .topbar-stats-inline .tb-stat-val{font-size:11px;font-weight:600;}\r\n
+    }\r\n
+    @media(max-width:575px){\r\n
+        .topbar-stats-inline .tb-stat{padding:2px 5px;}\r\n
+        .topbar-stats-inline .tb-stat-label{font-size:7.5px;}\r\n
+        .topbar-stats-inline .tb-stat-val{font-size:10px;}\r\n
+    }\r\n
+    /* Live price pill */\r\n
+    .tb-stat-price{order:-1;} /* show first in the row */\r\n
+    .tb-price-val{font-size:12px;font-weight:700;color:#a5b4fc;line-height:1.2;}\r\n
+    .tb-price-change{font-size:10px;font-weight:600;line-height:1;}\r\n
+    .tb-price-change.up{color:#34d399;}\r\n
+    .tb-price-change.down{color:#f87171;}\r\n
+    .menu-bars{\r\n
+        cursor:pointer;display:inline-flex;align-items:center;justify-content:center;\r\n
+        width:34px;height:34px;border-radius:var(--r-sm);transition:background .15s;\r\n
+        background:transparent;border:none;color:var(--muted);flex-shrink:0;\r\n
+    }\r\n
+    .menu-bars:hover{background:var(--dark4);color:var(--text);}\r\n
+    .menu-bars img{width:18px;filter:invert(1);opacity:.6;}\r\n
+    /* balance pills */\r\n
+    .tb-stat{\r\n
+        display:flex;flex-direction:column;justify-content:center;\r\n
+        padding:5px 12px;background:var(--dark3);\r\n
+        border:1px solid var(--border);border-radius:50px;\r\n
+        white-space:nowrap;flex-shrink:0;min-width:0;\r\n
+    }\r\n
+    .tb-stat-label{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);line-height:1;margin-bottom:2px;}\r\n
+    .tb-stat-val{font-size:12px;font-weight:600;color:var(--text);line-height:1.2;}\r\n
+    .tb-stat-sub{font-size:10.5px;font-weight:400;color:var(--muted);line-height:1;}\r\n
+    .tb-stat-val .accent{color:#a5b4fc;}\r\n
+    .tb-badge{\r\n
+        display:inline-block;padding:2px 7px;border-radius:20px;\r\n
+        font-size:10px;font-weight:600;\r\n
+        background:var(--accent-glow);color:#a5b4fc;border:1px solid rgba(99,102,241,.3);\r\n
+    }\r\n
+    .tb-badge.warning{background:rgba(210,153,34,.15);color:#d29922;border-color:rgba(210,153,34,.3);}\r\n
+    /* drawer and toggle removed — stats are always inline */\r\n
+    .topbar-stats-mobile,.stats-toggle-btn{display:none!important;}\r\n
+    /* notification */\r\n
+    .notification-btn{\r\n
+        position:relative!important;background:var(--dark3)!important;\r\n
+        border:1px solid var(--border)!important;border-radius:50%!important;\r\n
+        width:34px!important;height:34px!important;\r\n
+        display:inline-flex!important;align-items:center!important;\r\n
+        justify-content:center!important;padding:0!important;transition:all .15s!important;\r\n
+    }\r\n
+    .notification-btn:hover{background:var(--dark4)!important;border-color:rgba(255,255,255,.15)!important;}\r\n
+    .notification-btn img{width:16px;filter:invert(1);opacity:.65;}\r\n
+    .notification-btn::after{display:none!important;}\r\n
+    .hm-notify-number{\r\n
+        position:absolute!important;top:-4px!important;right:-4px!important;\r\n
+        background:var(--danger)!important;color:#fff!important;\r\n
+        font-size:8px!important;font-weight:700!important;\r\n
+        min-width:14px!important;height:14px!important;\r\n
+        border-radius:50%!important;display:flex!important;\r\n
+        align-items:center!important;justify-content:center!important;\r\n
+        line-height:1!important;border:2px solid var(--dark2)!important;\r\n
+    }\r\n
+    .notification-list{\r\n
+        width:290px!important;background:var(--dark3)!important;\r\n
+        border:1px solid var(--border)!important;border-radius:var(--r)!important;\r\n
+        box-shadow:var(--shadow-lg)!important;padding:0!important;overflow:hidden!important;\r\n
+    }\r\n
+    .nt-title{\r\n
+        font-size:10px!important;font-weight:600!important;color:var(--muted)!important;\r\n
+        text-transform:uppercase!important;letter-spacing:.5px!important;\r\n
+        padding:10px 14px!important;background:var(--dark4)!important;\r\n
+        border-bottom:1px solid var(--border)!important;\r\n
+    }\r\n
+    .notification-list .scrollbar-inner{max-height:240px;list-style:none;padding:0;margin:0;overflow-y:auto;}\r\n
+    .notification-list .scrollbar-inner li a{\r\n
+        display:block!important;padding:10px 14px!important;font-size:12.5px!important;\r\n
+        color:var(--text-2)!important;border-bottom:1px solid var(--border-light)!important;\r\n
+        transition:background .15s!important;white-space:normal!important;\r\n
+    }\r\n
+    .notification-list .scrollbar-inner li a:hover{background:var(--dark4)!important;}\r\n
+    .notification-list .scrollbar-inner .small{color:var(--muted)!important;font-size:10.5px!important;}\r\n
+    /* profile dropdown */\r\n
+    .profile-dropdown>.btn{background:none!important;border:none!important;padding:3px!important;box-shadow:none!important;}\r\n
+    .profile-dropdown>.btn::after{display:none!important;}\r\n
+    .cp-user-avater{display:flex;align-items:center;gap:6px;}\r\n
+    .cp-user-img{width:30px;height:30px;border-radius:50%;overflow:hidden;border:2px solid var(--border);flex-shrink:0;}\r\n
+    .cp-user-img img{width:100%;height:100%;object-fit:cover;}\r\n
+    .profile-dropdown .dropdown-menu{\r\n
+        background:var(--dark3)!important;border:1px solid var(--border)!important;\r\n
+        border-radius:var(--r)!important;box-shadow:var(--shadow-lg)!important;padding:8px!important;min-width:180px!important;\r\n
+    }\r\n
+    .big-user-thumb{display:flex;justify-content:center;padding:8px 0 6px;}\r\n
+    .big-user-thumb img{width:46px;height:46px;border-radius:50%;object-fit:cover;border:2px solid var(--border);}\r\n
+    .user-name{text-align:center;padding-bottom:8px;border-bottom:1px solid var(--border);margin-bottom:6px;}\r\n
+    .user-name p{font-size:13px;font-weight:600;color:var(--text);margin:0;}\r\n
+    .profile-dropdown .dropdown-item{padding:0!important;background:none!important;border:none!important;border-radius:6px!important;margin-bottom:2px!important;}\r\n
+    .profile-dropdown .dropdown-item a{\r\n
+        display:flex;align-items:center;gap:8px;padding:7px 10px;\r\n
+        font-size:12.5px;color:var(--text-2);text-decoration:none;\r\n
+        border-radius:6px;transition:background .15s;width:100%;\r\n
+    }\r\n
+    .profile-dropdown .dropdown-item a:hover{background:var(--dark4);color:var(--text);}\r\n
+    .profile-dropdown .dropdown-item a i{width:13px;color:var(--muted);font-size:12px;}\r\n
+    /* ---- MAIN WRAPPER ---- */\r\n
+    /* Offset top by topbar, left by sidebar (both fixed) */\r\n
+    .cp-user-main-wrapper{\r\n
+        margin-left:var(--sidebar-w)!important;\r\n
+        margin-top:var(--topbar-h)!important;\r\n
+        padding:20px!important;\r\n
+        min-height:calc(100vh - var(--topbar-h))!important;\r\n
+        background:var(--dark)!important;\r\n
+        transition:margin-left .28s cubic-bezier(.4,0,.2,1)!important;\r\n
+    }\r\n
+    .cp-user-main-wrapper.cp-user-content-expend{\r\n
+        margin-left:0!important;\r\n
+        margin-top:var(--topbar-h)!important;\r\n
+    }\r\n
+    .cp-user-main-wrapper>.container-fluid{padding:0!important;}\r\n
+    .sidebar-overlay{\r\n
+        display:none;position:fixed;\r\n
+        top:0;left:0;right:0;bottom:0;\r\n
+        background:rgba(0,0,0,.65);z-index:1038;\r\n
+        pointer-events:none;\r\n
+    }\r\n
+    .sidebar-overlay.active{display:block;pointer-events:all;}\r\n
+    /* ---- CARDS ---- */\r\n
+    .card{\r\n
+        border:1px solid var(--border)!important;border-radius:var(--r)!important;\r\n
+        box-shadow:var(--shadow)!important;background:var(--dark2)!important;\r\n
+        color:var(--text)!important;\r\n
+    }\r\n
+    .cp-user-custom-card{background:var(--dark2)!important;border:1px solid var(--border)!important;border-radius:var(--r)!important;}\r\n
+    .cp-user-custom-card .card-body{padding:18px 20px!important;}\r\n
+    .cp-user-card-header-area{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;}\r\n
+    .cp-user-title h4{font-size:14px!important;font-weight:600!important;color:var(--text)!important;margin:0!important;}\r\n
+    .subtitle{font-size:11.5px!important;color:var(--muted)!important;margin-bottom:14px!important;}\r\n
+    /* ---- STAT CARDS ---- */\r\n
+    .status-card{border:none!important;border-radius:var(--r)!important;box-shadow:var(--shadow-md)!important;transition:transform .2s,box-shadow .2s!important;overflow:hidden!important;}\r\n
+    .status-card:hover{transform:translateY(-3px)!important;box-shadow:var(--shadow-lg)!important;}\r\n
+    .status-card .card-body{padding:20px!important;}\r\n
+    .status-card-bg-blue{background:linear-gradient(135deg,#4f46e5 0%,#7c3aed 100%)!important;border:none!important;}\r\n
+    .status-card-bg-green{background:linear-gradient(135deg,#059669 0%,#0284c7 100%)!important;border:none!important;}\r\n
+    .status-card-bg-read{background:linear-gradient(135deg,#db2777 0%,#ea580c 100%)!important;border:none!important;}\r\n
+    .status-card-inner{display:flex;align-items:center;justify-content:space-between;gap:12px;}\r\n
+    .status-card .content p{color:rgba(255,255,255,.7)!important;font-size:10.5px!important;font-weight:600!important;text-transform:uppercase!important;letter-spacing:.6px!important;margin-bottom:8px!important;}\r\n
+    .status-card .content h3{color:#fff!important;font-size:26px!important;font-weight:700!important;margin:0!important;letter-spacing:-.5px!important;line-height:1!important;}\r\n
+    .status-card .icon{width:46px;height:46px;background:rgba(255,255,255,.15);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;}\r\n
+    .status-card .icon img{width:22px;filter:brightness(0) invert(1);}\r\n
+    /* ---- WELCOME CARD ---- */\r\n
+    .welcome-card{\r\n
+        background:var(--dark3);border:1px solid var(--border);\r\n
+        border-radius:var(--r)!important;padding:20px 24px;margin-bottom:20px;\r\n
+        display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;\r\n
+    }\r\n
+    .welcome-card h5{color:var(--text);font-size:16px;font-weight:700;margin:0 0 3px;}\r\n
+    .welcome-card p{color:var(--muted);font-size:12px;margin:0;}\r\n
+    .quick-actions{display:flex;gap:7px;flex-wrap:wrap;}\r\n
+    .quick-action-btn{\r\n
+        display:inline-flex;align-items:center;gap:6px;padding:8px 14px;\r\n
+        border-radius:var(--r-sm);font-size:12px;font-weight:500;\r\n
+        text-decoration:none;transition:all .15s;border:1px solid transparent;\r\n
+    }\r\n
+    .qab-primary{background:var(--accent);color:#fff;border-color:var(--accent);}\r\n
+    .qab-primary:hover{background:var(--accent-h);color:#fff;}\r\n
+    .qab-outline{background:var(--dark4);color:var(--text-2);border-color:var(--border);}\r\n
+    .qab-outline:hover{background:var(--dark3);color:var(--text);border-color:rgba(255,255,255,.15);}\r\n
+    /* ---- TABLES ---- */\r\n
+    .cp-user-transaction-history-table .table{font-size:12.5px!important;color:var(--text-2)!important;}\r\n
+    .cp-user-transaction-history-table .table thead th{\r\n
+        font-size:10.5px!important;font-weight:600!important;text-transform:uppercase!important;\r\n
+        letter-spacing:.5px!important;color:var(--muted)!important;\r\n
+        background:var(--dark3)!important;border-bottom:1px solid var(--border)!important;\r\n
+        padding:10px 12px!important;white-space:nowrap!important;\r\n
+    }\r\n
+    .cp-user-transaction-history-table .table td{\r\n
+        padding:10px 12px!important;color:var(--text-2)!important;\r\n
+        border-color:var(--border-light)!important;vertical-align:middle!important;\r\n
+        background:var(--dark2)!important;\r\n
+    }\r\n
+    .table{color:var(--text-2)!important;border-color:var(--border)!important;}\r\n
+    .table td,.table th{border-color:var(--border-light)!important;}\r\n
+    .table-striped tbody tr:nth-of-type(odd){background:var(--dark3)!important;}\r\n
+    .deposite-list-area .card-body{padding:0!important;}\r\n
+    .deposite-list-area .activity-top-area{padding:14px 18px;border-bottom:1px solid var(--border);}\r\n
+    .tabe-menu .dashboard-tabs{background:var(--dark3)!important;border-radius:7px!important;padding:3px!important;display:flex!important;gap:2px!important;}\r\n
+    .tabe-menu .dashboard-tabs .nav-link{border:none!important;border-radius:5px!important;padding:6px 13px!important;font-size:12.5px!important;font-weight:500!important;color:var(--muted)!important;transition:all .15s!important;}\r\n
+    .tabe-menu .dashboard-tabs .nav-link.active{background:var(--dark2)!important;color:#a5b4fc!important;box-shadow:0 1px 4px rgba(0,0,0,.3)!important;}\r\n
+    /* DataTable */\r\n
+    .dataTables_wrapper .dataTables_filter input,\r\n
+    .dataTables_wrapper .dataTables_length select{\r\n
+        background:var(--dark3)!important;border:1px solid var(--border)!important;\r\n
+        border-radius:var(--r-sm)!important;padding:5px 9px!important;\r\n
+        font-size:12px!important;color:var(--text)!important;outline:none!important;\r\n
+    }\r\n
+    .dataTables_wrapper .dataTables_filter input:focus{border-color:var(--accent)!important;}\r\n
+    .dataTables_wrapper .dataTables_info{font-size:12px;color:var(--muted);}\r\n
+    .dataTables_wrapper .dataTables_filter label,\r\n
+    .dataTables_wrapper .dataTables_length label,\r\n
+    .dataTables_wrapper .dataTables_paginate{color:var(--muted)!important;}\r\n
+    .page-link{background:var(--dark3)!important;border-color:var(--border)!important;color:#a5b4fc!important;font-size:12px!important;}\r\n
+    .page-link:hover{background:var(--dark4)!important;color:var(--text)!important;}\r\n
+    .page-item.active .page-link{background:var(--accent)!important;border-color:var(--accent)!important;color:#fff!important;}\r\n
+    .page-item.disabled .page-link{color:var(--muted)!important;}\r\n
+    /* Modals */\r\n
+    .modal-content{background:var(--dark2)!important;border:1px solid var(--border)!important;border-radius:var(--r)!important;color:var(--text)!important;}\r\n
+    .modal-header{background:var(--dark3)!important;border-bottom:1px solid var(--border)!important;}\r\n
+    .modal-footer{border-top:1px solid var(--border)!important;}\r\n
+    .dark-modal .modal-title{color:var(--text)!important;font-size:14px!important;font-weight:600!important;}\r\n
+    .close{color:var(--muted)!important;opacity:1!important;text-shadow:none!important;}\r\n
+    .close:hover{color:var(--text)!important;}\r\n
+    #n_title{font-size:14px;font-weight:600;color:var(--text);margin-bottom:4px;}\r\n
+    #n_date{font-size:11.5px;color:var(--muted);margin-bottom:10px;}\r\n
+    #n_notice{font-size:13px;color:var(--text-2);line-height:1.7;}\r\n
+    /* Forms */\r\n
+    .form-control{\r\n
+        background:var(--dark3)!important;border:1px solid var(--border)!important;\r\n
+        border-radius:var(--r-sm)!important;font-size:13px!important;\r\n
+        padding:8px 12px!important;color:var(--text)!important;\r\n
+        transition:border-color .2s,box-shadow .2s!important;\r\n
+    }\r\n
+    .form-control:focus{border-color:var(--accent)!important;box-shadow:0 0 0 3px var(--accent-glow)!important;outline:none!important;}\r\n
+    .form-control::placeholder{color:var(--muted)!important;}\r\n
+    label{font-size:12px;font-weight:500;color:var(--muted);}\r\n
+    select.form-control option{background:var(--dark3);color:var(--text);}\r\n
+    /* Buttons */\r\n
+    .cp-user-move-btn,.btn-primary{\r\n
+        background:var(--accent)!important;border-color:var(--accent)!important;\r\n
+        border-radius:var(--r-sm)!important;font-size:13px!important;font-weight:500!important;\r\n
+        padding:9px 18px!important;transition:all .15s!important;color:#fff!important;\r\n
+    }\r\n
+    .cp-user-move-btn:hover{background:var(--accent-h)!important;border-color:var(--accent-h)!important;}\r\n
+    .btn-secondary{background:var(--dark4)!important;border-color:var(--border)!important;color:var(--text-2)!important;}\r\n
+    .btn-secondary:hover{background:var(--dark3)!important;}\r\n
+    /* Socket alert */\r\n
+    #web_socket_notification{\r\n
+        background:rgba(59,130,246,.12)!important;border:1px solid rgba(59,130,246,.25)!important;\r\n
+        color:#93c5fd!important;border-radius:var(--r-sm)!important;\r\n
+        font-size:13px!important;font-weight:500!important;margin-bottom:16px!important;\r\n
+    }\r\n
+    /* Chart containers */\r\n
+    .tradingview-widget-container{border-radius:var(--r-sm);overflow:hidden;}\r\n
+    canvas{max-width:100%;}\r\n
+    /* Badge / status pills */\r\n
+    .badge{font-size:10.5px;font-weight:600;padding:3px 8px;border-radius:20px;}\r\n
+    .badge-success{background:rgba(63,185,80,.15)!important;color:var(--success)!important;}\r\n
+    .badge-warning{background:rgba(210,153,34,.15)!important;color:var(--warning)!important;}\r\n
+    .badge-danger{background:rgba(248,81,73,.15)!important;color:var(--danger)!important;}\r\n
+    /* ---- RESPONSIVE ---- */\r\n
+    @media(max-width:991px){\r\n
+        /* Topbar stretches full width, sidebar overlays */\r\n
+        .cp-user-top-bar,\r\n
+        .cp-user-top-bar.cp-user-content-expend{\r\n
+            left:0!important;\r\n
+        }\r\n
+        .cp-user-main-wrapper,\r\n
+        .cp-user-main-wrapper.cp-user-content-expend{\r\n
+            margin-left:0!important;\r\n
+            padding:14px!important;\r\n
+        }\r\n
+        /* Show close button inside sidebar on tablet/mobile */\r\n
+        .sidebar-close-btn{display:inline-flex;}\r\n
+    }\r\n
+    @media(max-width:767px){\r\n
+        :root{--topbar-h:46px;}\r\n
+        .menu-bars{width:30px!important;height:30px!important;}\r\n
+        .notification-btn{width:30px!important;height:30px!important;}\r\n
+        .cp-user-img{width:26px;height:26px;}\r\n
+        .cp-user-top-bar>.container-fluid{padding:0 10px!important;gap:6px;}\r\n
+        .welcome-card{padding:14px 16px;}\r\n
+        .status-card .content h3{font-size:22px!important;}\r\n
+        .cp-user-main-wrapper,\r\n
+        .cp-user-main-wrapper.cp-user-content-expend{\r\n
+            margin-top:46px!important;\r\n
+            min-height:calc(100vh - 46px)!important;\r\n
+        }\r\n
+    }\r\n
+    @media(max-width:575px){\r\n
+        :root{--topbar-h:44px;}\r\n
+        .cp-user-main-wrapper,\r\n
+        .cp-user-main-wrapper.cp-user-content-expend{\r\n
+            margin-top:44px!important;\r\n
+            min-height:calc(100vh - 44px)!important;\r\n
+            padding:10px!important;\r\n
+        }\r\n
+        .status-card{margin-bottom:10px;}\r\n
+    }\r\n
+    /* ---- IMPERSONATION BAR ---- */\r\n
+    #impersonation-bar {\r\n
+        position: fixed;\r\n
+        top: var(--topbar-h);\r\n
+        left: var(--sidebar-w); right: 0;\r\n
+        z-index: 1029;\r\n
+        background: #5a52e0;\r\n
+        color: #fff;\r\n
+        display: flex;\r\n
+        align-items: center;\r\n
+        justify-content: space-between;\r\n
+        flex-wrap: wrap;                     /* wraps on very narrow screens */\r\n
+        gap: 6px;\r\n
+        padding: 8px 20px;\r\n
+        font-size: 13px;\r\n
+        font-weight: 500;\r\n
+        line-height: 1.4;\r\n
+        box-shadow: 0 2px 8px rgba(0,0,0,.35);\r\n
+        transition: left .28s cubic-bezier(.4,0,.2,1);\r\n
+    }\r\n
+    #impersonation-bar .imp-bar-text {\r\n
+        display: flex;\r\n
+        align-items: center;\r\n
+        gap: 8px;\r\n
+        flex: 1;\r\n
+        min-width: 0;\r\n
+        flex-wrap: wrap;\r\n
+        word-break: break-word;\r\n
+    }\r\n
+    #impersonation-bar .imp-bar-btn {\r\n
+        flex-shrink: 0;\r\n
+        background: #fff;\r\n
+        color: #5a52e0;\r\n
+        font-weight: 600;\r\n
+        font-size: 12px;\r\n
+        border: none;\r\n
+        border-radius: 6px;\r\n
+        padding: 5px 12px;\r\n
+        text-decoration: none;\r\n
+        white-space: nowrap;\r\n
+        display: inline-flex;\r\n
+        align-items: center;\r\n
+        gap: 5px;\r\n
+        transition: opacity .15s;\r\n
+    }\r\n
+    #impersonation-bar .imp-bar-btn:hover { opacity: .85; color: #5a52e0; }\r\n
+    /* Sidebar hidden — bar stretches full width */\r\n
+    body.sidebar-hidden #impersonation-bar { left: 0; }\r\n
+    /* On tablet/mobile the sidebar overlays, bar is always full width */\r\n
+    @media(max-width:991px) { #impersonation-bar { left: 0; } }\r\n
+    @media(max-width:575px) {\r\n
+        #impersonation-bar { font-size: 12px; padding: 7px 14px; }\r\n
+    }\r\n
+    /* Push main content below both topbar + imp bar.\r\n
+       JS sets --imp-bar-h dynamically via ResizeObserver so it works\r\n
+       at any height the bar wraps to. */\r\n
+    :root { --imp-bar-h: 0px; }\r\n
+    body.has-imp-bar .cp-user-main-wrapper,\r\n
+    body.has-imp-bar .cp-user-main-wrapper.cp-user-content-expend {\r\n
+        margin-top: calc(var(--topbar-h) + var(--imp-bar-h)) !important;\r\n
+    }\r\n
+    \r\n
+        /* ── RESPONSIVE SIDEBAR IMPROVEMENTS ────────────────────────────────────── */\r\n
+        /* Tablet (768px to 991px) — sidebar still overlays, optimize menu */\r\n
+        @media(max-width:991px) and (min-width:768px){\r\n
+            :root { --sidebar-w: 250px; }\r\n
+            #metismenu > li > a { padding: 8px 11px; font-size: 12.5px; }\r\n
+            #metismenu > li > ul { padding: 2px 0 4px 32px; }\r\n
+            #metismenu > li > ul > li > a { padding: 5px 9px; font-size: 11.5px; }\r\n
+        }\r\n
+    \r\n
+        /* Large mobile (768px) — further compact sidebar */\r\n
+        @media(max-width:767px){\r\n
+            :root { --sidebar-w: 240px; }\r\n
+            .sidebar-brand { padding: 0 14px; }\r\n
+            .nav-section-label { font-size: 8.5px; padding: 12px 16px 4px; }\r\n
+            #metismenu > li { margin: 0px 6px; }\r\n
+            #metismenu > li > a { padding: 7px 10px; font-size: 12px; gap: 8px; }\r\n
+            #metismenu > li > ul { padding: 2px 0 3px 28px; margin: 0 6px 2px; }\r\n
+            #metismenu > li > ul > li > a { padding: 5px 8px; font-size: 11px; gap: 6px; }\r\n
+            .cp-user-sidebar-menu { padding: 4px 0 12px; }\r\n
+            .sidebar-close-btn { width: 24px; height: 24px; font-size: 11px; }\r\n
+        }\r\n
+    \r\n
+        /* Small mobile (542px) — further optimize */\r\n
+        @media(max-width:542px){\r\n
+            :root { --sidebar-w: 220px; }\r\n
+            .sidebar-brand { padding: 0 12px; height: 46px; min-height: 46px; }\r\n
+            .sidebar-brand img { max-height: 24px; }\r\n
+            .nav-section-label { font-size: 7.5px; padding: 10px 14px 3px; letter-spacing: 0.6px; }\r\n
+            #metismenu { margin: 0; }\r\n
+            #metismenu > li { margin: 0px 4px; }\r\n
+            #metismenu > li > a { padding: 6px 8px; font-size: 11px; gap: 7px; }\r\n
+            #metismenu > li > a .nav-icon { font-size: 12px; width: 16px; height: 16px; }\r\n
+            #metismenu > li > a .cp-user-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }\r\n
+            #metismenu > li.cp-user-active-page > a { border-left: 2px solid var(--accent); padding-left: 10px; }\r\n
+            #metismenu > li > ul { padding: 1px 0 3px 24px; margin: 0 4px 1px; }\r\n
+            #metismenu > li > ul > li > a { padding: 4px 7px; font-size: 10px; gap: 5px; }\r\n
+            #metismenu > li > a.arrow-icon::after { font-size: 9px; }\r\n
+            .cp-user-sidebar-menu { padding: 3px 0 10px; overflow-y: auto !important; }\r\n
+            .cp-user-sidebar-menu::-webkit-scrollbar { width: 1.5px; }\r\n
+        }\r\n
+    \r\n
+        /* Extra small mobile (< 480px) */\r\n
+        @media(max-width:479px){\r\n
+            :root { --sidebar-w: 200px; }\r\n
+            .sidebar-brand { padding: 0 10px; height: 44px; min-height: 44px; }\r\n
+            .sidebar-brand img { max-height: 22px; max-width: 100px; }\r\n
+            .nav-section-label { font-size: 7px; padding: 8px 12px 2px; margin: 0; letter-spacing: 0.4px; }\r\n
+            .sidebar-close-btn { width: 22px; height: 22px; }\r\n
+            #metismenu > li { margin: 0px 3px; }\r\n
+            #metismenu > li > a { padding: 5px 7px; font-size: 10px; gap: 6px; border-radius: 5px; }\r\n
+            #metismenu > li > a .nav-icon { font-size: 11px; width: 15px; height: 15px; }\r\n
+            #metismenu > li > ul { padding: 1px 0 2px 20px; margin: 0 3px 0px; }\r\n
+            #metismenu > li > ul > li > a { padding: 3px 6px; font-size: 9px; gap: 4px; }\r\n
+            #metismenu > li > ul > li > a::before { width: 2px; height: 2px; }\r\n
+            .cp-user-sidebar-menu { padding: 2px 0 8px; }\r\n
+        }\r\n
+    \r\n
+        /* Sidebar overlay improvements */\r\n
+        @media(max-width:991px){\r\n
+            .sidebar-overlay { z-index: 1039; }\r\n
+            .sidebar-overlay.active { opacity: 1; pointer-events: all; }\r\n
+        }\r\n
+    </style>\r\n
+    <style>\r\n
+/* ---- Dashboard page styles ---- */\r\n
+.welcome-card {\r\n
+    background: linear-gradient(135deg, #1c2333 0%, #21262d 100%);\r\n
+    border: 1px solid rgba(99,102,241,.25);\r\n
+    border-radius: 14px;\r\n
+    padding: 22px 24px;\r\n
+    display: flex;\r\n
+    align-items: center;\r\n
+    justify-content: space-between;\r\n
+    flex-wrap: wrap;\r\n
+    gap: 14px;\r\n
+    margin-bottom: 22px;\r\n
+}\r\n
+.welcome-card .wc-info h5 {\r\n
+    font-size: 17px;\r\n
+    font-weight: 700;\r\n
+    color: #e6edf3;\r\n
+    margin: 0 0 4px;\r\n
+}\r\n
+.welcome-card .wc-info p {\r\n
+    font-size: 12.5px;\r\n
+    color: #7d8590;\r\n
+    margin: 0;\r\n
+}\r\n
+.welcome-card .wc-actions {\r\n
+    display: flex;\r\n
+    gap: 8px;\r\n
+    flex-wrap: wrap;\r\n
+}\r\n
+.welcome-card .wc-actions a {\r\n
+    display: inline-flex;\r\n
+    align-items: center;\r\n
+    gap: 6px;\r\n
+    padding: 8px 16px;\r\n
+    border-radius: 8px;\r\n
+    font-size: 12.5px;\r\n
+    font-weight: 600;\r\n
+    text-decoration: none;\r\n
+    transition: all .15s;\r\n
+}\r\n
+.wc-btn-primary { background: #6366f1; color: #fff !important; }\r\n
+.wc-btn-primary:hover { background: #4f46e5; color: #fff !important; }\r\n
+.wc-btn-outline { background: transparent; border: 1px solid rgba(99,102,241,.4); color: #a5b4fc !important; }\r\n
+.wc-btn-outline:hover { background: rgba(99,102,241,.12); color: #a5b4fc !important; }\r\n
+\r\n
+/* stat cards */\r\n
+.dash-stat-card {\r\n
+    background: #161b22;\r\n
+    border: 1px solid rgba(255,255,255,.08);\r\n
+    border-radius: 12px;\r\n
+    padding: 18px 20px;\r\n
+    display: flex;\r\n
+    align-items: center;\r\n
+    gap: 14px;\r\n
+    transition: transform .15s, box-shadow .15s;\r\n
+}\r\n
+.dash-stat-card:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(0,0,0,.4); }\r\n
+.dash-stat-card .dsc-icon {\r\n
+    width: 44px; height: 44px; border-radius: 10px;\r\n
+    display: flex; align-items: center; justify-content: center;\r\n
+    font-size: 18px; flex-shrink: 0;\r\n
+}\r\n
+.dsc-icon-blue  { background: rgba(99,102,241,.18); color: #a5b4fc; }\r\n
+.dsc-icon-green { background: rgba(34,197,94,.18);  color: #4ade80; }\r\n
+.dsc-icon-amber { background: rgba(245,158,11,.18);  color: #fbbf24; }\r\n
+.dash-stat-card .dsc-body { flex: 1; min-width: 0; }\r\n
+.dash-stat-card .dsc-label {\r\n
+    font-size: 11.5px; font-weight: 500; color: #7d8590;\r\n
+    text-transform: uppercase; letter-spacing: .5px; margin-bottom: 3px;\r\n
+}\r\n
+.dash-stat-card .dsc-value {\r\n
+    font-size: 20px; font-weight: 700; color: #e6edf3; line-height: 1.2;\r\n
+}\r\n
+.dash-stat-card .dsc-sub {\r\n
+    font-size: 11px; color: #7d8590; margin-top: 2px;\r\n
+}\r\n
+\r\n
+/* chart cards */\r\n
+.chart-card {\r\n
+    background: #161b22;\r\n
+    border: 1px solid rgba(255,255,255,.08);\r\n
+    border-radius: 12px;\r\n
+    padding: 18px 20px;\r\n
+}\r\n
+.chart-card .chart-card-header {\r\n
+    display: flex; align-items: center; justify-content: space-between;\r\n
+    margin-bottom: 4px;\r\n
+}\r\n
+.chart-card .chart-card-header h5 {\r\n
+    font-size: 14px; font-weight: 600; color: #e6edf3; margin: 0;\r\n
+}\r\n
+.chart-card .chart-subtitle {\r\n
+    font-size: 11.5px; color: #7d8590; margin-bottom: 14px;\r\n
+}\r\n
+\r\n
+/* transaction table card */\r\n
+.tx-card {\r\n
+    background: #161b22;\r\n
+    border: 1px solid rgba(255,255,255,.08);\r\n
+    border-radius: 12px;\r\n
+    overflow: hidden;\r\n
+}\r\n
+.tx-card-header {\r\n
+    padding: 14px 20px;\r\n
+    border-bottom: 1px solid rgba(255,255,255,.08);\r\n
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;\r\n
+}\r\n
+.tx-card-header h5 { font-size: 14px; font-weight: 600; color: #e6edf3; margin: 0; }\r\n
+.tx-tabs .nav-link {\r\n
+    font-size: 12.5px; font-weight: 500; color: #7d8590;\r\n
+    padding: 5px 14px; border-radius: 6px; border: none;\r\n
+    transition: all .15s;\r\n
+}\r\n
+.tx-tabs .nav-link.active, .tx-tabs .nav-link:hover {\r\n
+    background: rgba(99,102,241,.15); color: #a5b4fc;\r\n
+}\r\n
+.tx-body { padding: 16px 20px; }\r\n
+\r\n
+/* OBX Market widget */\r\n
+.obx-market-widget {\r\n
+    background: linear-gradient(135deg,#1a1f35 0%,#1c2333 100%);\r\n
+    border: 1px solid rgba(99,102,241,.25);\r\n
+    border-radius: 14px;\r\n
+    padding: 16px 20px 14px;\r\n
+    margin-bottom: 22px;\r\n
+    position: relative;\r\n
+    overflow: hidden;\r\n
+}\r\n
+.obx-market-widget::before {\r\n
+    content: '';\r\n
+    position: absolute; top: 0; left: 0; right: 0; height: 3px;\r\n
+    background: linear-gradient(90deg,#6366f1,#a855f7,#06b6d4);\r\n
+}\r\n
+.obx-market-widget .mw-header {\r\n
+    display: flex; align-items: center; justify-content: space-between;\r\n
+    flex-wrap: wrap; gap: 8px; margin-bottom: 14px;\r\n
+}\r\n
+.obx-market-widget .mw-title {\r\n
+    display: flex; align-items: center; gap: 10px;\r\n
+}\r\n
+.obx-market-widget .mw-title .mw-logo {\r\n
+    width: 32px; height: 32px; border-radius: 50%;\r\n
+    background: linear-gradient(135deg,#6366f1,#a855f7);\r\n
+    display: flex; align-items: center; justify-content: center;\r\n
+    font-weight: 800; font-size: 13px; color: #fff; flex-shrink: 0;\r\n
+}\r\n
+.obx-market-widget .mw-title h6 {\r\n
+    font-size: 14px; font-weight: 700; color: #e6edf3; margin: 0 0 1px;\r\n
+}\r\n
+.obx-market-widget .mw-title small {\r\n
+    font-size: 11px; color: #7d8590;\r\n
+}\r\n
+.mw-live-badge {\r\n
+    display: inline-flex; align-items: center; gap: 5px;\r\n
+    background: rgba(34,197,94,.12); border: 1px solid rgba(34,197,94,.25);\r\n
+    border-radius: 20px; padding: 3px 10px;\r\n
+    font-size: 11px; font-weight: 600; color: #4ade80;\r\n
+}\r\n
+.mw-live-badge .pulse {\r\n
+    width: 7px; height: 7px; border-radius: 50%; background: #4ade80;\r\n
+    animation: pulse-dot 1.5s ease-in-out infinite;\r\n
+}\r\n
+@keyframes pulse-dot {\r\n
+    0%,100% { opacity:1; transform:scale(1); }\r\n
+    50%      { opacity:.4; transform:scale(.75); }\r\n
+}\r\n
+.obx-market-widget .mw-stats {\r\n
+    display: grid;\r\n
+    grid-template-columns: repeat(5,1fr);\r\n
+    gap: 10px;\r\n
+}\r\n
+.mw-stat {\r\n
+    background: rgba(255,255,255,.04);\r\n
+    border: 1px solid rgba(255,255,255,.06);\r\n
+    border-radius: 10px;\r\n
+    padding: 12px 14px;\r\n
+    min-width: 0;\r\n
+}\r\n
+.mw-stat .mws-label {\r\n
+    font-size: 10.5px; font-weight: 600; color: #7d8590;\r\n
+    text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px;\r\n
+}\r\n
+.mw-stat .mws-value {\r\n
+    font-size: 17px; font-weight: 700; color: #e6edf3;\r\n
+    line-height: 1.2; word-break: break-word;\r\n
+}\r\n
+.mw-stat .mws-sub {\r\n
+    font-size: 11px; color: #7d8590; margin-top: 3px;\r\n
+}\r\n
+.mw-stat.stat-price .mws-value { color: #a5b4fc; font-size: 20px; }\r\n
+.chg-up { color: #4ade80 !important; }\r\n
+.chg-dn { color: #f87171 !important; }\r\n
+.chg-neutral { color: #7d8590 !important; }\r\n
+@media(max-width:991px) { .obx-market-widget .mw-stats { grid-template-columns: repeat(3,1fr); } }\r\n
+@media(max-width:575px) { .obx-market-widget .mw-stats { grid-template-columns: repeat(2,1fr); } }\r\n
+\r\n
+/* multisig panel */\r\n
+.msig-card {\r\n
+    background: linear-gradient(135deg, #1a2136 0%, #1d2335 100%);\r\n
+    border: 1px solid rgba(99,102,241,.22);\r\n
+    border-radius: 12px;\r\n
+    padding: 18px 20px;\r\n
+    margin-bottom: 20px;\r\n
+}\r\n
+.msig-head { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:12px; }\r\n
+.msig-title { margin:0; font-size:14px; font-weight:700; color:#e6edf3; }\r\n
+.msig-sub { margin:4px 0 0; color:#8b93a0; font-size:12px; }\r\n
+.msig-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin-bottom:12px; }\r\n
+.msig-stat { background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.07); border-radius:9px; padding:10px 12px; }\r\n
+.msig-stat-label { font-size:10px; color:#8b93a0; text-transform:uppercase; letter-spacing:.5px; }\r\n
+.msig-stat-val { font-size:18px; color:#e6edf3; font-weight:700; line-height:1.25; }\r\n
+.msig-list { border-top:1px solid rgba(255,255,255,.08); padding-top:10px; }\r\n
+.msig-item { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 0; border-bottom:1px dashed rgba(255,255,255,.06); }\r\n
+.msig-item:last-child { border-bottom:none; }\r\n
+.msig-item-main { min-width:0; }\r\n
+.msig-item-main strong { color:#dbe2ff; font-size:12.5px; }\r\n
+.msig-item-main p { margin:2px 0 0; color:#8b93a0; font-size:11.5px; }\r\n
+.msig-btn {\r\n
+    display:inline-flex; align-items:center; gap:6px;\r\n
+    background:rgba(99,102,241,.16); border:1px solid rgba(99,102,241,.35);\r\n
+    color:#b8c0ff; border-radius:7px; font-size:11.5px; font-weight:600;\r\n
+    padding:6px 10px; text-decoration:none;\r\n
+}\r\n
+.msig-btn:hover { color:#d9ddff; text-decoration:none; background:rgba(99,102,241,.22); }\r\n
+@media(max-width:767px){ .msig-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }\r\n
+@media(max-width:520px){ .msig-grid { grid-template-columns:1fr; } }\r\n
+</style>\r\n
+    <title>OBXCoin — Dashboard</title>\r\n
+    <!-- Favicon and Touch Icons -->\r\n
+    <link rel="shortcut icon" href="http://localhost/landing/images/fav.png/">\r\n
+</head>\r\n
+\r\n
+<body class="cp-user-body-bg">\r\n
+<!-- Mobile sidebar overlay -->\r\n
+<div id="sidebarOverlay" class="sidebar-overlay"></div>\r\n
+\r\n
+<!-- top bar -->\r\n
+<div class="cp-user-top-bar">\r\n
+    <div class="container-fluid">\r\n
+                \r\n
+        <div class="topbar-left">\r\n
+            <button class="menu-bars" title="Toggle sidebar">\r\n
+                <i class="fa fa-bars" style="font-size:15px;"></i>\r\n
+            </button>\r\n
+        </div>\r\n
+        \r\n
+        <div class="topbar-right">\r\n
+            \r\n
+            <div class="topbar-stats-inline">\r\n
+                \r\n
+                <div class="tb-stat tb-stat-price" id="tb-obx-price-pill">\r\n
+                    <span class="tb-stat-label">1 OBX =</span>\r\n
+                    <span class="tb-price-val" id="tb-obx-price">— USD</span>\r\n
+                    <span class="tb-price-change" id="tb-obx-change"></span>\r\n
+                </div>\r\n
+                <div class="tb-stat">\r\n
+                    <span class="tb-stat-label">Balance</span>\r\n
+                    <span class="tb-stat-val"><span class="accent">0.00</span> OBXCoin</span>\r\n
+                    <span class="tb-stat-sub">≈ 0.00 USD</span>\r\n
+                </div>\r\n
+                <div class="tb-stat tb-stat-membership">\r\n
+                    <span class="tb-stat-label">Staking Plan</span>\r\n
+                                            <span class="tb-badge warning">No Staking Plan</span>\r\n
+                                    </div>\r\n
+            </div>\r\n
+            \r\n
+            <div class="hm-notify" id="notification_item">\r\n
+                <div class="btn-group dropdown">\r\n
+                    <button type="button" class="btn notification-btn dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">\r\n
+                        <span class="notify-value hm-notify-number"> 0 </span>\r\n
+                        <i class="fa fa-bell" style="font-size:14px;color:rgba(255,255,255,.6);"></i>\r\n
+                    </button>\r\n
+                                            <div class="dropdown-menu notification-list dropdown-menu-right">\r\n
+                            <div class="text-center nt-title">Notifications</div>\r\n
+                            <ul class="scrollbar-inner">\r\n
+                                                            </ul>\r\n
+                        </div>\r\n
+                                    </div>\r\n
+            </div>\r\n
+            \r\n
+            <div class="btn-group profile-dropdown">\r\n
+                <button type="button" class="btn dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">\r\n
+                    <span class="cp-user-avater">\r\n
+                        <span class="cp-user-img">\r\n
+                            <img src="http://localhost/assets/img/avater.png" alt="">\r\n
+                        </span>\r\n
+                    </span>\r\n
+                </button>\r\n
+                <div class="dropdown-menu dropdown-menu-right">\r\n
+                    <span class="big-user-thumb">\r\n
+                        <img src="http://localhost/assets/img/avater.png" alt="">\r\n
+                    </span>\r\n
+                    <div class="user-name">\r\n
+                        <p>Alden Ziemann</p>\r\n
+                    </div>\r\n
+                    <button class="dropdown-item" type="button"><a href="http://localhost/user/profile"><i class="fa fa-user-circle-o"></i> Profile</a></button>\r\n
+                    <button class="dropdown-item" type="button"><a href="http://localhost/user/setting"><i class="fa fa-cog"></i> Settings</a></button>\r\n
+                    <button class="dropdown-item" type="button"><a href="http://localhost/user/my-pocket"><i class="fa fa-money"></i> My XPocket</a></button>\r\n
+                                            <button class="dropdown-item" type="button"><a href="http://localhost/user/my-pocket?tab=co-pocket"><i class="fa fa-shield"></i> Team XPocket</a></button>\r\n
+                                        <button class="dropdown-item" type="button"><a href="http://localhost/user/merchant/keys"><i class="fa fa-key"></i> API Keys</a></button>\r\n
+                    <button class="dropdown-item" type="button"><a href="http://localhost/user/merchant/api-docs"><i class="fa fa-plug"></i> API Documentation</a></button>\r\n
+                    <button class="dropdown-item" type="button"><a href="http://localhost/logout"><i class="fa fa-sign-out"></i> Logout</a></button>\r\n
+                </div>\r\n
+            </div>\r\n
+        </div>\r\n
+    </div>\r\n
+</div>\r\n
+<!-- /top bar -->\r\n
+\r\n
+<!-- Start sidebar -->\r\n
+<div class="cp-user-sidebar">\r\n
+    <div class="sidebar-brand">\r\n
+        <a href="http://localhost/user/dashboard" style="text-decoration:none;">\r\n
+            <img src="http://localhost/assets/user/images/logo.svg" alt="OBXCoin">\r\n
+        </a>\r\n
+        <button class="sidebar-close-btn menu-bars" title="Close">\r\n
+            <i class="fa fa-times"></i>\r\n
+        </button>\r\n
+    </div>\r\n
+    <div class="cp-user-sidebar-menu scrollbar-inner">\r\n
+        <nav>\r\n
+            <ul id="metismenu">\r\n
+                <li class=" cp-user-active-page ">\r\n
+                    <a href="http://localhost/user/dashboard">\r\n
+                        <span class="nav-icon"><i class="fa fa-th-large"></i></span>\r\n
+                        <span class="cp-user-name">Dashboard</span>\r\n
+                    </a>\r\n
+                </li>\r\n
+                <li class="">\r\n
+                    <a class="arrow-icon" href="#" aria-expanded="true">\r\n
+                        <span class="nav-icon"><i class="fa fa-shopping-cart"></i></span>\r\n
+                        <span class="cp-user-name">Buy Coin</span>\r\n
+                    </a>\r\n
+                    <ul class="">\r\n
+                        <li class="">\r\n
+                            <a href="http://localhost/user/buy-coin">Buy Coin</a>\r\n
+                        </li>\r\n
+                        <li class="">\r\n
+                            <a href="http://localhost/user/buy-coin-history">Buy History</a>\r\n
+                        </li>\r\n
+                        <li class="">\r\n
+                            <a href="http://localhost/user/buy-coin-referral-history">Referral History</a>\r\n
+                        </li>\r\n
+                    </ul>\r\n
+                </li>\r\n
+                \r\n
+                <li class="">\r\n
+                    <a class="arrow-icon" href="#" aria-expanded="true">\r\n
+                        <span class="nav-icon"><i class="fa fa-credit-card"></i></span>\r\n
+                        <span class="cp-user-name">My XPocket</span>\r\n
+                    </a>\r\n
+                    <ul class="">\r\n
+                        <li class="">\r\n
+                            <a href="http://localhost/user/my-pocket">My XPocket</a>\r\n
+                        </li>\r\n
+                                                    <li class="">\r\n
+                                <a href="http://localhost/user/my-pocket?tab=co-pocket">Team XPocket</a>\r\n
+                            </li>\r\n
+                                                                    </ul>\r\n
+                </li>\r\n
+                \r\n
+                <li class="">\r\n
+                    <a href="http://localhost/user/airdrop">\r\n
+                        <span class="nav-icon"><i class="fa fa-gift"></i></span>\r\n
+                        <span class="cp-user-name">Airdrop</span>\r\n
+                    </a>\r\n
+                </li>\r\n
+                <li class="">\r\n
+                    <a class="arrow-icon" href="#" aria-expanded="true">\r\n
+                        <span class="nav-icon"><i class="fa fa-lock"></i></span>\r\n
+                        <span class="cp-user-name">Staking</span>\r\n
+                    </a>\r\n
+                    <ul class="">\r\n
+                        <li class="">\r\n
+                            <a href="http://localhost/user/staking">Stake OBX</a>\r\n
+                        </li>\r\n
+                        <li class="">\r\n
+                            <a href="http://localhost/user/staking/history">My Stakes</a>\r\n
+                        </li>\r\n
+                        <li class="">\r\n
+                            <a href="http://localhost/user/staking/transactions">Transactions</a>\r\n
+                        </li>\r\n
+                    </ul>\r\n
+                </li>\r\n
+                \r\n
+                <li class="">\r\n
+                    <a href="http://localhost/user/profile">\r\n
+                        <span class="nav-icon"><i class="fa fa-user"></i></span>\r\n
+                        <span class="cp-user-name">My Profile</span>\r\n
+                    </a>\r\n
+                </li>\r\n
+                <li class="">\r\n
+                    <a class="arrow-icon" href="#" aria-expanded="true">\r\n
+                        <span class="nav-icon"><i class="fa fa-users"></i></span>\r\n
+                        <span class="cp-user-name">Referral</span>\r\n
+                    </a>\r\n
+                    <ul class="">\r\n
+                        <li class="">\r\n
+                            <a href="http://localhost/user/referral">My Referrals</a>\r\n
+                        </li>\r\n
+                        <li class="">\r\n
+                            <a href="http://localhost/user/referral-tree">Referral Tree</a>\r\n
+                        </li>\r\n
+                        <li class="">\r\n
+                            <a href="http://localhost/user/referral-earning-history">Earnings</a>\r\n
+                        </li>\r\n
+                    </ul>\r\n
+                </li>\r\n
+                <li class="">\r\n
+                    <a class="arrow-icon" href="#" aria-expanded="true">\r\n
+                        <span class="nav-icon"><i class="fa fa-cog"></i></span>\r\n
+                        <span class="cp-user-name">Settings</span>\r\n
+                    </a>\r\n
+                    <ul class="">\r\n
+                        <li class="">\r\n
+                            <a href="http://localhost/user/setting">My Settings</a>\r\n
+                        </li>\r\n
+                        <li class="">\r\n
+                            <a href="http://localhost/user/faq">FAQ</a>\r\n
+                        </li>\r\n
+                    </ul>\r\n
+                </li>\r\n
+            </ul>\r\n
+        </nav>\r\n
+    </div>\r\n
+    <div style="padding:10px 18px;border-top:1px solid rgba(255,255,255,.07);">\r\n
+        <a href="http://localhost/logout" style="display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:7px;color:#7d8590;font-size:12.5px;font-weight:500;text-decoration:none;transition:all .15s;">\r\n
+            <i class="fa fa-sign-out" style="width:14px;font-size:13px;"></i> Logout\r\n
+        </a>\r\n
+    </div>\r\n
+</div>\r\n
+<!-- End sidebar -->\r\n
+\r\n
+\r\n
+\r\n
+<div class="modal fade" id="notificationShow" tabindex="-1" role="dialog" aria-labelledby="exampleModalCenterTitle" aria-hidden="true">\r\n
+    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">\r\n
+        <div class="modal-content dark-modal">\r\n
+            <div class="modal-header align-items-center">\r\n
+                <h5 class="modal-title" id="exampleModalCenterTitle">New Notification  </h5>\r\n
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">\r\n
+                    <span aria-hidden="true">×</span>\r\n
+                </button>\r\n
+            </div>\r\n
+\r\n
+            <div class="modal-body">\r\n
+                <div class="hm-form">\r\n
+                    <div class="row">\r\n
+                        <div class="col-12">\r\n
+                            <h6 id="n_title"></h6>\r\n
+                            <p id="n_date"></p>\r\n
+                            <p id="n_notice"></p>\r\n
+                        </div>\r\n
+                    </div>\r\n
+                </div>\r\n
+            </div>\r\n
+        </div>\r\n
+    </div>\r\n
+</div>\r\n
+<!-- main wrapper -->\r\n
+<div class="cp-user-main-wrapper">\r\n
+    <div class="container-fluid">\r\n
+\r\n
+\r\n
+\r\n
+\r\n
+\r\n
+        <div class="alert alert-success alert-dismissible fade show d-none" role="alert" id="web_socket_notification">\r\n
+            <span id="socket_message"></span>\r\n
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">\r\n
+                <span aria-hidden="true">&times;</span>\r\n
+            </button>\r\n
+        </div>\r\n
+\r\n
+        <div class="modal fade" id="confirm-modal" tabindex="-1" role="dialog" aria-labelledby="exampleModalCenterTitle" aria-hidden="true">\r\n
+            <div class="modal-dialog modal-dialog-centered" role="document">\r\n
+                <div class="modal-content">\r\n
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">\r\n
+                        <img src="http://localhost/assets/user/images/close.svg" class="img-fluid" alt="">\r\n
+                    </button>\r\n
+                    <div class="text-center">\r\n
+                        <img src="http://localhost/assets/user/images/add-pockaet-vector.svg" class="img-fluid img-vector" alt="">\r\n
+                        <h3 id="confirm-title"></h3>\r\n
+                    </div>\r\n
+                    <div class="modal-body">\r\n
+                        <a id="confirm-link" href="#" class="btn btn-block cp-user-move-btn">Confirm</a>\r\n
+                    </div>\r\n
+                </div>\r\n
+            </div>\r\n
+        </div>\r\n
+\r\n
+        \r\n
+        \r\n
+\r\n
+<div class="welcome-card">\r\n
+    <div class="wc-info">\r\n
+        <h5>Good evening, Alden Ziemann. Welcome back, 👋</h5>\r\n
+        <p>Here&#039;s an overview of your OBXCoin account activity.</p>\r\n
+    </div>\r\n
+    <div class="wc-actions">\r\n
+        <a href="http://localhost/user/buy-coin" class="wc-btn-primary">\r\n
+            <i class="fa fa-shopping-cart"></i> Buy OBXCoin\r\n
+        </a>\r\n
+        <a href="http://localhost/user/wallet-details-3894?q=withdraw" class="wc-btn-outline">\r\n
+            <i class="fa fa-exchange"></i> Send OBXCoin\r\n
+        </a>\r\n
+        <a href="http://localhost/user/my-pocket" class="wc-btn-outline">\r\n
+            <i class="fa fa-credit-card"></i> XPocket\r\n
+        </a>\r\n
+    </div>\r\n
+</div>\r\n
+\r\n
+\r\n
+<div class="obx-market-widget" id="obx-market-widget">\r\n
+    <div class="mw-header">\r\n
+        <div class="mw-title">\r\n
+            <div class="mw-logo">OBX</div>\r\n
+            <div>\r\n
+                <h6>OBXCoin <span style="font-size:12px;color:#7d8590;font-weight:400;">/ USD</span></h6>\r\n
+                <small>Live market data · updates every 30s</small>\r\n
+            </div>\r\n
+        </div>\r\n
+        <div class="mw-live-badge">\r\n
+            <span class="pulse"></span> LIVE\r\n
+        </div>\r\n
+    </div>\r\n
+    <div class="mw-stats">\r\n
+        <div class="mw-stat stat-price">\r\n
+            <div class="mws-label">Price</div>\r\n
+            <div class="mws-value" id="mw_price">$0.600000</div>\r\n
+            <div class="mws-sub">USD</div>\r\n
+        </div>\r\n
+        <div class="mw-stat">\r\n
+            <div class="mws-label">24h Change</div>\r\n
+            <div class="mws-value" id="mw_change">—</div>\r\n
+            <div class="mws-sub" id="mw_change_sub">vs yesterday</div>\r\n
+        </div>\r\n
+        <div class="mw-stat">\r\n
+            <div class="mws-label">Market Cap</div>\r\n
+            <div class="mws-value" id="mw_mcap">—</div>\r\n
+            <div class="mws-sub">USD</div>\r\n
+        </div>\r\n
+        <div class="mw-stat">\r\n
+            <div class="mws-label">24h Volume</div>\r\n
+            <div class="mws-value" id="mw_vol">—</div>\r\n
+            <div class="mws-sub">USD</div>\r\n
+        </div>\r\n
+        <div class="mw-stat">\r\n
+            <div class="mws-label">Circulating Supply</div>\r\n
+            <div class="mws-value" id="mw_supply">—</div>\r\n
+            <div class="mws-sub">OBX</div>\r\n
+        </div>\r\n
+    </div>\r\n
+</div>\r\n
+\r\n
+\r\n
+<div class="row mb-4">\r\n
+    <div class="col-xl-4 col-md-6 col-12 mb-3 mb-xl-0">\r\n
+        <div class="dash-stat-card">\r\n
+            <div class="dsc-icon dsc-icon-blue">\r\n
+                <i class="fa fa-coins" style="font-size:18px;"></i>\r\n
+            </div>\r\n
+            <div class="dsc-body">\r\n
+                <div class="dsc-label">Available OBXCoin</div>\r\n
+                <div class="dsc-value"><i class="fa fa-wallet" style="margin-right:8px;font-size:15px;opacity:.9;"></i>0.00</div>\r\n
+                <div class="dsc-sub">Used: 0.00</div>\r\n
+            </div>\r\n
+        </div>\r\n
+    </div>\r\n
+    <div class="col-xl-4 col-md-6 col-12 mb-3 mb-xl-0">\r\n
+        <div class="dash-stat-card">\r\n
+            <div class="dsc-icon dsc-icon-green">\r\n
+                <i class="fa fa-arrow-up"></i>\r\n
+            </div>\r\n
+            <div class="dsc-body">\r\n
+                <div class="dsc-label">Total Withdraws</div>\r\n
+                <div class="dsc-value">0.00</div>\r\n
+                <div class="dsc-sub">All-time completed withdrawals</div>\r\n
+            </div>\r\n
+        </div>\r\n
+    </div>\r\n
+    <div class="col-xl-4 col-md-6 col-12">\r\n
+        <div class="dash-stat-card">\r\n
+            <div class="dsc-icon dsc-icon-amber">\r\n
+                <i class="fa fa-shopping-cart"></i>\r\n
+            </div>\r\n
+            <div class="dsc-body">\r\n
+                <div class="dsc-label">Total Purchased</div>\r\n
+                <div class="dsc-value">0.00</div>\r\n
+                <div class="dsc-sub">All-time buy total</div>\r\n
+            </div>\r\n
+        </div>\r\n
+    </div>\r\n
+</div>\r\n
+\r\n
+<div class="msig-card">\r\n
+    <div class="msig-head">\r\n
+        <div>\r\n
+            <h5 class="msig-title"><i class="fa fa-shield" style="margin-right:6px;color:#a5b4fc;"></i>Team XPocket Security</h5>\r\n
+            <p class="msig-sub">Team XPocket requires multiple co-user approvals before a withdrawal is executed.</p>\r\n
+        </div>\r\n
+        <a href="http://localhost/user/my-pocket?tab=co-pocket" class="msig-btn">\r\n
+            <i class="fa fa-wallet"></i> Open Team XPocket\r\n
+        </a>\r\n
+    </div>\r\n
+\r\n
+    <div class="msig-grid">\r\n
+        <div class="msig-stat">\r\n
+            <div class="msig-stat-label">XPockets Joined</div>\r\n
+            <div class="msig-stat-val">0</div>\r\n
+        </div>\r\n
+        <div class="msig-stat">\r\n
+            <div class="msig-stat-label">Pending Your Approval</div>\r\n
+            <div class="msig-stat-val">0</div>\r\n
+        </div>\r\n
+        <div class="msig-stat">\r\n
+            <div class="msig-stat-label">Approval Threshold</div>\r\n
+            <div class="msig-stat-val">60%</div>\r\n
+        </div>\r\n
+    </div>\r\n
+\r\n
+    <div class="msig-list">\r\n
+                    <div style="font-size:12px;color:#8b93a0;">No pending Team XPocket approvals for you right now.</div>\r\n
+            </div>\r\n
+</div>\r\n
+\r\n
+\r\n
+<div class="row mb-4">\r\n
+    <div class="col-xl-6 mb-4 mb-xl-0">\r\n
+        <div class="chart-card h-100">\r\n
+            <div class="chart-card-header">\r\n
+                <h5><i class="fa fa-arrow-down" style="color:#4ade80;margin-right:6px;font-size:12px;"></i>Deposits</h5>\r\n
+                <span class="chart-subtitle" style="margin:0;">Current Year</span>\r\n
+            </div>\r\n
+            <div class="chart-subtitle">Monthly deposit activity</div>\r\n
+            <canvas id="depositChart"></canvas>\r\n
+        </div>\r\n
+    </div>\r\n
+    <div class="col-xl-6">\r\n
+        <div class="chart-card h-100">\r\n
+            <div class="chart-card-header">\r\n
+                <h5><i class="fa fa-arrow-up" style="color:#f87171;margin-right:6px;font-size:12px;"></i>Withdrawals</h5>\r\n
+                <span class="chart-subtitle" style="margin:0;">Current Year</span>\r\n
+            </div>\r\n
+            <div class="chart-subtitle">Monthly withdrawal activity</div>\r\n
+            <canvas id="withdrawalChart"></canvas>\r\n
+        </div>\r\n
+    </div>\r\n
+</div>\r\n
+\r\n
+\r\n
+<div class="row mb-4">\r\n
+    <div class="col-12">\r\n
+        <div class="chart-card">\r\n
+            <div class="chart-card-header">\r\n
+                <h5><i class="fa fa-bar-chart" style="color:#a5b4fc;margin-right:6px;font-size:12px;"></i>OBXCoin Purchase Report</h5>\r\n
+                <span class="chart-subtitle" style="margin:0;">Current Year</span>\r\n
+            </div>\r\n
+            <div class="chart-subtitle">Monthly buy coin volume</div>\r\n
+            <canvas id="myBarChart"></canvas>\r\n
+        </div>\r\n
+    </div>\r\n
+</div>\r\n
+\r\n
+\r\n
+<div class="row mb-4">\r\n
+    <div class="col-12">\r\n
+        <div class="tx-card">\r\n
+            <div class="tx-card-header">\r\n
+                <h5 id="list_title">Transaction History</h5>\r\n
+                <ul class="nav tx-tabs" id="myTab" role="tablist">\r\n
+                    <li class="nav-item">\r\n
+                        <a class="nav-link active" id="deposit-tab" data-toggle="tab"\r\n
+                           onclick="$('#list_title').html('Deposit History')"\r\n
+                           href="#deposit" role="tab" aria-controls="deposit" aria-selected="true">\r\n
+                            <i class="fa fa-arrow-down" style="font-size:10px;"></i> Deposits\r\n
+                        </a>\r\n
+                    </li>\r\n
+                    <li class="nav-item">\r\n
+                        <a class="nav-link" id="withdraw-tab" data-toggle="tab"\r\n
+                           onclick="$('#list_title').html('Withdrawal History')"\r\n
+                           href="#withdraw" role="tab" aria-controls="withdraw" aria-selected="false">\r\n
+                            <i class="fa fa-arrow-up" style="font-size:10px;"></i> Withdrawals\r\n
+                        </a>\r\n
+                    </li>\r\n
+                </ul>\r\n
+            </div>\r\n
+            <div class="tx-body">\r\n
+                <div class="tab-content">\r\n
+                    <div id="deposit" class="tab-pane fade in active show">\r\n
+                        <div class="cp-user-transaction-history-table table-responsive">\r\n
+                            <table class="table" id="table">\r\n
+                                <thead>\r\n
+                                    <tr>\r\n
+                                        <th>Address</th>\r\n
+                                        <th>Amount</th>\r\n
+                                        <th>Transaction Hash</th>\r\n
+                                        <th>Status</th>\r\n
+                                        <th>Created At</th>\r\n
+                                    </tr>\r\n
+                                </thead>\r\n
+                                <tbody></tbody>\r\n
+                            </table>\r\n
+                        </div>\r\n
+                    </div>\r\n
+                    <div id="withdraw" class="tab-pane fade in">\r\n
+                        <div class="cp-user-transaction-history-table table-responsive">\r\n
+                            <table class="table" id="withdraw_table">\r\n
+                                <thead>\r\n
+                                    <tr>\r\n
+                                        <th>Address</th>\r\n
+                                        <th>Amount</th>\r\n
+                                        <th>Transaction Hash</th>\r\n
+                                        <th>Status</th>\r\n
+                                        <th>Created At</th>\r\n
+                                    </tr>\r\n
+                                </thead>\r\n
+                                <tbody></tbody>\r\n
+                            </table>\r\n
+                        </div>\r\n
+                    </div>\r\n
+                </div>\r\n
+            </div>\r\n
+        </div>\r\n
+    </div>\r\n
+</div>\r\n
+\r\n
+    </div>\r\n
+</div>\r\n
+<!-- /main wrapper -->\r\n
+\r\n
+<!-- js file start -->\r\n
+\r\n
+<!-- JavaScript -->\r\n
+<script src="http://localhost/assets/user/js/jquery.min.js"></script>\r\n
+<script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"></script>\r\n
+<script src="http://localhost/assets/user/js/bootstrap.min.js"></script>\r\n
+<script src="http://localhost/assets/user/js/metisMenu.min.js"></script>\r\n
+\r\n
+<script src="http://localhost/assets/toast/vanillatoasts.js"></script>\r\n
+<!-- Datatable -->\r\n
+<script src="http://localhost/assets/user/js/datatable/datatables.min.js"></script>\r\n
+<script src="http://localhost/assets/user/js/datatable/dataTables.bootstrap.min.js"></script>\r\n
+<script src="http://localhost/assets/user/js/datatable/dataTables.jqueryui.min.js"></script>\r\n
+<script src="http://localhost/assets/user/js/datatable/jquery.dataTables.min.js"></script>\r\n
+\r\n
+<script src="http://localhost/assets/user/js/jquery.scrollbar.min.js"></script>\r\n
+\r\n
+<script src="http://localhost/assets/user/js/jquery.plugin.min.js"></script>\r\n
+<script src="http://localhost/assets/user/js/jquery.countdown.min.js"></script>\r\n
+\r\n
+\r\n
+<script src="http://localhost/assets/dropify/dropify.js"></script>\r\n
+<script src="http://localhost/assets/dropify/form-file-uploads.js"></script>\r\n
+\r\n
+<script src="http://localhost/assets/user/js/main.js"></script>\r\n
+\r\n
+<script>\r\n
+// Defensive reset for stale overlay states that can block the full app UI.\r\n
+window.addEventListener('load', function () {\r\n
+    try {\r\n
+        var $body = $('body');\r\n
+        $body.removeClass('_toggle modal-open');\r\n
+        $('#sidebarOverlay').removeClass('active');\r\n
+\r\n
+        // Leftover Bootstrap backdrops from interrupted navigation can block clicks.\r\n
+        $('.modal-backdrop').remove();\r\n
+\r\n
+        // Ensure swipe overlay containers are not intercepting clicks unless explicitly opened.\r\n
+        $('.swipe-area-overlay').css('pointer-events', 'none');\r\n
+        if (!$body.hasClass('_toggle')) {\r\n
+            $('.swipe-area-overlay').css('pointer-events', '');\r\n
+        }\r\n
+    } catch (e) {\r\n
+        // no-op\r\n
+    }\r\n
+});\r\n
+</script>\r\n
+\r\n
+<script src="https://js.pusher.com/3.0/pusher.min.js"></script>\r\n
+<script src="https://cdnjs.cloudflare.com/ajax/libs/laravel-echo/1.8.1/echo.iife.min.js"></script>\r\n
+<script>\r\n
+    let my_env_socket_port = "6005";\r\n
+    window.Echo = new Echo({\r\n
+        broadcaster: 'pusher',\r\n
+        wsHost: window.location.hostname,\r\n
+        wsPort: my_env_socket_port,\r\n
+        wssPort: 443,\r\n
+        key: 'test',\r\n
+        cluster: 'mt1',\r\n
+        encrypted: true,\r\n
+        disableStats: true\r\n
+    });\r\n
+</script>\r\n
+<script>\r\n
+\r\n
+    Echo.channel('usernotification_' + '6005')\r\n
+        .listen('.receive_notification', (data) => {\r\n
+            if (data.success == true) {\r\n
+                let message = data.message\r\n
+                $('#web_socket_notification').removeClass('d-none');\r\n
+                $('#socket_message').html(message);\r\n
+\r\n
+                $.ajax({\r\n
+                    type: "GET",\r\n
+                    url: 'http://localhost/user/get-notification',\r\n
+                    data: {\r\n
+                        '_token': 'd2SKRUnO4nCmsxoBPmZ8dNRwZQqhwv0MMCIRQBmb',\r\n
+                        'user_id': data.user_id,\r\n
+                    },\r\n
+                    success: function (datas) {\r\n
+                        $('#notification_item').html(datas.data)\r\n
+                    }\r\n
+                });\r\n
+            }\r\n
+        });\r\n
+</script>\r\n
+<script>\r\n
+    $(document).ready(function() {\r\n
+        $('.cp-user-custom-table').DataTable({\r\n
+            responsive: true,\r\n
+            paging: true,\r\n
+            searching: true,\r\n
+            ordering:  true,\r\n
+            select: false,\r\n
+            bDestroy: true\r\n
+        });\r\n
+\r\n
+\r\n
+    });\r\n
+</script>\r\n
+\r\n
+<script>\r\n
+    $(document).on('click', '.viewNotice', function (e) {\r\n
+        var id = $(this).data('id');\r\n
+        // alert(id);\r\n
+        $.ajax({\r\n
+            type: "GET",\r\n
+            url: 'http://localhost/user/show-notification',\r\n
+            data: {\r\n
+                '_token': 'd2SKRUnO4nCmsxoBPmZ8dNRwZQqhwv0MMCIRQBmb',\r\n
+                'id': id,\r\n
+            },\r\n
+            success: function (data) {\r\n
+                $("#n_title").text(data['data']['title']);\r\n
+                $("#n_date").text(data['data']['date']);\r\n
+                $("#n_notice").text(data['data']['notice']);\r\n
+\r\n
+                $('#notification_item').html(data['data']['html'])\r\n
+            }\r\n
+        });\r\n
+    });\r\n
+</script>\r\n
+\r\n
+\r\n
+<script>\r\n
+    $(document).on("click", ".confirm-modal", function (){\r\n
+        $("#confirm-title").text($(this).data('title'));\r\n
+        $("#confirm-link").attr('href', $(this).data('href'));\r\n
+        $("#confirm-modal").modal("show");\r\n
+    });\r\n
+</script>\r\n
+<!-- End js file -->\r\n
+\r\n
+<!-- Sidebar overlay JS -->\r\n
+<script>\r\n
+(function($){\r\n
+    // ── Impersonation bar height sync ────────────────────────────────────────\r\n
+    var impBar = document.getElementById('impersonation-bar');\r\n
+    if (impBar) {\r\n
+        function syncImpBarHeight() {\r\n
+            document.documentElement.style.setProperty('--imp-bar-h', impBar.offsetHeight + 'px');\r\n
+        }\r\n
+        syncImpBarHeight();\r\n
+        if (window.ResizeObserver) {\r\n
+            new ResizeObserver(syncImpBarHeight).observe(impBar);\r\n
+        } else {\r\n
+            window.addEventListener('resize', syncImpBarHeight);\r\n
+        }\r\n
+    }\r\n
+\r\n
+    // ── Sidebar toggle (self-contained, no dependency on theme JS) ───────────\r\n
+    var $body = $('body');\r\n
+    var $sidebar = $('.cp-user-sidebar');\r\n
+    var $topbar = $('.cp-user-top-bar');\r\n
+    var $main = $('.cp-user-main-wrapper');\r\n
+    var $overlay = $('#sidebarOverlay');\r\n
+    var $openBtn = $('.topbar-left .menu-bars').first();\r\n
+    var $closeBtn = $('.sidebar-close-btn');\r\n
+\r\n
+    function setSidebarState(hidden) {\r\n
+        $body.toggleClass('sidebar-hidden', !!hidden);\r\n
+    }\r\n
+\r\n
+    function openSidebar() {\r\n
+        $sidebar.removeClass('cp-user-sidebar-hide');\r\n
+        $topbar.removeClass('cp-user-content-expend');\r\n
+        $main.removeClass('cp-user-content-expend');\r\n
+        setSidebarState(false);\r\n
+        if ($(window).width() <= 991) {\r\n
+            $overlay.addClass('active');\r\n
+        }\r\n
+    }\r\n
+\r\n
+    function closeSidebar() {\r\n
+        $sidebar.addClass('cp-user-sidebar-hide');\r\n
+        $topbar.addClass('cp-user-content-expend');\r\n
+        $main.addClass('cp-user-content-expend');\r\n
+        $overlay.removeClass('active');\r\n
+        setSidebarState(true);\r\n
+    }\r\n
+\r\n
+    function syncOverlayState() {\r\n
+        var isMobile = $(window).width() <= 991;\r\n
+        var sidebarHidden = $sidebar.hasClass('cp-user-sidebar-hide');\r\n
+        if (isMobile && !sidebarHidden) {\r\n
+            $overlay.addClass('active');\r\n
+        } else {\r\n
+            $overlay.removeClass('active');\r\n
+        }\r\n
+        setSidebarState(sidebarHidden);\r\n
+    }\r\n
+\r\n
+    $openBtn.on('click', function(e){\r\n
+        e.preventDefault();\r\n
+        if ($sidebar.hasClass('cp-user-sidebar-hide')) {\r\n
+            openSidebar();\r\n
+        } else {\r\n
+            closeSidebar();\r\n
+        }\r\n
+    });\r\n
+\r\n
+    $closeBtn.on('click', function(e){\r\n
+        e.preventDefault();\r\n
+        closeSidebar();\r\n
+    });\r\n
+\r\n
+    $overlay.on('click', function(){\r\n
+        closeSidebar();\r\n
+    });\r\n
+\r\n
+    // Auto-close sidebar when a leaf nav link is tapped on mobile\r\n
+    $('#metismenu a:not(.arrow-icon)').on('click', function(){\r\n
+        if($(window).width() <= 991){\r\n
+            closeSidebar();\r\n
+        }\r\n
+    });\r\n
+\r\n
+    $(window).on('resize orientationchange', function(){\r\n
+        syncOverlayState();\r\n
+    });\r\n
+    syncOverlayState();\r\n
+})(jQuery);\r\n
+</script>\r\n
+\r\n
+<script>\r\n
+(function(){\r\n
+    function fetchTopbarPrice(){\r\n
+        fetch('http://localhost/api/obx-price')\r\n
+            .then(function(r){ return r.json(); })\r\n
+            .then(function(d){\r\n
+                if(!d || !d.price) return;\r\n
+                var price   = parseFloat(d.price);\r\n
+                var change  = parseFloat(d.change_24h || 0);\r\n
+                var priceEl  = document.getElementById('tb-obx-price');\r\n
+                var changeEl = document.getElementById('tb-obx-change');\r\n
+                if(priceEl)  priceEl.textContent  = '$' + price.toFixed(4) + ' USD';\r\n
+                if(changeEl){\r\n
+                    var sign = change >= 0 ? '+' : '';\r\n
+                    changeEl.textContent  = sign + change.toFixed(2) + '%';\r\n
+                    changeEl.className    = 'tb-price-change ' + (change >= 0 ? 'up' : 'down');\r\n
+                }\r\n
+            })\r\n
+            .catch(function(){});\r\n
+    }\r\n
+    fetchTopbarPrice();\r\n
+    setInterval(fetchTopbarPrice, 30000);\r\n
+})();\r\n
+</script>\r\n
+            <script src="http://localhost/assets/chart/chart.min.js"></script>\r\n
+            <script src="http://localhost/assets/chart/anychart-base.min.js"></script>\r\n
+            <!-- Resources -->\r\n
+            <script src="http://localhost/assets/chart/amchart.core.js"></script>\r\n
+            <script src="http://localhost/assets/chart/amchart.charts.js"></script>\r\n
+            <script src="http://localhost/assets/chart/amchart.animated.js"></script>\r\n
+            <script>\r\n
+                anychart.onDocumentReady(function () {\r\n
+                    var chart = anychart.pie([\r\n
+                        {x: "Complete", value: 0},\r\n
+                        {x: "Pending", value: 0},\r\n
+                    ]);\r\n
+                    chart.innerRadius("60%");\r\n
+                    var label = anychart.standalones.label();\r\n
+                    label.text(0);\r\n
+                    label.width("100%");\r\n
+                    label.height("100%");\r\n
+                    label.adjustFontSize(true);\r\n
+                    label.fontColor("#7d8590");\r\n
+                    label.hAlign("center");\r\n
+                    label.vAlign("middle");\r\n
+                    chart.center().content(label);\r\n
+                    chart.container('circle');\r\n
+                    chart.draw();\r\n
+                });\r\n
+            </script>\r\n
+            <script>\r\n
+                am4core.ready(function () {\r\n
+                    am4core.useTheme(am4themes_animated);\r\n
+                    var chart = am4core.create("container", am4charts.XYChart);\r\n
+                    chart.data = [{"country":"April","year2004":0,"year2005":0},{"country":"March","year2004":0,"year2005":0},{"country":"February","year2004":0,"year2005":0},{"country":"January","year2004":0,"year2005":0},{"country":"December","year2004":0,"year2005":0},{"country":"November","year2004":0,"year2005":0}];\r\n
+                    var categoryAxis = chart.xAxes.push(new am4charts.CategoryAxis());\r\n
+                    categoryAxis.dataFields.category = "country";\r\n
+                    categoryAxis.renderer.grid.template.location = 0;\r\n
+                    categoryAxis.renderer.minGridDistance = 30;\r\n
+                    var valueAxis = chart.yAxes.push(new am4charts.ValueAxis());\r\n
+                    valueAxis.title.text = "Deposit and withdraw";\r\n
+                    valueAxis.title.fontWeight = 800;\r\n
+                    var series = chart.series.push(new am4charts.ColumnSeries());\r\n
+                    series.dataFields.valueY = "year2004";\r\n
+                    series.dataFields.categoryX = "country";\r\n
+                    series.clustered = false;\r\n
+                    series.tooltipText = "Deposit {categoryX}: [bold]{valueY}[/]";\r\n
+                    var series2 = chart.series.push(new am4charts.ColumnSeries());\r\n
+                    series2.dataFields.valueY = "year2005";\r\n
+                    series2.dataFields.categoryX = "country";\r\n
+                    series2.clustered = false;\r\n
+                    series2.columns.template.width = am4core.percent(50);\r\n
+                    series2.tooltipText = "Withdraw {categoryX}: [bold]{valueY}[/]";\r\n
+                    chart.cursor = new am4charts.XYCursor();\r\n
+                    chart.cursor.lineX.disabled = true;\r\n
+                    chart.cursor.lineY.disabled = true;\r\n
+                }); // end am4core.ready()\r\n
+            </script>\r\n
+\r\n
+            <script>\r\n
+                $(document).ready(function () {\r\n
+                    $('#withdraw_table').DataTable({\r\n
+                        processing: true,\r\n
+                        serverSide: true,\r\n
+                        pageLength: 10,\r\n
+                        bLengthChange: true,\r\n
+                        responsive: false,\r\n
+                        ajax: 'http://localhost/user/transaction-histories?type=withdraw',\r\n
+                        order: [4, 'desc'],\r\n
+                        autoWidth: false,\r\n
+                        language: {\r\n
+                            paginate: {\r\n
+                                next: 'Next &#8250;',\r\n
+                                previous: '&#8249; Previous'\r\n
+                            }\r\n
+                        },\r\n
+                        columns: [\r\n
+                            {"data": "address", "orderable": false},\r\n
+                            {"data": "amount", "orderable": false},\r\n
+                            {"data": "hashKey", "orderable": false, "render": function(data) {\r\n
+                                if (!data) return '&mdash;';\r\n
+                                if (typeof data === 'string' && data.startsWith('0x')) {\r\n
+                                    return '<a href="https://testnet.bscscan.com/tx/'+data+'" target="_blank" rel="noopener noreferrer" title="'+data+'">'+data.substring(0,16)+'&#8230;</a>';\r\n
+                                }\r\n
+                                return data;\r\n
+                            }},\r\n
+                            {"data": "status", "orderable": false},\r\n
+                            {"data": "created_at", "orderable": false}\r\n
+                        ],\r\n
+                    });\r\n
+                });\r\n
+            </script>\r\n
+\r\n
+            <script>\r\n
+                $(document).ready(function () {\r\n
+                    $('#table').DataTable({\r\n
+                        processing: true,\r\n
+                        serverSide: true,\r\n
+                        pageLength: 10,\r\n
+                        retrieve: true,\r\n
+                        bLengthChange: true,\r\n
+                        responsive: false,\r\n
+                        ajax: 'http://localhost/user/transaction-histories?type=deposit',\r\n
+                        order: [4, 'desc'],\r\n
+                        autoWidth: false,\r\n
+                        language: {\r\n
+                            paginate: {\r\n
+                                next: 'Next &#8250;',\r\n
+                                previous: '&#8249; Previous'\r\n
+                            }\r\n
+                        },\r\n
+                        columns: [\r\n
+                            {"data": "address", "orderable": false},\r\n
+                            {"data": "amount", "orderable": false},\r\n
+                            {"data": "hashKey", "orderable": false, "render": function(data) {\r\n
+                                if (!data) return '&mdash;';\r\n
+                                if (typeof data === 'string' && data.startsWith('0x')) {\r\n
+                                    return '<a href="https://testnet.bscscan.com/tx/'+data+'" target="_blank" rel="noopener noreferrer" title="'+data+'">'+data.substring(0,16)+'&#8230;</a>';\r\n
+                                }\r\n
+                                return data;\r\n
+                            }},\r\n
+                            {"data": "status", "orderable": false},\r\n
+                            {"data": "created_at", "orderable": false}\r\n
+                        ],\r\n
+                    });\r\n
+                });\r\n
+            </script>\r\n
+            <script>\r\n
+                var ctx = document.getElementById('depositChart').getContext("2d");\r\n
+                var depositChart = new Chart(ctx, {\r\n
+                    type: 'line',\r\n
+                    data: {\r\n
+                        labels: ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],\r\n
+                        datasets: [{\r\n
+                            label: "Monthly Deposit",\r\n
+                            borderColor: "#4ade80",\r\n
+                            pointBorderColor: "#4ade80",\r\n
+                            pointBackgroundColor: "#4ade80",\r\n
+                            pointHoverBackgroundColor: "#4ade80",\r\n
+                            pointHoverBorderColor: "#21262d",\r\n
+                            pointBorderWidth: 3,\r\n
+                            pointHoverRadius: 4,\r\n
+                            pointHoverBorderWidth: 2,\r\n
+                            pointRadius: 3,\r\n
+                            fill: true,\r\n
+                            backgroundColor: "rgba(74,222,128,.07)",\r\n
+                            borderWidth: 2.5,\r\n
+                            data: [0,0,0,0,0,0,0,0,0,0,0,0]\r\n
+                        }]\r\n
+                    },\r\n
+                    options: {\r\n
+                        legend: { position: "bottom", display: true, labels: { fontColor: '#7d8590' } },\r\n
+                        scales: {\r\n
+                            yAxes: [{\r\n
+                                ticks: { fontColor: "#7d8590", fontStyle: "bold", beginAtZero: true, padding: 20 },\r\n
+                                gridLines: { drawTicks: false, color: "rgba(255,255,255,.05)", zeroLineColor: "rgba(255,255,255,.1)" }\r\n
+                            }],\r\n
+                            xAxes: [{\r\n
+                                gridLines: { display: false, drawTicks: false },\r\n
+                                ticks: { padding: 20, fontColor: "#7d8590", fontStyle: "bold" }\r\n
+                            }]\r\n
+                        }\r\n
+                    }\r\n
+                });\r\n
+            </script>\r\n
+            <script>\r\n
+                var ctx2 = document.getElementById('withdrawalChart').getContext("2d");\r\n
+                var withdrawalChart = new Chart(ctx2, {\r\n
+                    type: 'line',\r\n
+                    data: {\r\n
+                        labels: ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],\r\n
+                        datasets: [{\r\n
+                            label: "Monthly Withdrawal",\r\n
+                            borderColor: "#f87171",\r\n
+                            pointBorderColor: "#f87171",\r\n
+                            pointBackgroundColor: "#f87171",\r\n
+                            pointHoverBackgroundColor: "#f87171",\r\n
+                            pointHoverBorderColor: "#21262d",\r\n
+                            pointBorderWidth: 3,\r\n
+                            pointHoverRadius: 4,\r\n
+                            pointHoverBorderWidth: 2,\r\n
+                            pointRadius: 3,\r\n
+                            fill: true,\r\n
+                            backgroundColor: "rgba(248,113,113,.07)",\r\n
+                            borderWidth: 2.5,\r\n
+                            data: [0,0,0,"100.00000000",0,0,0,0,0,0,0,0]\r\n
+                        }]\r\n
+                    },\r\n
+                    options: {\r\n
+                        legend: { position: "bottom", display: true, labels: { fontColor: '#7d8590' } },\r\n
+                        scales: {\r\n
+                            yAxes: [{\r\n
+                                ticks: { fontColor: "#7d8590", fontStyle: "bold", beginAtZero: true },\r\n
+                                gridLines: { drawTicks: false, color: "rgba(255,255,255,.05)", zeroLineColor: "rgba(255,255,255,.1)" }\r\n
+                            }],\r\n
+                            xAxes: [{\r\n
+                                gridLines: { display: false, drawTicks: false },\r\n
+                                ticks: { fontColor: "#7d8590", fontStyle: "bold", autoSkip: false }\r\n
+                            }]\r\n
+                        }\r\n
+                    }\r\n
+                });\r\n
+            </script>\r\n
+            <script>\r\n
+                var ctx3 = document.getElementById('myBarChart').getContext("2d");\r\n
+                var myBarChart = new Chart(ctx3, {\r\n
+                    type: 'bar',\r\n
+                    data: {\r\n
+                        labels: ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],\r\n
+                        datasets: [{\r\n
+                            label: "Monthly Buy Coin",\r\n
+                            backgroundColor: "rgba(99,102,241,.75)",\r\n
+                            borderColor: "#6366f1",\r\n
+                            borderWidth: 1,\r\n
+                            borderRadius: 5,\r\n
+                            data: [0,0,0,0,0,0,0,0,0,0,0,0]\r\n
+                        }]\r\n
+                    },\r\n
+                    options: {\r\n
+                        legend: { position: "bottom", display: true, labels: { fontColor: '#7d8590' } },\r\n
+                        scales: {\r\n
+                            yAxes: [{\r\n
+                                ticks: { fontColor: "#7d8590", fontStyle: "bold", beginAtZero: true, maxTicksLimit: 8, padding: 20 },\r\n
+                                gridLines: { drawTicks: false, color: "rgba(255,255,255,.05)", zeroLineColor: "rgba(255,255,255,.1)" }\r\n
+                            }],\r\n
+                            xAxes: [{\r\n
+                                gridLines: { color: "rgba(99,102,241,.1)", zeroLineColor: "#6366f1" },\r\n
+                                ticks: { padding: 10, fontColor: "#7d8590", fontStyle: "bold" }\r\n
+                            }]\r\n
+                        }\r\n
+                    }\r\n
+                });\r\n
+            </script>\r\n
+\r\n
+            \r\n
+            <script>\r\n
+            (function(){\r\n
+                var OBX_PRICE_API = 'http://localhost/api/obx-price';\r\n
+\r\n
+                function fmtNum(n) {\r\n
+                    n = parseFloat(n) || 0;\r\n
+                    if (n >= 1e9) return '$' + (n/1e9).toFixed(2) + 'B';\r\n
+                    if (n >= 1e6) return '$' + (n/1e6).toFixed(2) + 'M';\r\n
+                    if (n >= 1e3) return '$' + (n/1e3).toFixed(1) + 'K';\r\n
+                    return '$' + n.toFixed(2);\r\n
+                }\r\n
+\r\n
+                function fmtSupply(n) {\r\n
+                    n = parseFloat(n) || 0;\r\n
+                    if (n >= 1e9) return (n/1e9).toFixed(2) + 'B';\r\n
+                    if (n >= 1e6) return (n/1e6).toFixed(2) + 'M';\r\n
+                    if (n >= 1e3) return (n/1e3).toFixed(1) + 'K';\r\n
+                    return n.toFixed(0);\r\n
+                }\r\n
+\r\n
+                function refreshMarket() {\r\n
+                    fetch(OBX_PRICE_API)\r\n
+                        .then(function(r){ return r.json(); })\r\n
+                        .then(function(d) {\r\n
+                            if (!d || !d.price) return;\r\n
+\r\n
+                            var price = parseFloat(d.price);\r\n
+                            var chg   = parseFloat(d.change_24h || 0);\r\n
+\r\n
+                            // Price\r\n
+                            var priceEl = document.getElementById('mw_price');\r\n
+                            if (priceEl) priceEl.textContent = '$' + price.toFixed(6);\r\n
+\r\n
+                            // 24h change\r\n
+                            var chgEl = document.getElementById('mw_change');\r\n
+                            if (chgEl) {\r\n
+                                var sign  = chg >= 0 ? '+' : '';\r\n
+                                var cls   = chg > 0 ? 'chg-up' : chg < 0 ? 'chg-dn' : 'chg-neutral';\r\n
+                                chgEl.className = 'mws-value ' + cls;\r\n
+                                chgEl.textContent = sign + chg.toFixed(2) + '%';\r\n
+                            }\r\n
+\r\n
+                            // Market cap\r\n
+                            var mcapEl = document.getElementById('mw_mcap');\r\n
+                            if (mcapEl && d.market_cap) mcapEl.textContent = fmtNum(d.market_cap);\r\n
+\r\n
+                            // Volume\r\n
+                            var volEl = document.getElementById('mw_vol');\r\n
+                            if (volEl && d.volume_24h) volEl.textContent = fmtNum(d.volume_24h);\r\n
+\r\n
+                            // Supply\r\n
+                            var supEl = document.getElementById('mw_supply');\r\n
+                            if (supEl && d.circulating_supply) supEl.textContent = fmtSupply(d.circulating_supply);\r\n
+                        })\r\n
+                        .catch(function(){});\r\n
+                }\r\n
+\r\n
+                refreshMarket();\r\n
+                setInterval(refreshMarket, 30000);\r\n
+            })();\r\n
+            </script>\r\n
+</body>\r\n
+</html>\r\n
+\r\n
+' [UTF-8](length: 89827) contains "Team Wallet Security" [ASCII](length: 20).
+
+  at tests\Feature\MultiSignatureDashboardTest.php:46
+     42▕ 
+     43▕         $response = $this->actingAs($user)->get(route('userDashboard'));
+     44▕ 
+     45▕         $response->assertStatus(200);
+  ➜  46▕         $response->assertSee('Team Wallet Security');
+     47▕         $response->assertSee('Approval Threshold');
+     48▕     }
+     49▕ 
+     50▕     /** @test */
+
+  ─────────────────────────────────────────────────────────────────────────────────────  
+   FAILED  Tests\Feature\NowPaymentsOnchainFinalizationTest > finished ipn finalizes…    
+  Failed asserting that 0 is identical to 1.
+
+  at tests\Feature\NowPaymentsOnchainFinalizationTest.php:177
+    173▕         $walletBalance = (float) Wallet::where('user_id', $user->id)
+    174▕             ->where('coin_type', DEFAULT_COIN_TYPE)
+    175▕             ->sum('balance');
+    176▕ 
+  ➜ 177▕         $this->assertSame(STATUS_SUCCESS, (int) $purchase->status);
+    178▕         $this->assertSame('success', (string) $purchase->obx_delivery_status);
+    179▕         $this->assertSame($txHash, (string) $purchase->obx_delivery_tx_hash);
+    180▕         $this->assertSame(25.0, $walletBalance);
+    181▕     }
+
+  1   tests\Feature\NowPaymentsOnchainFinalizationTest.php:177
+
+  ─────────────────────────────────────────────────────────────────────────────────────  
+   FAILED  Tests\Feature\NowPaymentsPaymentStatusSyncTest > status endpoint auto sync…   
+  Unable to find JSON: 
+
+[{
+    "success": true,
+    "status_code": 1,
+    "obx_delivery_status": "success",
+    "credited": true,
+    "remote_status": "finished"
+}]
+
+within response JSON:
+
+[{
+    "success": true,
+    "status_code": 0,
+    "status_label": "Pending",
+    "obx_delivery_status": "failed",
+    "obx_delivery_tx_hash": "",
+    "obx_delivery_error": "Received Mockery_0_App_Services_BlockchainService::getObxBalance(), but no expectations were specified",
+    "requested_amount": 15,
+    "credited_amount": 14.9925,
+    "credited": false,
+    "remote_status": "finished",
+    "sync_error": null
+}].
+
+
+Failed asserting that an array has the subset Array &0 [
+    'success' => true,
+    'status_code' => 1,
+    'obx_delivery_status' => 'success',
+    'credited' => true,
+    'remote_status' => 'finished',
+].
+--- Expected
++++ Actual
+@@ @@
+ array (
+   'success' => true,
+-  'status_code' => 1,
++  'status_code' => 0,
+   'status_label' => 'Pending',
+-  'obx_delivery_status' => 'success',
++  'obx_delivery_status' => 'failed',
+   'obx_delivery_tx_hash' => '',
+   'obx_delivery_error' => 'Received Mockery_0_App_Services_BlockchainService::getObxBalance(), but no expectations were specified',
+   'requested_amount' => 15,
+   'credited_amount' => 14.9925,
+-  'credited' => true,
++  'credited' => false,
+   'remote_status' => 'finished',
+   'sync_error' => NULL,
+ )
+
+  at tests\Feature\NowPaymentsPaymentStatusSyncTest.php:109
+    105▕         $this->app->instance(BlockchainService::class, $blockchain);
+    106▕ 
+    107▕         $response = $this->actingAs($user)->get(route('buyCoinPaymentStatus', ['address' => 'np-sync-001']));
+    108▕         $response->assertOk();
+  ➜ 109▕         $response->assertJson([
+    110▕             'success' => true,
+    111▕             'status_code' => STATUS_SUCCESS,
+    112▕             'obx_delivery_status' => 'success',
+    113▕             'credited' => true,
+
+  ─────────────────────────────────────────────────────────────────────────────────────  
+   FAILED  Tests\Feature\NowPaymentsPaymentStatusSyncTest > status endpoint uses defa…   
+  Unable to find JSON: 
+
+[{
+    "success": true,
+    "status_code": 1,
+    "obx_delivery_status": "success",
+    "credited": true,
+    "remote_status": "finished"
+}]
+
+within response JSON:
+
+[{
+    "success": true,
+    "status_code": 0,
+    "status_label": "Pending",
+    "obx_delivery_status": "failed",
+    "obx_delivery_tx_hash": "",
+    "obx_delivery_error": "Received Mockery_0_App_Services_BlockchainService::getObxBalance(), but no expectations were specified",
+    "requested_amount": 7,
+    "credited_amount": 6.9965,
+    "credited": false,
+    "remote_status": "finished",
+    "sync_error": null
+}].
+
+
+Failed asserting that an array has the subset Array &0 [
+    'success' => true,
+    'status_code' => 1,
+    'obx_delivery_status' => 'success',
+    'credited' => true,
+    'remote_status' => 'finished',
+].
+--- Expected
++++ Actual
+@@ @@
+ array (
+   'success' => true,
+-  'status_code' => 1,
++  'status_code' => 0,
+   'status_label' => 'Pending',
+-  'obx_delivery_status' => 'success',
++  'obx_delivery_status' => 'failed',
+   'obx_delivery_tx_hash' => '',
+   'obx_delivery_error' => 'Received Mockery_0_App_Services_BlockchainService::getObxBalance(), but no expectations were specified',
+   'requested_amount' => 7,
+   'credited_amount' => 6.9965,
+-  'credited' => true,
++  'credited' => false,
+   'remote_status' => 'finished',
+   'sync_error' => NULL,
+ )
+
+  at tests\Feature\NowPaymentsPaymentStatusSyncTest.php:192
+    188▕         $this->app->instance(BlockchainService::class, $blockchain);
+    189▕ 
+    190▕         $response = $this->actingAs($user)->get(route('buyCoinPaymentStatus', ['address' => 'np-sync-002']));
+    191▕         $response->assertOk();
+  ➜ 192▕         $response->assertJson([
+    193▕             'success' => true,
+    194▕             'status_code' => STATUS_SUCCESS,
+    195▕             'obx_delivery_status' => 'success',
+    196▕             'credited' => true,
+
+  ─────────────────────────────────────────────────────────────────────────────────────  
+   FAILED  Tests\Feature\RetryFailedObxDeliveriesCommandTest >…   AssertionFailedError   
+  Output "OBX delivery retry complete. processed=1, succeeded=1, failed=0" was not printed.
+
+  at tests\Feature\RetryFailedObxDeliveriesCommandTest.php:102
+     98▕         $this->app->instance(BlockchainService::class, $blockchain);
+     99▕ 
+    100▕         $this->artisan('nowpayments:retry-obx-delivery --limit=10')
+    101▕             ->expectsOutput('OBX delivery retry complete. processed=1, succeeded=1, failed=0')
+  ➜ 102▕             ->assertExitCode(0);
+    103▕ 
+    104▕         $purchase = BuyCoinHistory::findOrFail($purchaseId);
+    105▕         $walletBalance = (float) Wallet::where('user_id', $user->id)
+    106▕             ->where('coin_type', DEFAULT_COIN_TYPE)
+
+
+  Tests:    7 failed, 257 passed (20619 assertions)
+  Duration: 76.46s
+

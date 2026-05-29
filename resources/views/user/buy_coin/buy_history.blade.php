@@ -16,9 +16,9 @@
                                 <thead>
                                 <tr>
                                     <th>{{__('Address')}}</th>
-                                    <th>{{__('OBX Amount')}}</th>
-                                    <th>{{__('Coin')}}</th>
-                                    <th>{{__('Paid With')}}</th>
+                                    <th>{{__('OBX To Receive')}}</th>
+                                    <th>{{__('Payable Coin Amount')}}</th>
+                                    <th>{{__('Stable Coin Paid (USDT)')}}</th>
                                     <th>{{__('Payment Type')}}</th>
                                     <th>{{__('TX Hash')}}</th>
                                     <th>{{__('Status')}}</th>
@@ -47,7 +47,7 @@
             bLengthChange: true,
             responsive: true,
             ajax: '{{route('buyCoinHistory')}}',
-            order: [6, 'desc'],
+            order: [7, 'desc'],
             autoWidth: false,
             language: {
                 paginate: {
@@ -57,9 +57,9 @@
             },
             columns: [
                 {"data": "address","orderable": false},
-                {"data": "coin","orderable": false},
-                {"data": "coin_name","orderable": false},
-                {"data": "pay_currency","orderable": false},
+                {"data": "obx_to_receive","orderable": false},
+                {"data": "payable_coin_amount","orderable": false},
+                {"data": "stable_coin_paid","orderable": false},
                 {"data": "type","orderable": false},
                 {"data": "tx_hash","orderable": false, "render": function(data, type, row) {
                     if (!data) return '&mdash;';

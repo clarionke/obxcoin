@@ -66,12 +66,16 @@
 
         {{-- Country --}}
         <div class="auth-field">
-            <label class="auth-label" for="reg_country_display">{{ __('Country') }} <span class="req">*</span></label>
-            @php $oldCountry = old('country'); @endphp
-            <input type="text" id="reg_country_display" class="auth-input" value="{{ $oldCountry }}" placeholder="{{ __('Detecting your country...') }}" readonly>
+            <label class="auth-label" for="reg_country_input">{{ __('Country') }} <span class="req">*</span></label>
+            @php
+                $oldCountry = old('country', 'Singapore');
+                $oldCountryCode = old('country_code', strtoupper($oldCountry === 'Singapore' ? 'SG' : ''));
+            @endphp
+            <input type="text" id="reg_country_input" class="auth-input" value="{{ $oldCountry }}" placeholder="{{ __('Search or choose your country') }}" list="country_list" autocomplete="off">
+            <datalist id="country_list"></datalist>
             <input type="hidden" id="reg_country" name="country" value="{{ $oldCountry }}">
-            <small style="color:#9aa4b2;display:block;margin-top:6px;">{{ __('Country is auto-detected and cannot be changed during registration.') }}</small>
-            <span class="auth-error" id="country_auto_error" style="display:none;"></span>
+            <input type="hidden" id="reg_country_code" name="country_code" value="{{ $oldCountryCode }}">
+            <small style="color:#9aa4b2;display:block;margin-top:6px;">{{ __('We auto-detect your country. If detection fails, search and choose it manually.') }}</small>
             @if($errors->has('country'))
                 <span class="auth-error">{{ $errors->first('country') }}</span>
             @endif
@@ -208,52 +212,216 @@
         'Venezuela':'+58','Vietnam':'+84','Yemen':'+967','Zambia':'+260','Zimbabwe':'+263',
     };
 
-    var countryHidden  = document.getElementById('reg_country');
-    var countryDisplay = document.getElementById('reg_country_display');
-    var countryError   = document.getElementById('country_auto_error');
-    var dialEl         = document.getElementById('phoneDial');
-    var signupForm     = document.querySelector('form[action*="sign-up-process"]');
+    var DEFAULT_COUNTRY = 'Singapore';
+    var DEFAULT_COUNTRY_CODE = 'SG';
+
+    var countryInput = document.getElementById('reg_country_input');
+    var countryList = document.getElementById('country_list');
+    var countryHidden = document.getElementById('reg_country');
+    var countryCodeHidden = document.getElementById('reg_country_code');
+    var dialEl = document.getElementById('phoneDial');
+    var signupForm = document.querySelector('form[action*="sign-up-process"]');
+
+    var hasOldCountry = {{ old('country') ? 'true' : 'false' }};
+    var userChangedCountry = false;
+    var autoDetectedCountry = '';
+
+    var countryCodeByName = {};
+    if (typeof Intl !== 'undefined' && typeof Intl.DisplayNames !== 'undefined') {
+        try {
+            var regionNames = new Intl.DisplayNames(['en'], { type: 'region' });
+            for (var a = 65; a <= 90; a++) {
+                for (var b = 65; b <= 90; b++) {
+                    var code = String.fromCharCode(a) + String.fromCharCode(b);
+                    var displayName = regionNames.of(code);
+                    if (displayName && displayName !== code) {
+                        countryCodeByName[displayName.toLowerCase()] = code;
+                    }
+                }
+            }
+        } catch (e) {
+            countryCodeByName = {};
+        }
+    }
 
     function setDial(country) {
         dialEl.textContent = dialCodes[country] || '+?';
     }
 
-    // init dial from old() value if present
-    if (countryHidden.value) setDial(countryHidden.value);
+    function setCountry(country, countryCode) {
+        var resolvedCountry = (country || '').trim();
+        if (!resolvedCountry) {
+            resolvedCountry = DEFAULT_COUNTRY;
+        }
 
-    /* ── Auto-detect country via ipapi.co ──────────────────── */
+        countryHidden.value = resolvedCountry;
+        countryInput.value = resolvedCountry;
 
-    function detectCountry() {
-        fetch('https://ipapi.co/json/')
-            .then(function(r){ return r.ok ? r.json() : null; })
-            .then(function(d){
-                if (d && d.country_name) {
-                    var name = d.country_name;
-                    countryHidden.value = name;
-                    countryDisplay.value = name;
-                    setDial(name);
-                    if (countryError) {
-                        countryError.style.display = 'none';
-                        countryError.textContent = '';
-                    }
-                }
-            })
-            .catch(function(){});
+        var resolvedCode = (countryCode || '').toUpperCase();
+        if (!resolvedCode) {
+            resolvedCode = countryCodeByName[resolvedCountry.toLowerCase()] || '';
+        }
+        if (!resolvedCode && resolvedCountry.toLowerCase() === DEFAULT_COUNTRY.toLowerCase()) {
+            resolvedCode = DEFAULT_COUNTRY_CODE;
+        }
+
+        countryCodeHidden.value = resolvedCode;
+        setDial(resolvedCountry);
     }
 
-    // Auto-detect on page load only if no old() value
+    function syncCountryFromInput() {
+        var selectedCountry = (countryInput.value || '').trim();
+        if (!selectedCountry) {
+            selectedCountry = DEFAULT_COUNTRY;
+        }
+
+        var selectedCode = countryCodeByName[selectedCountry.toLowerCase()] || '';
+        if (!selectedCode && selectedCountry.toLowerCase() === DEFAULT_COUNTRY.toLowerCase()) {
+            selectedCode = DEFAULT_COUNTRY_CODE;
+        }
+
+        if (autoDetectedCountry && selectedCountry.toLowerCase() !== autoDetectedCountry.toLowerCase() && !selectedCode) {
+            countryCodeHidden.value = '';
+        } else {
+            countryCodeHidden.value = selectedCode || countryCodeHidden.value;
+        }
+
+        countryHidden.value = selectedCountry;
+        setDial(selectedCountry);
+    }
+
+    function populateCountryList() {
+        if (!countryList) {
+            return;
+        }
+
+        var countries = Object.keys(dialCodes).sort(function (a, b) {
+            return a.localeCompare(b);
+        });
+
+        countries.forEach(function (country) {
+            var option = document.createElement('option');
+            option.value = country;
+            countryList.appendChild(option);
+        });
+    }
+
+    function normalizeGeoPayload(payload) {
+        if (!payload || payload.error || payload.success === false) {
+            return null;
+        }
+
+        var countryCode = String(payload.country_code || payload.countryCode || payload.country || '').toUpperCase();
+        var country = String(payload.country_name || payload.country || '').trim();
+
+        if ((!country || country.length <= 2 || country.toUpperCase() === countryCode) && countryCode.length === 2 && typeof Intl !== 'undefined' && typeof Intl.DisplayNames !== 'undefined') {
+            try {
+                var regionNames = new Intl.DisplayNames(['en'], { type: 'region' });
+                var resolvedCountry = regionNames.of(countryCode);
+                if (resolvedCountry && resolvedCountry !== countryCode) {
+                    country = resolvedCountry;
+                }
+            } catch (e) {
+                // Ignore and continue
+            }
+        }
+
+        if (!country) {
+            return null;
+        }
+
+        return {
+            country: country,
+            country_code: countryCode.length === 2 ? countryCode : ''
+        };
+    }
+
+    function fetchWithTimeout(url, timeoutMs) {
+        return new Promise(function (resolve) {
+            var timeoutId = setTimeout(function () {
+                resolve(null);
+            }, timeoutMs);
+
+            fetch(url, { headers: { 'Accept': 'application/json' } })
+                .then(function (response) {
+                    if (!response.ok) {
+                        return null;
+                    }
+                    return response.json();
+                })
+                .then(function (data) {
+                    clearTimeout(timeoutId);
+                    resolve(data);
+                })
+                .catch(function () {
+                    clearTimeout(timeoutId);
+                    resolve(null);
+                });
+        });
+    }
+
+    async function detectCountryAdvanced() {
+        var sources = [
+            'https://ipwho.is/',
+            'https://ipapi.co/json/',
+            'https://api.country.is/'
+        ];
+
+        for (var i = 0; i < sources.length; i++) {
+            var payload = await fetchWithTimeout(sources[i], 3000);
+            var normalized = normalizeGeoPayload(payload);
+            if (normalized && normalized.country) {
+                return normalized;
+            }
+        }
+
+        return null;
+    }
+
     if (!countryHidden.value) {
-        detectCountry();
+        countryHidden.value = DEFAULT_COUNTRY;
+    }
+    if (!countryInput.value) {
+        countryInput.value = countryHidden.value;
+    }
+
+    populateCountryList();
+    setCountry(countryHidden.value, countryCodeHidden.value);
+
+    if (countryInput) {
+        countryInput.addEventListener('input', function () {
+            userChangedCountry = true;
+            syncCountryFromInput();
+        });
+
+        countryInput.addEventListener('change', function () {
+            userChangedCountry = true;
+            syncCountryFromInput();
+        });
+    }
+
+    if (!hasOldCountry) {
+        detectCountryAdvanced().then(function (geo) {
+            if (userChangedCountry || !geo || !geo.country) {
+                setCountry(countryHidden.value || DEFAULT_COUNTRY, countryCodeHidden.value || DEFAULT_COUNTRY_CODE);
+                return;
+            }
+
+            autoDetectedCountry = geo.country;
+            setCountry(geo.country, geo.country_code);
+        }).catch(function () {
+            setCountry(countryHidden.value || DEFAULT_COUNTRY, countryCodeHidden.value || DEFAULT_COUNTRY_CODE);
+        });
+    } else {
+        setCountry(countryHidden.value, countryCodeHidden.value);
     }
 
     if (signupForm) {
-        signupForm.addEventListener('submit', function(e){
+        signupForm.addEventListener('submit', function(){
+            syncCountryFromInput();
+
             if (!countryHidden.value) {
-                e.preventDefault();
-                if (countryError) {
-                    countryError.textContent = '{{ __('Country detection failed. Please refresh to continue.') }}';
-                    countryError.style.display = 'block';
-                }
+                setCountry(DEFAULT_COUNTRY, DEFAULT_COUNTRY_CODE);
             }
         });
     }
