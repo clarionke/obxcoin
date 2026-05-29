@@ -5,15 +5,24 @@
                   id="withdrawFormData">
                 @csrf
                 <input type="hidden" name="wallet_id" value="{{$wallet_id}}">
+                @php
+                    $isObxWallet = strcasecmp((string)($wallet->coin_type ?? ''), (string) DEFAULT_COIN_TYPE) === 0;
+                @endphp
                 <div class="form-group">
                     <label for="to">To</label>
                     <input name="address" type="text" class="form-control" id="to"
-                           placeholder="{{__('Address')}}">
+                           placeholder="{{ $isObxWallet ? __('Internal wallet address / Team Wallet ID / External 0x address') : __('Address') }}">
                     <span class="flaticon-wallet icon"></span>
-                    <span
-                        class="text-warning">{{__('Note : Please input here your ')}} {{find_coin_type($wallet->coin_type)}} {{__(' Coin address for withdrawal')}}</span><br>
-                    <span
-                        class="text-danger">{{__('Warning : Please input your ')}} {{find_coin_type($wallet->coin_type)}} {{__(' Coin address carefully. Because of wrong address if coin is lost, we will not responsible for that.')}}</span>
+                    @if($isObxWallet)
+                        <span class="text-info">{{ __('Internal send: use recipient internal wallet address or Team Wallet ID (TW-...).') }}</span><br>
+                        <span class="text-warning">{{ __('External send: use recipient blockchain address (0x...).') }}</span><br>
+                        <span class="text-danger">{{ __('Email send is not supported.') }}</span>
+                    @else
+                        <span
+                            class="text-warning">{{__('Note : Please input here your ')}} {{find_coin_type($wallet->coin_type)}} {{__(' Coin address for withdrawal')}}</span><br>
+                        <span
+                            class="text-danger">{{__('Warning : Please input your ')}} {{find_coin_type($wallet->coin_type)}} {{__(' Coin address carefully. Because of wrong address if coin is lost, we will not responsible for that.')}}</span>
+                    @endif
                 </div>
                 <div class="form-group">
                     <label for="amount">{{__('Amount')}}</label>

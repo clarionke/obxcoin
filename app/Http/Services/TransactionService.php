@@ -49,10 +49,9 @@ class TransactionService
         $feePercent = (string) ($wallet->withdrawal_fees ?? '0');
 
         if (strcasecmp((string) ($wallet->coin_type ?? ''), DEFAULT_COIN_TYPE) === 0) {
-            $adminFeePercent = settings(OBX_WITHDRAWAL_FEE_PERCENT_SLUG);
-            if ($adminFeePercent !== false && $adminFeePercent !== null && $adminFeePercent !== '') {
-                $feePercent = (string) $adminFeePercent;
-            }
+            // OBX withdrawal gas is sponsored by admin wallet, so user deduction
+            // should stay aligned between DB and on-chain transfer amount.
+            return '0.00000000';
         }
 
         if (!is_numeric($feePercent)) {
@@ -434,32 +433,47 @@ class TransactionService
                 $btc = $btc_dlr;
             }
             if ( filter_var($address, FILTER_VALIDATE_EMAIL) ) {
-                Log::info('Email-based withdrawal routing is disabled; on-chain address is required.');
-                return ['success' => false, 'message' => __('Withdrawals require a blockchain address (0x...)')];
-            } else {
-                $normalizedAddress = strtolower($address);
+                Log::info('Email-based withdrawal routing is disabled; wallet address or Team Wallet UID is required.');
+                return [
+                    'success' => false,
+                    'message' => __('Email transfer is not supported. Use internal wallet address / Team Wallet ID or blockchain address.')
+                ];
+            }
+
+            $resolvedDestination = $this->resolveInternalDestination($address, (string) $wallet->coin_type);
+            if (empty($resolvedDestination['success'])) {
+                return [
+                    'success' => false,
+                    'message' => (string) ($resolvedDestination['message'] ?? __('Invalid withdrawal destination.'))
+                ];
+            }
+
+            $address = trim((string) ($resolvedDestination['address'] ?? $address));
+            $normalizedAddress = strtolower($address);
+            $walletAddress = $resolvedDestination['walletAddress'] ?? null;
+            if (empty($walletAddress)) {
                 $walletAddress = $this->isInternalAddress($normalizedAddress);
-                $fees = $this->calculateWithdrawalFeeAmount($wallet, $amount);
+            }
+            $fees = $this->calculateWithdrawalFeeAmount($wallet, $amount);
 
-                if ( empty($walletAddress) ) {
-                    $receiverWallet = null;
-                    $receiverUser = null;
-                    $address_type = ADDRESS_TYPE_EXTERNAL;
+            if ( empty($walletAddress) ) {
+                $receiverWallet = null;
+                $receiverUser = null;
+                $address_type = ADDRESS_TYPE_EXTERNAL;
 
-                } else {
-                    $receiverWallet = $walletAddress->wallet;
-                    $receiverUser = $walletAddress->wallet->user;
-                    // Force known internal addresses through on-chain transfer.
-                    $address_type = ADDRESS_TYPE_EXTERNAL;
+            } else {
+                $receiverWallet = $walletAddress->wallet;
+                $receiverUser = $walletAddress->wallet->user;
+                // Force known internal addresses through on-chain transfer.
+                $address_type = ADDRESS_TYPE_EXTERNAL;
 
-                    if ($this->isOwnInternalWalletTransfer((int) $user->id, $receiverWallet)) {
-                        Log::info('You can\'t send to your own wallet!');
-                        return ['success' => false, 'message' => __('You can\'t send to your own wallet!')];
-                    }
-                    if ($wallet->coin_type != $walletAddress->wallet->coin_type) {
-                        Log::info('You can\'t make withdrawal, because wallet coin type is mismatched. Your wallet coin type and withdrawal address coin type should be same.');
-                        return ['success' => false, 'message' => __('You can\'t make withdrawal, because wallet coin type is mismatched. Your wallet coin type and withdrawal address coin type should be same.')];
-                    }
+                if ($this->isOwnInternalWalletTransfer((int) $user->id, $receiverWallet)) {
+                    Log::info('You can\'t send to your own wallet!');
+                    return ['success' => false, 'message' => __('You can\'t send to your own wallet!')];
+                }
+                if ($wallet->coin_type != $walletAddress->wallet->coin_type) {
+                    Log::info('You can\'t make withdrawal, because wallet coin type is mismatched. Your wallet coin type and withdrawal address coin type should be same.');
+                    return ['success' => false, 'message' => __('You can\'t make withdrawal, because wallet coin type is mismatched. Your wallet coin type and withdrawal address coin type should be same.')];
                 }
             }
 
@@ -1225,92 +1239,105 @@ class TransactionService
             return $data;
         }
 
-        $address = $request->address;
+        $address = trim((string) $request->address);
         $senderAddress = $this->resolveWithdrawalSenderAddress($wallet, $user);
         if (filter_var($address, FILTER_VALIDATE_EMAIL)) {
             $data = [
                 'data' => [],
                 'success' => false,
-                'message' => __('Withdrawals require a blockchain address (0x...)')
+                'message' => __('Email transfer is not supported. Use internal wallet address / Team Wallet ID or blockchain address.')
             ];
             return $data;
 
-        } else {
-            $normalizedAddress = strtolower(trim((string) $address));
+        }
 
-            if (strcasecmp((string) ($wallet->coin_type ?? ''), DEFAULT_COIN_TYPE) === 0
-                && !preg_match('/^0x[a-f0-9]{40}$/', $normalizedAddress)) {
-                $data = [
-                    'data' => [],
-                    'success' => false,
-                    'message' => __('Withdrawals require a valid blockchain address (0x...)')
-                ];
-                return $data;
-            }
+        $resolvedDestination = $this->resolveInternalDestination($address, (string) $wallet->coin_type);
+        if (empty($resolvedDestination['success'])) {
+            return [
+                'data' => [],
+                'success' => false,
+                'message' => (string) ($resolvedDestination['message'] ?? __('Invalid withdrawal destination.')),
+            ];
+        }
 
-            if ($senderAddress !== '' && $normalizedAddress === $senderAddress) {
-                $data = [
-                    'data' => [],
-                    'success' => false,
-                    'message' => __('You can\'t withdraw to your own default wallet address.')
-                ];
-                return $data;
-            }
+        $address = trim((string) ($resolvedDestination['address'] ?? $address));
+        $normalizedAddress = strtolower(trim((string) $address));
 
+        if (strcasecmp((string) ($wallet->coin_type ?? ''), DEFAULT_COIN_TYPE) === 0
+            && !preg_match('/^0x[a-f0-9]{40}$/', $normalizedAddress)) {
+            $data = [
+                'data' => [],
+                'success' => false,
+                'message' => __('Withdrawals require a valid blockchain address (0x...)')
+            ];
+            return $data;
+        }
+
+        if ($senderAddress !== '' && $normalizedAddress === $senderAddress) {
+            $data = [
+                'data' => [],
+                'success' => false,
+                'message' => __('You can\'t withdraw to your own OBX wallet address.')
+            ];
+            return $data;
+        }
+
+        $walletAddress = $resolvedDestination['walletAddress'] ?? null;
+        if (empty($walletAddress)) {
             $walletAddress = $this->isInternalAddress($address);
-            $isInternalWalletTransfer = false;
-            if ($walletAddress) {
-                $isInternalWalletTransfer = true;
-                $receiverUser = $walletAddress->wallet->user;
-                if ($this->isOwnInternalWalletTransfer((int) $user->id, $walletAddress->wallet)) {
-                    $data = [
-                        'data' => [],
-                        'success' => false,
-                        'message' => __('You can\'t send to your own wallet!')
-                    ];
-                    return $data;
-                }
-                if ($wallet->coin_type != $walletAddress->wallet->coin_type) {
-                    $data = [
-                        'data' => [],
-                        'success' => false,
-                        'message' => __('You can\'t make withdrawal, because wallet coin type is mismatched. Your wallet coin type and withdrawal address coin type should be same.')
-                    ];
-                    return $data;
-                }
-                $fees = $this->calculateWithdrawalFeeAmount($wallet, $request->amount);
-            } else {
-                $fees = $this->calculateWithdrawalFeeAmount($wallet, $request->amount);
+        }
+        $isInternalWalletTransfer = false;
+        if ($walletAddress) {
+            $isInternalWalletTransfer = true;
+            $receiverUser = $walletAddress->wallet->user;
+            if ($this->isOwnInternalWalletTransfer((int) $user->id, $walletAddress->wallet)) {
+                $data = [
+                    'data' => [],
+                    'success' => false,
+                    'message' => __('You can\'t send to your own wallet!')
+                ];
+                return $data;
+            }
+            if ($wallet->coin_type != $walletAddress->wallet->coin_type) {
+                $data = [
+                    'data' => [],
+                    'success' => false,
+                    'message' => __('You can\'t make withdrawal, because wallet coin type is mismatched. Your wallet coin type and withdrawal address coin type should be same.')
+                ];
+                return $data;
+            }
+            $fees = $this->calculateWithdrawalFeeAmount($wallet, $request->amount);
+        } else {
+            $fees = $this->calculateWithdrawalFeeAmount($wallet, $request->amount);
+        }
+
+        if (!$isInternalWalletTransfer && strcasecmp((string) ($wallet->coin_type ?? ''), DEFAULT_COIN_TYPE) === 0) {
+            if ($senderAddress === '' || !preg_match('/^0x[a-f0-9]{40}$/', $senderAddress)) {
+                return [
+                    'data' => [],
+                    'success' => false,
+                    'message' => __('User OBX wallet address not configured for withdrawal.')
+                ];
             }
 
-            if (!$isInternalWalletTransfer && strcasecmp((string) ($wallet->coin_type ?? ''), DEFAULT_COIN_TYPE) === 0) {
-                if ($senderAddress === '' || !preg_match('/^0x[a-f0-9]{40}$/', $senderAddress)) {
-                    return [
-                        'data' => [],
-                        'success' => false,
-                        'message' => __('User OBX wallet address not configured for withdrawal.')
-                    ];
+            $preflight = app(\App\Services\BlockchainService::class)
+                ->validateObxTransferFromPreconditions($senderAddress, (string) $request->amount);
+
+            if (empty($preflight['success'])) {
+                $msg = (string) ($preflight['message'] ?? __('On-chain allowance check failed'));
+                if (!empty($preflight['spender'])) {
+                    $msg .= ' ' . __('Spender wallet:') . ' ' . $preflight['spender'] . '.';
+                }
+                if (isset($preflight['allowance'], $preflight['required'])) {
+                    $msg .= ' ' . __('Allowance:') . ' ' . $preflight['allowance'] . ' ' . DEFAULT_COIN_TYPE
+                        . ', ' . __('required:') . ' ' . $preflight['required'] . ' ' . DEFAULT_COIN_TYPE . '.';
                 }
 
-                $preflight = app(\App\Services\BlockchainService::class)
-                    ->validateObxTransferFromPreconditions($senderAddress, (string) $request->amount);
-
-                if (empty($preflight['success'])) {
-                    $msg = (string) ($preflight['message'] ?? __('On-chain allowance check failed'));
-                    if (!empty($preflight['spender'])) {
-                        $msg .= ' ' . __('Spender wallet:') . ' ' . $preflight['spender'] . '.';
-                    }
-                    if (isset($preflight['allowance'], $preflight['required'])) {
-                        $msg .= ' ' . __('Allowance:') . ' ' . $preflight['allowance'] . ' ' . DEFAULT_COIN_TYPE
-                            . ', ' . __('required:') . ' ' . $preflight['required'] . ' ' . DEFAULT_COIN_TYPE . '.';
-                    }
-
-                    return [
-                        'data' => [],
-                        'success' => false,
-                        'message' => $msg,
-                    ];
-                }
+                return [
+                    'data' => [],
+                    'success' => false,
+                    'message' => $msg,
+                ];
             }
         }
 
@@ -1371,6 +1398,66 @@ class TransactionService
         }
 
         return '';
+    }
+
+    private function resolveInternalDestination(string $input, string $coinType): array
+    {
+        $destination = trim((string) $input);
+        if ($destination === '') {
+            return [
+                'success' => false,
+                'message' => __('Destination wallet is required.'),
+            ];
+        }
+
+        $walletAddress = $this->isInternalAddress($destination);
+        if (!empty($walletAddress)) {
+            return [
+                'success' => true,
+                'address' => trim((string) ($walletAddress->address ?? $destination)),
+                'walletAddress' => $walletAddress,
+            ];
+        }
+
+        $teamWalletUid = strtoupper($destination);
+        $looksLikeTeamUid = preg_match('/^TW-[A-Z0-9]{6,40}$/', $teamWalletUid) === 1;
+        if (!$looksLikeTeamUid || !Schema::hasColumn('wallets', 'team_wallet_uid')) {
+            return [
+                'success' => true,
+                'address' => $destination,
+                'walletAddress' => null,
+            ];
+        }
+
+        $teamWallet = Wallet::whereRaw('UPPER(team_wallet_uid) = ?', [$teamWalletUid])
+            ->whereRaw('UPPER(coin_type) = ?', [strtoupper((string) $coinType)])
+            ->first();
+
+        if (empty($teamWallet)) {
+            return [
+                'success' => false,
+                'message' => __('Team wallet ID not found for this coin type.'),
+            ];
+        }
+
+        $teamWalletAddress = WalletAddressHistory::where('wallet_id', (int) $teamWallet->id)
+            ->orderBy('id', 'desc')
+            ->with('wallet')
+            ->first();
+
+        $resolvedAddress = trim((string) ($teamWalletAddress->address ?? ''));
+        if ($resolvedAddress === '') {
+            return [
+                'success' => false,
+                'message' => __('Selected team wallet does not have a receiving address yet.'),
+            ];
+        }
+
+        return [
+            'success' => true,
+            'address' => $resolvedAddress,
+            'walletAddress' => $teamWalletAddress,
+        ];
     }
 
     private function isOwnInternalWalletTransfer(int $userId, $receiverWallet): bool

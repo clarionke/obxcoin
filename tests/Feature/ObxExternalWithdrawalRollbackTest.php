@@ -121,7 +121,7 @@ class ObxExternalWithdrawalRollbackTest extends TestCase
     }
 
     /** @test */
-    public function obx_external_withdrawal_uses_admin_fee_percent_and_debits_amount_plus_fee()
+    public function obx_external_withdrawal_keeps_fee_zero_when_admin_sponsors_gas()
     {
         AdminSetting::updateOrCreate(
             ['slug' => OBX_WITHDRAWAL_FEE_PERCENT_SLUG],
@@ -157,7 +157,7 @@ class ObxExternalWithdrawalRollbackTest extends TestCase
         $result = $service->send($walletId, $recipientAddress, '10', false, null, $user->id, 'withdraw fee test');
 
         $this->assertTrue($result['success']);
-        $this->assertEqualsWithDelta(89.75, (float) Wallet::where('id', $walletId)->value('balance'), 0.00000001);
+        $this->assertEqualsWithDelta(90.0, (float) Wallet::where('id', $walletId)->value('balance'), 0.00000001);
 
         $withdraw = DB::table('withdraw_histories')
             ->where('wallet_id', $walletId)
@@ -165,8 +165,75 @@ class ObxExternalWithdrawalRollbackTest extends TestCase
             ->first();
 
         $this->assertNotNull($withdraw);
-        $this->assertSame('0.25000000', number_format((float) $withdraw->fees, 8, '.', ''));
+        $this->assertSame('0.00000000', number_format((float) $withdraw->fees, 8, '.', ''));
         $this->assertSame('10.00000000', number_format((float) $withdraw->amount, 8, '.', ''));
+    }
+
+    /** @test */
+    public function obx_external_withdrawal_uses_same_amount_for_chain_transfer_and_db_debit()
+    {
+        $user = $this->makeUser(['email' => 'withdraw-match@example.com']);
+        $coinId = $this->ensureObxCoin();
+        $walletId = $this->makeWallet($user->id, $coinId, 100.0);
+
+        $senderAddress = '0x9191919191919191919191919191919191919191';
+        $recipientAddress = '0x8282828282828282828282828282828282828282';
+        $requestedAmount = '10.12345678';
+        $this->addWalletAddress($walletId, $senderAddress);
+
+        $capturedChainAmount = null;
+
+        $blockchain = \Mockery::mock(BlockchainService::class);
+        $blockchain->shouldReceive('validateObxTransferFromPreconditions')
+            ->once()
+            ->with(strtolower($senderAddress), $requestedAmount)
+            ->andReturn([
+                'success' => true,
+                'allowance' => '999999.000000000000000000',
+                'balance' => '999999.000000000000000000',
+                'required' => '10.123456780000000000',
+                'spender' => '0x9999999999999999999999999999999999999999',
+            ]);
+        $blockchain->shouldReceive('transferObxFromOnChain')
+            ->once()
+            ->withArgs(function ($from, $to, $amount) use (&$capturedChainAmount, $senderAddress, $recipientAddress, $requestedAmount) {
+                $capturedChainAmount = (string) $amount;
+                return strtolower((string) $from) === strtolower($senderAddress)
+                    && (string) $to === $recipientAddress
+                    && (string) $amount === $requestedAmount;
+            })
+            ->andReturn(['txHash' => '0xmatch123']);
+        $this->app->instance(BlockchainService::class, $blockchain);
+
+        $service = new TransactionService();
+        $result = $service->send($walletId, $recipientAddress, $requestedAmount, false, null, $user->id, 'withdraw amount match test');
+
+        $this->assertTrue($result['success']);
+        $this->assertSame($requestedAmount, (string) $capturedChainAmount);
+
+        $withdraw = DB::table('withdraw_histories')
+            ->where('wallet_id', $walletId)
+            ->where('transaction_hash', '0xmatch123')
+            ->first();
+
+        $this->assertNotNull($withdraw);
+        $this->assertSame('0.00000000', number_format((float) $withdraw->fees, 8, '.', ''));
+
+        if (function_exists('bcadd')) {
+            $dbDebited = bcadd((string) $withdraw->amount, (string) $withdraw->fees, 8);
+        } else {
+            $dbDebited = number_format(((float) $withdraw->amount) + ((float) $withdraw->fees), 8, '.', '');
+        }
+
+        $this->assertSame($requestedAmount, $dbDebited);
+
+        $walletBalanceAfter = number_format((float) Wallet::where('id', $walletId)->value('balance'), 8, '.', '');
+        if (function_exists('bcsub')) {
+            $actualDebited = bcsub('100.00000000', $walletBalanceAfter, 8);
+            $this->assertSame($requestedAmount, $actualDebited);
+        } else {
+            $this->assertEqualsWithDelta(89.87654322, (float) $walletBalanceAfter, 0.00000001);
+        }
     }
 
     /** @test */
