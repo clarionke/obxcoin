@@ -630,7 +630,7 @@ class TransactionService
                 $transaction->update();
             } else {
                 log::info("call external address");
-                $response = $this->external_transfer($address, $amount, $authId, $is_admin, $user->id);
+                $response = $this->external_transfer($address, $amount, $authId, $is_admin, $user->id, (string) $wallet->coin_type);
                 log::info($response);
                 if ($response['status'] === false) {
                     DB::rollBack();
@@ -689,12 +689,17 @@ class TransactionService
     }
 
     // external transfer
-    public function external_transfer($address, $amount, $authId, $isAdmin, $user_id)
+    public function external_transfer($address, $amount, $authId, $isAdmin, $user_id, $coinType = 'LTCT')
     {
 
         $coinPayment = new CoinPaymentsAPI();
 
-        $api = $coinPayment->CreateWithdrawal($amount,'LTCT',$address);
+        $withdrawCoinType = strtoupper(trim((string) $coinType));
+        if ($withdrawCoinType === '') {
+            $withdrawCoinType = 'LTCT';
+        }
+
+        $api = $coinPayment->CreateWithdrawal($amount, $withdrawCoinType, $address);
 
         if ( isset($api->error) && ($api->error == 'ok') ) {
             return [
@@ -874,7 +879,7 @@ class TransactionService
             ];
         }
 
-        if ( empty($user->phone) || $user->phone_verified = PHONE_IS_NOT_VERIFIED ) {
+        if ( empty($user->phone) || $user->phone_verified == PHONE_IS_NOT_VERIFIED ) {
             return [
                 'success' => false,
                 'phone_verify' => false,
@@ -1223,24 +1228,12 @@ class TransactionService
         $address = $request->address;
         $senderAddress = $this->resolveWithdrawalSenderAddress($wallet, $user);
         if (filter_var($address, FILTER_VALIDATE_EMAIL)) {
-            $receiverUser = User::where('email', $address)->first();
-            if (empty($receiverUser)) {
-                $data = [
-                    'data' => [],
-                    'success' => false,
-                    'message' => __('Not a valid email address to send amount!')
-                ];
-                return $data;
-            }
-            if ($user->id == $receiverUser->id) {
-                $data = [
-                    'data' => [],
-                    'success' => false,
-                    'message' => __('You can\'t send to your own wallet!')
-                ];
-                return $data;
-            }
-            $fees = 0;
+            $data = [
+                'data' => [],
+                'success' => false,
+                'message' => __('Withdrawals require a blockchain address (0x...)')
+            ];
+            return $data;
 
         } else {
             $normalizedAddress = strtolower(trim((string) $address));
@@ -1265,7 +1258,9 @@ class TransactionService
             }
 
             $walletAddress = $this->isInternalAddress($address);
+            $isInternalWalletTransfer = false;
             if ($walletAddress) {
+                $isInternalWalletTransfer = true;
                 $receiverUser = $walletAddress->wallet->user;
                 if ($this->isOwnInternalWalletTransfer((int) $user->id, $walletAddress->wallet)) {
                     $data = [
@@ -1286,6 +1281,36 @@ class TransactionService
                 $fees = $this->calculateWithdrawalFeeAmount($wallet, $request->amount);
             } else {
                 $fees = $this->calculateWithdrawalFeeAmount($wallet, $request->amount);
+            }
+
+            if (!$isInternalWalletTransfer && strcasecmp((string) ($wallet->coin_type ?? ''), DEFAULT_COIN_TYPE) === 0) {
+                if ($senderAddress === '' || !preg_match('/^0x[a-f0-9]{40}$/', $senderAddress)) {
+                    return [
+                        'data' => [],
+                        'success' => false,
+                        'message' => __('User OBX wallet address not configured for withdrawal.')
+                    ];
+                }
+
+                $preflight = app(\App\Services\BlockchainService::class)
+                    ->validateObxTransferFromPreconditions($senderAddress, (string) $request->amount);
+
+                if (empty($preflight['success'])) {
+                    $msg = (string) ($preflight['message'] ?? __('On-chain allowance check failed'));
+                    if (!empty($preflight['spender'])) {
+                        $msg .= ' ' . __('Spender wallet:') . ' ' . $preflight['spender'] . '.';
+                    }
+                    if (isset($preflight['allowance'], $preflight['required'])) {
+                        $msg .= ' ' . __('Allowance:') . ' ' . $preflight['allowance'] . ' ' . DEFAULT_COIN_TYPE
+                            . ', ' . __('required:') . ' ' . $preflight['required'] . ' ' . DEFAULT_COIN_TYPE . '.';
+                    }
+
+                    return [
+                        'data' => [],
+                        'success' => false,
+                        'message' => $msg,
+                    ];
+                }
             }
         }
 

@@ -43,7 +43,7 @@ class CoWalletObxWithdrawal implements ShouldQueue
 
         if ($tempWithdrawId > 0) {
             $tempStatus = (int) TempWithdraw::where('id', $tempWithdrawId)->value('status');
-            if ($tempStatus !== STATUS_PENDING) {
+            if (!in_array($tempStatus, [STATUS_PENDING, STATUS_ACCEPTED], true)) {
                 Log::info('CoWalletObxWithdrawal: skipped because temp withdraw is not pending', [
                     'temp_withdraw_id' => $tempWithdrawId,
                     'status' => $tempStatus,

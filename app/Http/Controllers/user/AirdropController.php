@@ -274,10 +274,18 @@ class AirdropController extends Controller
                 return $record->fresh();
             });
 
+            $paymentStatus = strtolower((string) $unlock->nowpayments_payment_status);
             $hasOpenPayment = !empty($unlock->nowpayments_payment_id)
-                && !in_array(strtolower((string) $unlock->nowpayments_payment_status), ['failed', 'expired', 'refunded'], true);
+                && !in_array($paymentStatus, ['failed', 'expired', 'refunded'], true);
 
             if ($hasOpenPayment) {
+                if ($paymentStatus === 'delivery_failed') {
+                    return redirect()->route('user.airdrop')
+                        ->with('dismiss', __('Your payment was received but OBX delivery failed. Please contact support with Payment ID: :id', [
+                            'id' => $unlock->nowpayments_payment_id,
+                        ]));
+                }
+
                 return redirect()->route('user.airdrop')
                     ->with('info', __('You already have a pending withdrawal payment. Complete it to receive your OBX.'));
             }

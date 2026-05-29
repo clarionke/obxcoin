@@ -9,6 +9,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Support\Facades\Log;
+use RuntimeException;
 use Throwable;
 
 class Withdrawal implements ShouldQueue
@@ -44,10 +45,18 @@ class Withdrawal implements ShouldQueue
             log::info('called');
             log::info(json_encode($response));
 
+            if (!is_array($response) || empty($response['success'])) {
+                $errorMessage = is_array($response) && !empty($response['message'])
+                    ? (string) $response['message']
+                    : 'Withdrawal processing failed';
+
+                throw new RuntimeException($errorMessage);
+            }
+
         }
-        catch(\Exception $e) {
-            log::info($e->getMessage());
-            return false;
+        catch(\Throwable $e) {
+            Log::error('Withdrawal job failed: ' . $e->getMessage());
+            throw $e;
         }
     }
 

@@ -328,6 +328,20 @@
                     {{ __(':obx OBX has been sent to your OBX Wallet.', ['obx' => number_format((float)$unlockRecord->obx_released, 4)]) }}
                 </p>
             </div>
+        @elseif($unlockRecord
+            && $unlockRecord->status === 'pending'
+            && strtolower((string) $unlockRecord->nowpayments_payment_status) === 'delivery_failed')
+            <div class="unlock-panel" style="border-color:rgba(248,81,73,.32);background:rgba(248,81,73,.08);">
+                <h6 style="color:#f85149;"><i class="fa fa-exclamation-triangle"></i> {{ __('Payment Received, OBX Delivery Failed') }}</h6>
+                <p style="color:#fca5a5;font-size:13px;">
+                    {{ __('Your payment was confirmed by gateway, but OBX delivery failed. Please contact support and include your Payment ID.') }}
+                </p>
+                <div style="margin-top:10px;background:rgba(0,0,0,.2);border-radius:7px;padding:10px 14px;font-size:12px;color:#fecaca;word-break:break-all;">
+                    <div><b>{{ __('Payment ID') }}:</b> {{ $unlockRecord->nowpayments_payment_id ?: __('N/A') }}</div>
+                    <div><b>{{ __('Gateway Status') }}:</b> {{ strtoupper($unlockRecord->nowpayments_payment_status ?: 'delivery_failed') }}</div>
+                    <div><b>{{ __('Pay Amount') }}:</b> {{ $unlockRecord->nowpayments_pay_amount }} {{ strtoupper($unlockRecord->nowpayments_pay_currency ?: $airdropWithdrawPayCurrency) }}</div>
+                </div>
+            </div>
         @elseif($unlockRecord && $unlockRecord->status === 'pending' && $unlockRecord->nowpayments_payment_id)
             <div class="unlock-panel">
                 <h6><i class="fa fa-clock-o"></i> {{ __('Payment Pending') }}</h6>
@@ -411,6 +425,8 @@
                             <span class="flag-hidden"><i class="fa fa-lock"></i> {{ __('Locked by admin') }}</span>
                         @elseif(!$pc->fee_revealed)
                             <span class="flag-hidden"><i class="fa fa-eye-slash"></i> {{ __('Fee hidden') }}</span>
+                        @elseif($pcUnlock && $pcUnlock->status === 'pending' && strtolower((string) $pcUnlock->nowpayments_payment_status) === 'delivery_failed')
+                            <span style="color:var(--danger);font-size:12.5px;"><i class="fa fa-exclamation-triangle"></i> {{ __('Delivery Failed (Support)') }}</span>
                         @elseif($pcUnlock && $pcUnlock->status === 'pending')
                             <span style="color:#fbbf24;font-size:12.5px;"><i class="fa fa-clock-o"></i> {{ __('Payment Pending') }}</span>
                         @elseif($pcUserFee > 0)

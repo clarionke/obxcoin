@@ -51,7 +51,7 @@ class CommonService
             ];
         }
 
-        if (empty($user->phone) || $user->phone_verified = PHONE_IS_NOT_VERIFIED) {
+        if (empty($user->phone) || $user->phone_verified == PHONE_IS_NOT_VERIFIED) {
             return [
                 'success' => false,
                 'phone_verify' => false,
