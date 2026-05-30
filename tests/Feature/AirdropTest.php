@@ -762,6 +762,35 @@ class AirdropTest extends TestCase
         $response->assertDontSee(route('user.airdrop.claim'));
     }
 
+    /** @test */
+    public function withdrawal_section_includes_ended_campaigns_even_when_deactivated()
+    {
+        $user = $this->makeUser();
+
+        $endedInactiveCampaign = AirdropCampaign::create([
+            'name' => 'Ended Inactive Campaign',
+            'start_date' => now()->subDays(20),
+            'end_date' => now()->subDays(5),
+            'daily_claim_amount' => '100000000000000000000',
+            'streak_days' => 5,
+            'streak_bonus_amount' => '0',
+            'is_active' => false,
+        ]);
+
+        AirdropClaim::create([
+            'user_id' => $user->id,
+            'campaign_id' => $endedInactiveCampaign->id,
+            'claim_date' => Carbon::today()->subDays(6),
+            'amount_obx' => '100000000000000000000',
+            'is_bonus' => false,
+        ]);
+
+        $response = $this->actingAs($user)->get(route('user.airdrop'));
+        $response->assertStatus(200);
+        $response->assertSee('Previous Campaigns with Locked Balance');
+        $response->assertSee('Ended Inactive Campaign');
+    }
+
     // ═══════════════════════════════════════════════════════════════════════
     // Streak gamification
     // ═══════════════════════════════════════════════════════════════════════

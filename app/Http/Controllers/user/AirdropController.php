@@ -58,11 +58,13 @@ class AirdropController extends Controller
                 ->first();
         }
 
-        // All ended campaigns where user has unclaimed (non-unlocked) balance
-        $pastCampaigns = AirdropCampaign::where('is_active', true)
+        // All ended campaigns where user has unclaimed (non-unlocked) balance.
+        // This section is intentionally cross-campaign and should include deactivated campaigns too.
+        $pastCampaigns = AirdropCampaign::query()
             ->where('end_date', '<', now())
             ->whereHas('claims', fn($q) => $q->where('user_id', $userId))
             ->whereDoesntHave('unlocks', fn($q) => $q->where('user_id', $userId)->where('status', 'confirmed'))
+            ->orderByDesc('end_date')
             ->get();
 
         $data['title']          = __('My Airdrop');
