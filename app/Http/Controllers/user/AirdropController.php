@@ -96,11 +96,13 @@ class AirdropController extends Controller
             $tierLabel = (string) ($airdropProgress['claimTierLabel'] ?? '--');
             $dailyAmount = (string) ($airdropProgress['dailyClaimAmount'] ?? '0');
             $tierStreakDays = max(1, (int) ($airdropProgress['streakDays'] ?? 1));
+            $tierBonusAmount = (string) ($airdropProgress['streakBonusAmount'] ?? '0');
 
-            $claimLevelNotice = __('Claim Level: :tier | Daily Claim: :amount OBX | Streak Target: :days days.', [
+            $claimLevelNotice = __('Claim Level: :tier | Daily Claim: :amount OBX | Streak Target: :days days | Streak Bonus: :bonus OBX.', [
                 'tier' => $tierLabel,
                 'amount' => number_format((float) $dailyAmount, 2),
                 'days' => $tierStreakDays,
+                'bonus' => number_format((float) $tierBonusAmount, 2),
             ]);
 
             $hasNextTier = (bool) ($airdropProgress['hasNextTier'] ?? false);
@@ -122,14 +124,16 @@ class AirdropController extends Controller
                 $tierLabel,
                 number_format((float) $dailyAmount, 8, '.', ''),
                 (string) $tierStreakDays,
+                number_format((float) $tierBonusAmount, 8, '.', ''),
             ]);
             $previousTierSignature = (string) session('airdrop_claim_level_signature', '');
 
             if ($currentTierSignature !== $previousTierSignature && !session()->has('info')) {
-                $levelUpdateMessage = __('Your claim level has been updated to :tier. You can now claim :amount OBX daily with a :days-day streak target.', [
+                $levelUpdateMessage = __('Your claim level has been updated to :tier. You can now claim :amount OBX daily with a :days-day streak target and :bonus OBX streak bonus.', [
                     'tier' => $tierLabel,
                     'amount' => number_format((float) $dailyAmount, 2),
                     'days' => $tierStreakDays,
+                    'bonus' => number_format((float) $tierBonusAmount, 2),
                 ]);
 
                 if ($hasNextTier && $amountToNextUsd > 0) {
@@ -227,7 +231,7 @@ class AirdropController extends Controller
 
             // Streak gamification — award bonus on every N-day milestone
             $streak       = $this->getCurrentStreak($userId, $campaign->id, $today);
-            $bonusAmount  = $campaign->streak_bonus_amount ?? '0';
+            $bonusAmount  = (string) ($claimTierConfig['streak_bonus_amount'] ?? $campaign->streak_bonus_amount ?? '0');
             $bonusAwarded = false;
 
             if (bccomp((string) $bonusAmount, '0', 18) > 0
@@ -257,11 +261,12 @@ class AirdropController extends Controller
 
             $tierLabel = (string) ($claimTierConfig['tier_label'] ?? '--');
             $tierRequirement = (string) ($claimTierConfig['tier_requirement'] ?? '--');
-            $message .= ' ' . __('Claim level: :tier (:requirement) | Daily claim: :amount OBX | Streak target: :days days.', [
+            $message .= ' ' . __('Claim level: :tier (:requirement) | Daily claim: :amount OBX | Streak target: :days days | Streak bonus: :bonus OBX.', [
                 'tier' => $tierLabel,
                 'requirement' => $tierRequirement,
                 'amount' => number_format((float) $dailyClaimAmount, 2),
                 'days' => $streakDays,
+                'bonus' => number_format((float) $bonusAmount, 2),
             ]);
 
             $hasNextTier = !empty($claimTierConfig['has_next_tier']);
@@ -281,6 +286,7 @@ class AirdropController extends Controller
                 $tierLabel,
                 number_format((float) $dailyClaimAmount, 8, '.', ''),
                 (string) $streakDays,
+                number_format((float) $bonusAmount, 8, '.', ''),
             ])]);
 
             return redirect()->route('user.airdrop')->with('success', $message);

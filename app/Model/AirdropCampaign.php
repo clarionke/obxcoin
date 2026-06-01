@@ -28,6 +28,12 @@ class AirdropCampaign extends Model
         'claim_streak_lt_500_days',
         'claim_streak_lt_1000_days',
         'claim_streak_gte_1000_days',
+        'claim_streak_bonus_no_purchase_obx',
+        'claim_streak_bonus_lt_50_obx',
+        'claim_streak_bonus_lt_100_obx',
+        'claim_streak_bonus_lt_500_obx',
+        'claim_streak_bonus_lt_1000_obx',
+        'claim_streak_bonus_gte_1000_obx',
         'unlock_fee_usdt',
         'unlock_fee_lt_100_usdt',
         'unlock_fee_lt_500_usdt',
@@ -154,6 +160,7 @@ class AirdropCampaign extends Model
         return [
             'daily_claim_amount' => (string) ($currentTier['daily_claim_amount'] ?? '0'),
             'streak_days' => (int) ($currentTier['streak_days'] ?? 1),
+            'streak_bonus_amount' => (string) ($currentTier['streak_bonus_amount'] ?? '0'),
             'tier_label' => (string) ($currentTier['tier_label'] ?? $currentTier['tier_name'] ?? '--'),
             'tier_name' => (string) ($currentTier['tier_name'] ?? '--'),
             'tier_requirement' => (string) ($currentTier['requirement_label'] ?? '--'),
@@ -180,56 +187,62 @@ class AirdropCampaign extends Model
                 'requirement_label' => 'Total buy = 0 USD',
                 'daily_claim_amount' => $this->resolveClaimTierDailyAmount($this->claim_daily_no_purchase_obx),
                 'streak_days' => $this->resolveClaimTierStreakDays($this->claim_streak_no_purchase_days),
+                'streak_bonus_amount' => $this->resolveClaimTierBonusAmount($this->claim_streak_bonus_no_purchase_obx),
             ],
             [
                 'tier_code' => 'bronze_builder',
                 'tier_name' => 'Bronze Builder',
                 'tier_label' => 'Bronze Builder',
-                'min_usd' => 0.01,
-                'max_usd' => 49.99,
-                'requirement_label' => '0.01 - 49.99 USD total buy',
+                'min_usd' => 1.00,
+                'max_usd' => 50.00,
+                'requirement_label' => '1.00 - 50.00 USD total buy',
                 'daily_claim_amount' => $this->resolveClaimTierDailyAmount($this->claim_daily_lt_50_obx),
                 'streak_days' => $this->resolveClaimTierStreakDays($this->claim_streak_lt_50_days),
+                'streak_bonus_amount' => $this->resolveClaimTierBonusAmount($this->claim_streak_bonus_lt_50_obx),
             ],
             [
                 'tier_code' => 'silver_strider',
                 'tier_name' => 'Silver Strider',
                 'tier_label' => 'Silver Strider',
-                'min_usd' => 50.00,
-                'max_usd' => 99.99,
-                'requirement_label' => '50.00 - 99.99 USD total buy',
+                'min_usd' => 51.00,
+                'max_usd' => 100.00,
+                'requirement_label' => '51.00 - 100.00 USD total buy',
                 'daily_claim_amount' => $this->resolveClaimTierDailyAmount($this->claim_daily_lt_100_obx),
                 'streak_days' => $this->resolveClaimTierStreakDays($this->claim_streak_lt_100_days),
+                'streak_bonus_amount' => $this->resolveClaimTierBonusAmount($this->claim_streak_bonus_lt_100_obx),
             ],
             [
                 'tier_code' => 'gold_grinder',
                 'tier_name' => 'Gold Grinder',
                 'tier_label' => 'Gold Grinder',
-                'min_usd' => 100.00,
-                'max_usd' => 499.99,
-                'requirement_label' => '100.00 - 499.99 USD total buy',
+                'min_usd' => 101.00,
+                'max_usd' => 500.00,
+                'requirement_label' => '101.00 - 500.00 USD total buy',
                 'daily_claim_amount' => $this->resolveClaimTierDailyAmount($this->claim_daily_lt_500_obx),
                 'streak_days' => $this->resolveClaimTierStreakDays($this->claim_streak_lt_500_days),
+                'streak_bonus_amount' => $this->resolveClaimTierBonusAmount($this->claim_streak_bonus_lt_500_obx),
             ],
             [
                 'tier_code' => 'platinum_pioneer',
                 'tier_name' => 'Platinum Pioneer',
                 'tier_label' => 'Platinum Pioneer',
-                'min_usd' => 500.00,
-                'max_usd' => 999.99,
-                'requirement_label' => '500.00 - 999.99 USD total buy',
+                'min_usd' => 501.00,
+                'max_usd' => 1000.00,
+                'requirement_label' => '501.00 - 1000.00 USD total buy',
                 'daily_claim_amount' => $this->resolveClaimTierDailyAmount($this->claim_daily_lt_1000_obx),
                 'streak_days' => $this->resolveClaimTierStreakDays($this->claim_streak_lt_1000_days),
+                'streak_bonus_amount' => $this->resolveClaimTierBonusAmount($this->claim_streak_bonus_lt_1000_obx),
             ],
             [
                 'tier_code' => 'diamond_titan',
                 'tier_name' => 'Diamond Titan',
                 'tier_label' => 'Diamond Titan',
-                'min_usd' => 1000.00,
+                'min_usd' => 1001.00,
                 'max_usd' => null,
-                'requirement_label' => '>= 1000.00 USD total buy',
+                'requirement_label' => '>= 1001.00 USD total buy',
                 'daily_claim_amount' => $this->resolveClaimTierDailyAmount($this->claim_daily_gte_1000_obx),
                 'streak_days' => $this->resolveClaimTierStreakDays($this->claim_streak_gte_1000_days),
+                'streak_bonus_amount' => $this->resolveClaimTierBonusAmount($this->claim_streak_bonus_gte_1000_obx),
             ],
         ];
     }
@@ -240,19 +253,19 @@ class AirdropCampaign extends Model
             return 0;
         }
 
-        if ($purchasedUsd < 50) {
+        if ($purchasedUsd <= 50) {
             return 1;
         }
 
-        if ($purchasedUsd < 100) {
+        if ($purchasedUsd <= 100) {
             return 2;
         }
 
-        if ($purchasedUsd < 500) {
+        if ($purchasedUsd <= 500) {
             return 3;
         }
 
-        if ($purchasedUsd < 1000) {
+        if ($purchasedUsd <= 1000) {
             return 4;
         }
 
@@ -283,6 +296,23 @@ class AirdropCampaign extends Model
         }
 
         return min(365, max(1, (int) ($this->streak_days ?? 5)));
+    }
+
+    private function resolveClaimTierBonusAmount($rawBonusAmount): string
+    {
+        if (is_numeric($rawBonusAmount) && (float) $rawBonusAmount >= 0) {
+            return function_exists('bcmul')
+                ? bcmul((string) $rawBonusAmount, '1', 18)
+                : (string) $rawBonusAmount;
+        }
+
+        if (is_numeric($this->streak_bonus_amount) && (float) $this->streak_bonus_amount >= 0) {
+            return function_exists('bcmul')
+                ? bcmul((string) $this->streak_bonus_amount, '1', 18)
+                : (string) $this->streak_bonus_amount;
+        }
+
+        return '0';
     }
 
     /**

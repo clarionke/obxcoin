@@ -151,7 +151,7 @@
             @if($adCampaign)
                 <p>{{ __('Bonus on milestone') }}: +{{ number_format((float) $adBonusAmount, 2) }} OBX</p>
                 <p>{{ __('Campaign window') }}: {{ $adCampaign->start_date->format('M d, Y H:i') }} → {{ $adCampaign->end_date->format('M d, Y H:i') }}</p>
-                <p>{{ __('Your claim tier') }}: {{ $adClaimTierName }} ({{ $adClaimTierRequirement }}) {{ __('| Daily claim') }}: {{ number_format((float)$adDailyClaimAmount, 2) }} OBX {{ __('| Streak target') }}: {{ $adStreakDays }} {{ __('days') }}</p>
+                <p>{{ __('Your claim tier') }}: {{ $adClaimTierName }} ({{ $adClaimTierRequirement }}) {{ __('| Daily claim') }}: {{ number_format((float)$adDailyClaimAmount, 2) }} OBX {{ __('| Streak target') }}: {{ $adStreakDays }} {{ __('days') }} {{ __('| Streak bonus') }}: {{ number_format((float)$adBonusAmount, 2) }} OBX</p>
                 <p>{{ __('Your fee tier') }}: {{ $userTierLabel }} {{ __('| Total buy') }}: ${{ number_format($userPurchaseUsd, 2) }} {{ __('| Fee') }}: {{ number_format($userTierFee, 2) }} USDT</p>
             @else
                 <p>{{ __('Airdrop status updates will appear here when a campaign is active.') }}</p>
@@ -290,6 +290,7 @@
                         <th>{{ __('Requirement') }}</th>
                         <th>{{ __('Daily Claim') }}</th>
                         <th>{{ __('Streak Target') }}</th>
+                        <th>{{ __('Streak Bonus') }}</th>
                         <th>{{ __('Status') }}</th>
                     </tr>
                 </thead>
@@ -305,6 +306,7 @@
                             <td>{{ $tierRow['requirement_label'] ?? '--' }}</td>
                             <td>{{ number_format((float) ($tierRow['daily_claim_amount'] ?? 0), 2) }} OBX</td>
                             <td>{{ (int) ($tierRow['streak_days'] ?? 1) }} {{ __('days') }}</td>
+                            <td>{{ number_format((float) ($tierRow['streak_bonus_amount'] ?? 0), 2) }} OBX</td>
                             <td>
                                 @if($isCurrentTierRow)
                                     <span class="tier-status tier-status-current">{{ __('Current') }}</span>
@@ -319,7 +321,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="5" style="color:#94a3b8;">{{ __('Tier requirements are not available yet.') }}</td>
+                            <td colspan="6" style="color:#94a3b8;">{{ __('Tier requirements are not available yet.') }}</td>
                         </tr>
                     @endforelse
                 </tbody>

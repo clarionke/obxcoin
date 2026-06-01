@@ -52,7 +52,7 @@ class AirdropProgressService
         $userTotalPurchasedUsd = $this->getUserTotalPurchasedUsd($userId);
         $claimTierConfig = $campaign->resolveClaimConfigByPurchaseUsd($userTotalPurchasedUsd);
         $streakDays = max(1, (int) ($claimTierConfig['streak_days'] ?? $campaign->streak_days ?? 5));
-        $bonusAmount = (string) ($campaign->streak_bonus_amount ?? '0');
+        $bonusAmount = (string) ($claimTierConfig['streak_bonus_amount'] ?? $campaign->streak_bonus_amount ?? '0');
         $dailyClaimAmount = (string) ($claimTierConfig['daily_claim_amount'] ?? '0');
         $claimTierLabel = (string) ($claimTierConfig['tier_label'] ?? '--');
         $claimTierName = (string) ($claimTierConfig['tier_name'] ?? '--');

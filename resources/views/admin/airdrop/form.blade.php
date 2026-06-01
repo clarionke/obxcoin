@@ -148,7 +148,7 @@
                             {{-- Row 3: Personalized claim tiers --}}
                             <div class="row">
                                 <div class="col-12 mt-20">
-                                    <h6 class="mb-2">{{ __('Personalized Daily Claim and Streak by Total Buy (USD)') }}</h6>
+                                    <h6 class="mb-2">{{ __('Personalized Daily Claim, Streak, and Bonus by Total Buy (USD)') }}</h6>
                                     <small class="text-muted">{{ __('These values are configurable per campaign and applied per user purchase tier.') }}</small>
                                 </div>
 
@@ -168,10 +168,18 @@
                                         <span class="text-danger"><strong>{{ $errors->first('claim_streak_no_purchase_days') }}</strong></span>
                                     </div>
                                 </div>
+                                <div class="col-md-2 mt-20">
+                                    <div class="form-group">
+                                        <label>{{ __('Streak Bonus (OBX)') }} <span class="text-danger">*</span></label>
+                                        <input type="number" name="claim_streak_bonus_no_purchase_obx" class="form-control" step="any" min="0"
+                                               value="{{ old('claim_streak_bonus_no_purchase_obx', $campaign ? (is_numeric($campaign->claim_streak_bonus_no_purchase_obx) ? (float)$campaign->claim_streak_bonus_no_purchase_obx : (float)($campaign->streak_bonus_amount ?? 0)) : 0) }}" required>
+                                        <span class="text-danger"><strong>{{ $errors->first('claim_streak_bonus_no_purchase_obx') }}</strong></span>
+                                    </div>
+                                </div>
 
                                 <div class="col-md-4 mt-20">
                                     <div class="form-group">
-                                        <label>{{ __('0 < Buy < 50 USD - Daily OBX') }} <span class="text-danger">*</span></label>
+                                        <label>{{ __('1 <= Buy <= 50 USD - Daily OBX') }} <span class="text-danger">*</span></label>
                                         <input type="number" name="claim_daily_lt_50_obx" class="form-control" step="any" min="0.000000000000000001"
                                                value="{{ old('claim_daily_lt_50_obx', $campaign ? (is_numeric($campaign->claim_daily_lt_50_obx) ? (float)$campaign->claim_daily_lt_50_obx : 3.5) : 3.5) }}" required>
                                         <span class="text-danger"><strong>{{ $errors->first('claim_daily_lt_50_obx') }}</strong></span>
@@ -185,10 +193,18 @@
                                         <span class="text-danger"><strong>{{ $errors->first('claim_streak_lt_50_days') }}</strong></span>
                                     </div>
                                 </div>
+                                <div class="col-md-2 mt-20">
+                                    <div class="form-group">
+                                        <label>{{ __('Streak Bonus (OBX)') }} <span class="text-danger">*</span></label>
+                                        <input type="number" name="claim_streak_bonus_lt_50_obx" class="form-control" step="any" min="0"
+                                               value="{{ old('claim_streak_bonus_lt_50_obx', $campaign ? (is_numeric($campaign->claim_streak_bonus_lt_50_obx) ? (float)$campaign->claim_streak_bonus_lt_50_obx : (float)($campaign->streak_bonus_amount ?? 0)) : 0) }}" required>
+                                        <span class="text-danger"><strong>{{ $errors->first('claim_streak_bonus_lt_50_obx') }}</strong></span>
+                                    </div>
+                                </div>
 
                                 <div class="col-md-4 mt-20">
                                     <div class="form-group">
-                                        <label>{{ __('50 <= Buy < 100 USD - Daily OBX') }} <span class="text-danger">*</span></label>
+                                        <label>{{ __('51 <= Buy <= 100 USD - Daily OBX') }} <span class="text-danger">*</span></label>
                                         <input type="number" name="claim_daily_lt_100_obx" class="form-control" step="any" min="0.000000000000000001"
                                                value="{{ old('claim_daily_lt_100_obx', $campaign ? (is_numeric($campaign->claim_daily_lt_100_obx) ? (float)$campaign->claim_daily_lt_100_obx : 5) : 5) }}" required>
                                         <span class="text-danger"><strong>{{ $errors->first('claim_daily_lt_100_obx') }}</strong></span>
@@ -202,10 +218,18 @@
                                         <span class="text-danger"><strong>{{ $errors->first('claim_streak_lt_100_days') }}</strong></span>
                                     </div>
                                 </div>
+                                <div class="col-md-2 mt-20">
+                                    <div class="form-group">
+                                        <label>{{ __('Streak Bonus (OBX)') }} <span class="text-danger">*</span></label>
+                                        <input type="number" name="claim_streak_bonus_lt_100_obx" class="form-control" step="any" min="0"
+                                               value="{{ old('claim_streak_bonus_lt_100_obx', $campaign ? (is_numeric($campaign->claim_streak_bonus_lt_100_obx) ? (float)$campaign->claim_streak_bonus_lt_100_obx : (float)($campaign->streak_bonus_amount ?? 0)) : 0) }}" required>
+                                        <span class="text-danger"><strong>{{ $errors->first('claim_streak_bonus_lt_100_obx') }}</strong></span>
+                                    </div>
+                                </div>
 
                                 <div class="col-md-4 mt-20">
                                     <div class="form-group">
-                                        <label>{{ __('100 <= Buy < 500 USD - Daily OBX') }} <span class="text-danger">*</span></label>
+                                        <label>{{ __('101 <= Buy <= 500 USD - Daily OBX') }} <span class="text-danger">*</span></label>
                                         <input type="number" name="claim_daily_lt_500_obx" class="form-control" step="any" min="0.000000000000000001"
                                                value="{{ old('claim_daily_lt_500_obx', $campaign ? (is_numeric($campaign->claim_daily_lt_500_obx) ? (float)$campaign->claim_daily_lt_500_obx : 10) : 10) }}" required>
                                         <span class="text-danger"><strong>{{ $errors->first('claim_daily_lt_500_obx') }}</strong></span>
@@ -219,10 +243,18 @@
                                         <span class="text-danger"><strong>{{ $errors->first('claim_streak_lt_500_days') }}</strong></span>
                                     </div>
                                 </div>
+                                <div class="col-md-2 mt-20">
+                                    <div class="form-group">
+                                        <label>{{ __('Streak Bonus (OBX)') }} <span class="text-danger">*</span></label>
+                                        <input type="number" name="claim_streak_bonus_lt_500_obx" class="form-control" step="any" min="0"
+                                               value="{{ old('claim_streak_bonus_lt_500_obx', $campaign ? (is_numeric($campaign->claim_streak_bonus_lt_500_obx) ? (float)$campaign->claim_streak_bonus_lt_500_obx : (float)($campaign->streak_bonus_amount ?? 0)) : 0) }}" required>
+                                        <span class="text-danger"><strong>{{ $errors->first('claim_streak_bonus_lt_500_obx') }}</strong></span>
+                                    </div>
+                                </div>
 
                                 <div class="col-md-4 mt-20">
                                     <div class="form-group">
-                                        <label>{{ __('500 <= Buy < 1000 USD - Daily OBX') }} <span class="text-danger">*</span></label>
+                                        <label>{{ __('501 <= Buy <= 1000 USD - Daily OBX') }} <span class="text-danger">*</span></label>
                                         <input type="number" name="claim_daily_lt_1000_obx" class="form-control" step="any" min="0.000000000000000001"
                                                value="{{ old('claim_daily_lt_1000_obx', $campaign ? (is_numeric($campaign->claim_daily_lt_1000_obx) ? (float)$campaign->claim_daily_lt_1000_obx : 20) : 20) }}" required>
                                         <span class="text-danger"><strong>{{ $errors->first('claim_daily_lt_1000_obx') }}</strong></span>
@@ -236,10 +268,18 @@
                                         <span class="text-danger"><strong>{{ $errors->first('claim_streak_lt_1000_days') }}</strong></span>
                                     </div>
                                 </div>
+                                <div class="col-md-2 mt-20">
+                                    <div class="form-group">
+                                        <label>{{ __('Streak Bonus (OBX)') }} <span class="text-danger">*</span></label>
+                                        <input type="number" name="claim_streak_bonus_lt_1000_obx" class="form-control" step="any" min="0"
+                                               value="{{ old('claim_streak_bonus_lt_1000_obx', $campaign ? (is_numeric($campaign->claim_streak_bonus_lt_1000_obx) ? (float)$campaign->claim_streak_bonus_lt_1000_obx : (float)($campaign->streak_bonus_amount ?? 0)) : 0) }}" required>
+                                        <span class="text-danger"><strong>{{ $errors->first('claim_streak_bonus_lt_1000_obx') }}</strong></span>
+                                    </div>
+                                </div>
 
                                 <div class="col-md-4 mt-20">
                                     <div class="form-group">
-                                        <label>{{ __('Buy >= 1000 USD - Daily OBX') }} <span class="text-danger">*</span></label>
+                                        <label>{{ __('Buy >= 1001 USD - Daily OBX') }} <span class="text-danger">*</span></label>
                                         <input type="number" name="claim_daily_gte_1000_obx" class="form-control" step="any" min="0.000000000000000001"
                                                value="{{ old('claim_daily_gte_1000_obx', $campaign ? (is_numeric($campaign->claim_daily_gte_1000_obx) ? (float)$campaign->claim_daily_gte_1000_obx : 25) : 25) }}" required>
                                         <span class="text-danger"><strong>{{ $errors->first('claim_daily_gte_1000_obx') }}</strong></span>
@@ -251,6 +291,14 @@
                                         <input type="number" name="claim_streak_gte_1000_days" class="form-control" min="1" max="365"
                                                value="{{ old('claim_streak_gte_1000_days', $campaign->claim_streak_gte_1000_days ?? 100) }}" required>
                                         <span class="text-danger"><strong>{{ $errors->first('claim_streak_gte_1000_days') }}</strong></span>
+                                    </div>
+                                </div>
+                                <div class="col-md-2 mt-20">
+                                    <div class="form-group">
+                                        <label>{{ __('Streak Bonus (OBX)') }} <span class="text-danger">*</span></label>
+                                        <input type="number" name="claim_streak_bonus_gte_1000_obx" class="form-control" step="any" min="0"
+                                               value="{{ old('claim_streak_bonus_gte_1000_obx', $campaign ? (is_numeric($campaign->claim_streak_bonus_gte_1000_obx) ? (float)$campaign->claim_streak_bonus_gte_1000_obx : (float)($campaign->streak_bonus_amount ?? 0)) : 0) }}" required>
+                                        <span class="text-danger"><strong>{{ $errors->first('claim_streak_bonus_gte_1000_obx') }}</strong></span>
                                     </div>
                                 </div>
                             </div>

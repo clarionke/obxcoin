@@ -82,6 +82,12 @@ class AirdropController extends Controller
             'claim_streak_lt_500_days' => 'required|integer|min:1|max:365',
             'claim_streak_lt_1000_days' => 'required|integer|min:1|max:365',
             'claim_streak_gte_1000_days' => 'required|integer|min:1|max:365',
+            'claim_streak_bonus_no_purchase_obx' => 'required|numeric|min:0',
+            'claim_streak_bonus_lt_50_obx' => 'required|numeric|min:0',
+            'claim_streak_bonus_lt_100_obx' => 'required|numeric|min:0',
+            'claim_streak_bonus_lt_500_obx' => 'required|numeric|min:0',
+            'claim_streak_bonus_lt_1000_obx' => 'required|numeric|min:0',
+            'claim_streak_bonus_gte_1000_obx' => 'required|numeric|min:0',
             'unlock_fee_usdt'     => 'nullable|numeric|min:0.01|max:99999',
             'unlock_fee_lt_100_usdt' => 'nullable|numeric|min:0.01|max:99999',
             'unlock_fee_lt_500_usdt' => 'nullable|numeric|min:0.01|max:99999',
@@ -92,7 +98,12 @@ class AirdropController extends Controller
         ]);
 
         $tierFees = $this->resolveTieredFees($request);
-        $claimTierConfig = $this->resolveClaimTierConfig($request, (string) $request->daily_claim_amount, (int) $request->streak_days);
+        $claimTierConfig = $this->resolveClaimTierConfig(
+            $request,
+            (string) $request->daily_claim_amount,
+            (int) $request->streak_days,
+            (string) $request->streak_bonus_amount
+        );
         if ($this->hasInvalidTierFee($tierFees)) {
             return redirect()->back()
                 ->withInput()
@@ -123,6 +134,12 @@ class AirdropController extends Controller
             'claim_streak_lt_500_days' => $claimTierConfig['claim_streak_lt_500_days'],
             'claim_streak_lt_1000_days' => $claimTierConfig['claim_streak_lt_1000_days'],
             'claim_streak_gte_1000_days' => $claimTierConfig['claim_streak_gte_1000_days'],
+            'claim_streak_bonus_no_purchase_obx' => $claimTierConfig['claim_streak_bonus_no_purchase_obx'],
+            'claim_streak_bonus_lt_50_obx' => $claimTierConfig['claim_streak_bonus_lt_50_obx'],
+            'claim_streak_bonus_lt_100_obx' => $claimTierConfig['claim_streak_bonus_lt_100_obx'],
+            'claim_streak_bonus_lt_500_obx' => $claimTierConfig['claim_streak_bonus_lt_500_obx'],
+            'claim_streak_bonus_lt_1000_obx' => $claimTierConfig['claim_streak_bonus_lt_1000_obx'],
+            'claim_streak_bonus_gte_1000_obx' => $claimTierConfig['claim_streak_bonus_gte_1000_obx'],
             'unlock_fee_usdt'     => $tierFees['unlock_fee_lt_100_usdt'],
             'unlock_fee_lt_100_usdt' => $tierFees['unlock_fee_lt_100_usdt'],
             'unlock_fee_lt_500_usdt' => $tierFees['unlock_fee_lt_500_usdt'],
@@ -144,11 +161,6 @@ class AirdropController extends Controller
     {
         $campaign = AirdropCampaign::findOrFail($id);
 
-        if ($campaign->hasStarted()) {
-            return redirect()->route('admin.airdrop.index')
-                ->with('dismiss', __('Cannot edit a campaign that has already started.'));
-        }
-
         $data['title']    = __('Edit Airdrop Campaign');
         $data['menu']     = 'airdrop';
         $data['sub_menu'] = 'airdrop_list';
@@ -164,14 +176,9 @@ class AirdropController extends Controller
     {
         $campaign = AirdropCampaign::findOrFail($id);
 
-        if ($campaign->hasStarted()) {
-            return redirect()->route('admin.airdrop.index')
-                ->with('dismiss', __('Cannot edit a campaign that has already started.'));
-        }
-
         $request->validate([
             'name'                => 'required|string|max:100',
-            'start_date'          => 'required|date|after:now',
+            'start_date'          => 'required|date',
             'end_date'            => 'required|date|after:start_date',
             'daily_claim_amount'  => 'required|numeric|min:0.000000000000000001',
             'streak_days'         => 'required|integer|min:1|max:365',
@@ -188,6 +195,12 @@ class AirdropController extends Controller
             'claim_streak_lt_500_days' => 'required|integer|min:1|max:365',
             'claim_streak_lt_1000_days' => 'required|integer|min:1|max:365',
             'claim_streak_gte_1000_days' => 'required|integer|min:1|max:365',
+            'claim_streak_bonus_no_purchase_obx' => 'required|numeric|min:0',
+            'claim_streak_bonus_lt_50_obx' => 'required|numeric|min:0',
+            'claim_streak_bonus_lt_100_obx' => 'required|numeric|min:0',
+            'claim_streak_bonus_lt_500_obx' => 'required|numeric|min:0',
+            'claim_streak_bonus_lt_1000_obx' => 'required|numeric|min:0',
+            'claim_streak_bonus_gte_1000_obx' => 'required|numeric|min:0',
             'unlock_fee_usdt'     => 'nullable|numeric|min:0.01|max:99999',
             'unlock_fee_lt_100_usdt' => 'nullable|numeric|min:0.01|max:99999',
             'unlock_fee_lt_500_usdt' => 'nullable|numeric|min:0.01|max:99999',
@@ -198,7 +211,12 @@ class AirdropController extends Controller
         ]);
 
         $tierFees = $this->resolveTieredFees($request);
-        $claimTierConfig = $this->resolveClaimTierConfig($request, (string) $request->daily_claim_amount, (int) $request->streak_days);
+        $claimTierConfig = $this->resolveClaimTierConfig(
+            $request,
+            (string) $request->daily_claim_amount,
+            (int) $request->streak_days,
+            (string) $request->streak_bonus_amount
+        );
         if ($this->hasInvalidTierFee($tierFees)) {
             return redirect()->back()
                 ->withInput()
@@ -229,6 +247,12 @@ class AirdropController extends Controller
             'claim_streak_lt_500_days' => $claimTierConfig['claim_streak_lt_500_days'],
             'claim_streak_lt_1000_days' => $claimTierConfig['claim_streak_lt_1000_days'],
             'claim_streak_gte_1000_days' => $claimTierConfig['claim_streak_gte_1000_days'],
+            'claim_streak_bonus_no_purchase_obx' => $claimTierConfig['claim_streak_bonus_no_purchase_obx'],
+            'claim_streak_bonus_lt_50_obx' => $claimTierConfig['claim_streak_bonus_lt_50_obx'],
+            'claim_streak_bonus_lt_100_obx' => $claimTierConfig['claim_streak_bonus_lt_100_obx'],
+            'claim_streak_bonus_lt_500_obx' => $claimTierConfig['claim_streak_bonus_lt_500_obx'],
+            'claim_streak_bonus_lt_1000_obx' => $claimTierConfig['claim_streak_bonus_lt_1000_obx'],
+            'claim_streak_bonus_gte_1000_obx' => $claimTierConfig['claim_streak_bonus_gte_1000_obx'],
             'unlock_fee_usdt'     => $tierFees['unlock_fee_lt_100_usdt'],
             'unlock_fee_lt_100_usdt' => $tierFees['unlock_fee_lt_100_usdt'],
             'unlock_fee_lt_500_usdt' => $tierFees['unlock_fee_lt_500_usdt'],
@@ -526,7 +550,12 @@ class AirdropController extends Controller
         return '0.00';
     }
 
-    private function resolveClaimTierConfig(Request $request, string $fallbackDailyAmount, int $fallbackStreakDays): array
+    private function resolveClaimTierConfig(
+        Request $request,
+        string $fallbackDailyAmount,
+        int $fallbackStreakDays,
+        string $fallbackBonusAmount
+    ): array
     {
         return [
             'claim_daily_no_purchase_obx' => $this->formatClaimTierAmount($request->input('claim_daily_no_purchase_obx'), $fallbackDailyAmount),
@@ -541,6 +570,12 @@ class AirdropController extends Controller
             'claim_streak_lt_500_days' => $this->formatClaimTierStreakDays($request->input('claim_streak_lt_500_days'), $fallbackStreakDays),
             'claim_streak_lt_1000_days' => $this->formatClaimTierStreakDays($request->input('claim_streak_lt_1000_days'), $fallbackStreakDays),
             'claim_streak_gte_1000_days' => $this->formatClaimTierStreakDays($request->input('claim_streak_gte_1000_days'), $fallbackStreakDays),
+            'claim_streak_bonus_no_purchase_obx' => $this->formatClaimTierBonusAmount($request->input('claim_streak_bonus_no_purchase_obx'), $fallbackBonusAmount),
+            'claim_streak_bonus_lt_50_obx' => $this->formatClaimTierBonusAmount($request->input('claim_streak_bonus_lt_50_obx'), $fallbackBonusAmount),
+            'claim_streak_bonus_lt_100_obx' => $this->formatClaimTierBonusAmount($request->input('claim_streak_bonus_lt_100_obx'), $fallbackBonusAmount),
+            'claim_streak_bonus_lt_500_obx' => $this->formatClaimTierBonusAmount($request->input('claim_streak_bonus_lt_500_obx'), $fallbackBonusAmount),
+            'claim_streak_bonus_lt_1000_obx' => $this->formatClaimTierBonusAmount($request->input('claim_streak_bonus_lt_1000_obx'), $fallbackBonusAmount),
+            'claim_streak_bonus_gte_1000_obx' => $this->formatClaimTierBonusAmount($request->input('claim_streak_bonus_gte_1000_obx'), $fallbackBonusAmount),
         ];
     }
 
@@ -566,6 +601,19 @@ class AirdropController extends Controller
         return min(365, max(1, $fallback));
     }
 
+    private function formatClaimTierBonusAmount($rawValue, string $fallback): string
+    {
+        if (is_numeric($rawValue) && (float) $rawValue >= 0) {
+            return bcmul((string) $rawValue, '1', 18);
+        }
+
+        if (is_numeric($fallback) && (float) $fallback >= 0) {
+            return bcmul($fallback, '1', 18);
+        }
+
+        return '0';
+    }
+
     private function hasInvalidTierFee(array $tierFees): bool
     {
         foreach ($tierFees as $fee) {
@@ -582,6 +630,13 @@ class AirdropController extends Controller
         foreach ($claimTierConfig as $key => $value) {
             if (str_starts_with($key, 'claim_daily_')) {
                 if (!is_numeric($value) || (float) $value <= 0) {
+                    return true;
+                }
+                continue;
+            }
+
+            if (str_starts_with($key, 'claim_streak_bonus_')) {
+                if (!is_numeric($value) || (float) $value < 0) {
                     return true;
                 }
                 continue;

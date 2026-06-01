@@ -238,6 +238,12 @@ class AirdropTest extends TestCase
             'claim_streak_lt_500_days' => '50',
             'claim_streak_lt_1000_days' => '80',
             'claim_streak_gte_1000_days' => '100',
+            'claim_streak_bonus_no_purchase_obx' => '50',
+            'claim_streak_bonus_lt_50_obx' => '100',
+            'claim_streak_bonus_lt_100_obx' => '150',
+            'claim_streak_bonus_lt_500_obx' => '200',
+            'claim_streak_bonus_lt_1000_obx' => '250',
+            'claim_streak_bonus_gte_1000_obx' => '300',
             'unlock_fee_lt_100_usdt' => '8.00',
             'unlock_fee_lt_500_usdt' => '6.00',
             'unlock_fee_lt_1000_usdt' => '4.00',
@@ -255,17 +261,88 @@ class AirdropTest extends TestCase
             'unlock_fee_lt_500_usdt' => 6.0,
             'unlock_fee_lt_1000_usdt' => 4.0,
             'unlock_fee_gte_1000_usdt' => 2.0,
+            'claim_streak_bonus_lt_1000_obx' => '250.000000000000000000',
         ]);
     }
 
     /** @test */
-    public function admin_cannot_edit_a_campaign_that_has_started()
+    public function admin_can_edit_a_campaign_that_has_started()
     {
         $admin    = $this->makeAdmin();
         $campaign = $this->liveCampaign(); // already started
 
         $response = $this->actingAs($admin)->get(route('admin.airdrop.edit', $campaign->id));
+        $response->assertStatus(200);
+    }
+
+    /** @test */
+    public function admin_can_update_a_campaign_that_has_started()
+    {
+        $admin    = $this->makeAdmin();
+        $campaign = $this->liveCampaign([
+            'claim_daily_no_purchase_obx' => '2.000000000000000000',
+            'claim_daily_lt_50_obx' => '3.500000000000000000',
+            'claim_daily_lt_100_obx' => '5.000000000000000000',
+            'claim_daily_lt_500_obx' => '10.000000000000000000',
+            'claim_daily_lt_1000_obx' => '20.000000000000000000',
+            'claim_daily_gte_1000_obx' => '25.000000000000000000',
+            'claim_streak_no_purchase_days' => 15,
+            'claim_streak_lt_50_days' => 20,
+            'claim_streak_lt_100_days' => 30,
+            'claim_streak_lt_500_days' => 50,
+            'claim_streak_lt_1000_days' => 80,
+            'claim_streak_gte_1000_days' => 100,
+            'claim_streak_bonus_no_purchase_obx' => '0.000000000000000000',
+            'claim_streak_bonus_lt_50_obx' => '0.000000000000000000',
+            'claim_streak_bonus_lt_100_obx' => '0.000000000000000000',
+            'claim_streak_bonus_lt_500_obx' => '0.000000000000000000',
+            'claim_streak_bonus_lt_1000_obx' => '0.000000000000000000',
+            'claim_streak_bonus_gte_1000_obx' => '0.000000000000000000',
+            'unlock_fee_lt_100_usdt' => 8.0,
+            'unlock_fee_lt_500_usdt' => 6.0,
+            'unlock_fee_lt_1000_usdt' => 4.0,
+            'unlock_fee_gte_1000_usdt' => 2.0,
+        ]);
+
+        $response = $this->actingAs($admin)->post(route('admin.airdrop.update', $campaign->id), [
+            'name'                => 'Live Campaign Updated',
+            'start_date'          => now()->subHour()->format('Y-m-d H:i:s'),
+            'end_date'            => now()->addDays(20)->format('Y-m-d H:i:s'),
+            'daily_claim_amount'  => '120',
+            'streak_days'         => '7',
+            'streak_bonus_amount' => '550',
+            'claim_daily_no_purchase_obx' => '2',
+            'claim_daily_lt_50_obx' => '3.5',
+            'claim_daily_lt_100_obx' => '5',
+            'claim_daily_lt_500_obx' => '10',
+            'claim_daily_lt_1000_obx' => '20',
+            'claim_daily_gte_1000_obx' => '25',
+            'claim_streak_no_purchase_days' => '15',
+            'claim_streak_lt_50_days' => '20',
+            'claim_streak_lt_100_days' => '30',
+            'claim_streak_lt_500_days' => '50',
+            'claim_streak_lt_1000_days' => '80',
+            'claim_streak_gte_1000_days' => '100',
+            'claim_streak_bonus_no_purchase_obx' => '0',
+            'claim_streak_bonus_lt_50_obx' => '0',
+            'claim_streak_bonus_lt_100_obx' => '0',
+            'claim_streak_bonus_lt_500_obx' => '0',
+            'claim_streak_bonus_lt_1000_obx' => '0',
+            'claim_streak_bonus_gte_1000_obx' => '0',
+            'unlock_fee_lt_100_usdt' => '8.00',
+            'unlock_fee_lt_500_usdt' => '6.00',
+            'unlock_fee_lt_1000_usdt' => '4.00',
+            'unlock_fee_gte_1000_usdt' => '2.00',
+            'is_active'           => '1',
+        ]);
+
         $response->assertRedirect(route('admin.airdrop.index'));
+        $this->assertDatabaseHas('airdrop_campaigns', [
+            'id' => $campaign->id,
+            'name' => 'Live Campaign Updated',
+            'streak_days' => 7,
+            'unlock_fee_lt_100_usdt' => 8.0,
+        ]);
     }
 
     /** @test */
@@ -410,6 +487,12 @@ class AirdropTest extends TestCase
             'claim_streak_lt_500_days' => 50,
             'claim_streak_lt_1000_days' => 80,
             'claim_streak_gte_1000_days' => 100,
+            'claim_streak_bonus_no_purchase_obx' => '100.000000000000000000',
+            'claim_streak_bonus_lt_50_obx' => '200.000000000000000000',
+            'claim_streak_bonus_lt_100_obx' => '300.000000000000000000',
+            'claim_streak_bonus_lt_500_obx' => '400.000000000000000000',
+            'claim_streak_bonus_lt_1000_obx' => '500.000000000000000000',
+            'claim_streak_bonus_gte_1000_obx' => '600.000000000000000000',
         ]);
 
         AirdropClaim::create([
@@ -429,6 +512,58 @@ class AirdropTest extends TestCase
             'campaign_id' => $campaign->id,
             'is_bonus' => 1,
         ]);
+    }
+
+    /** @test */
+    public function personalized_streak_bonus_amount_uses_purchase_tier_bonus()
+    {
+        $user = $this->makeUser();
+
+        $campaign = $this->liveCampaign([
+            'streak_days' => 7,
+            'streak_bonus_amount' => '100.000000000000000000',
+            'claim_daily_no_purchase_obx' => '2.000000000000000000',
+            'claim_daily_lt_50_obx' => '3.500000000000000000',
+            'claim_daily_lt_100_obx' => '5.000000000000000000',
+            'claim_daily_lt_500_obx' => '10.000000000000000000',
+            'claim_daily_lt_1000_obx' => '20.000000000000000000',
+            'claim_daily_gte_1000_obx' => '25.000000000000000000',
+            'claim_streak_no_purchase_days' => 15,
+            'claim_streak_lt_50_days' => 20,
+            'claim_streak_lt_100_days' => 30,
+            'claim_streak_lt_500_days' => 50,
+            'claim_streak_lt_1000_days' => 2,
+            'claim_streak_gte_1000_days' => 100,
+            'claim_streak_bonus_no_purchase_obx' => '10.000000000000000000',
+            'claim_streak_bonus_lt_50_obx' => '20.000000000000000000',
+            'claim_streak_bonus_lt_100_obx' => '30.000000000000000000',
+            'claim_streak_bonus_lt_500_obx' => '40.000000000000000000',
+            'claim_streak_bonus_lt_1000_obx' => '777.000000000000000000',
+            'claim_streak_bonus_gte_1000_obx' => '1000.000000000000000000',
+        ]);
+
+        $this->seedSuccessfulPurchaseUsd((int) $user->id, 650.00);
+
+        AirdropClaim::create([
+            'user_id' => $user->id,
+            'campaign_id' => $campaign->id,
+            'claim_date' => Carbon::yesterday(),
+            'amount_obx' => '20.000000000000000000',
+            'is_bonus' => false,
+        ]);
+
+        $response = $this->actingAs($user)->post(route('user.airdrop.claim'));
+        $response->assertRedirect(route('user.airdrop'));
+        $response->assertSessionHas('success');
+
+        $bonusClaim = AirdropClaim::where('user_id', $user->id)
+            ->where('campaign_id', $campaign->id)
+            ->whereDate('claim_date', Carbon::today())
+            ->where('is_bonus', true)
+            ->first();
+
+        $this->assertNotNull($bonusClaim);
+        $this->assertSame('777.000000000000000000', bcmul((string) $bonusClaim->amount_obx, '1', 18));
     }
 
     /** @test */

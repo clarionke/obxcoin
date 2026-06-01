@@ -99,13 +99,11 @@
                                                     <i class="fa fa-ellipsis-h"></i>
                                                 </button>
                                                 <div class="dropdown-menu dropdown-menu-right">
-                                                    @if(!$c->hasStarted())
-                                                        <a href="{{ route('admin.airdrop.edit', $c->id) }}">
-                                                            <button class="dropdown-item" type="button">
-                                                                <i class="fa fa-edit mr-1"></i> {{ __('Edit') }}
-                                                            </button>
-                                                        </a>
-                                                    @endif
+                                                    <a href="{{ route('admin.airdrop.edit', $c->id) }}">
+                                                        <button class="dropdown-item" type="button">
+                                                            <i class="fa fa-edit mr-1"></i> {{ __('Edit') }}
+                                                        </button>
+                                                    </a>
 
                                                     <a href="{{ route('admin.airdrop.toggleActive', $c->id) }}"
                                                        onclick="return confirm('{{ __('Toggle campaign status?') }}')">

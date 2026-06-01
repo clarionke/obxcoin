@@ -725,36 +725,58 @@ class WalletController extends Controller
                 'recordsFiltered' => 0,
                 'data' => [],
                 'message' => __('Authentication required'),
-            ], 401);
+            ]);
         }
 
         $type = strtolower((string) $request->input('type', 'deposit'));
         $type = $type === 'withdraw' ? 'withdraw' : 'deposit';
 
-        $tr = new TransactionService();
-        $histories = $type === 'deposit'
-            ? $tr->depositTransactionHistories(Auth::id())
-            : $tr->withdrawTransactionHistories(Auth::id());
+        try {
+            $tr = new TransactionService();
+            $histories = $type === 'deposit'
+                ? $tr->depositTransactionHistories(Auth::id())
+                : $tr->withdrawTransactionHistories(Auth::id());
 
-        return datatables($histories)
-            ->addColumn('address', function ($item) {
-                return $item->address;
-            })
-            ->addColumn('amount', function ($item) {
-                return $item->amount;
-            })
-            ->addColumn('hashKey', function ($item) use ($type) {
-                if ($type === 'deposit') {
-                    return !empty($item) ? $item->transaction_id : '';
-                }
+            $table = datatables($histories)
+                ->addColumn('address', function ($item) {
+                    return $item->address;
+                })
+                ->addColumn('amount', function ($item) {
+                    return $item->amount;
+                })
+                ->addColumn('hashKey', function ($item) use ($type) {
+                    if ($type === 'deposit') {
+                        return !empty($item) ? $item->transaction_id : '';
+                    }
 
-                return !empty($item) ? $item->transaction_hash : '';
-            })
-            ->addColumn('status', function ($item) {
-                $statusMap = statusAction();
-                return $statusMap[$item->status] ?? __('Unknown');
-            })
-            ->make(true);
+                    return !empty($item) ? $item->transaction_hash : '';
+                })
+                ->addColumn('status', function ($item) {
+                    $statusMap = statusAction();
+                    return $statusMap[$item->status] ?? __('Unknown');
+                });
+
+            if ($type === 'withdraw') {
+                $table->orderColumn('created_at', 'withdraw_histories.created_at $1');
+            } else {
+                $table->orderColumn('created_at', 'deposite_transactions.created_at $1');
+            }
+
+            return $table->make(true);
+        } catch (\Throwable $e) {
+            Log::error('WalletController@transactionHistories failed: ' . $e->getMessage(), [
+                'type' => $type,
+                'user_id' => Auth::id(),
+            ]);
+
+            return response()->json([
+                'draw' => (int) $request->input('draw', 1),
+                'recordsTotal' => 0,
+                'recordsFiltered' => 0,
+                'data' => [],
+                'message' => __('Unable to load transaction history right now.'),
+            ]);
+        }
     }
 
     // withdraw rate
